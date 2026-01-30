@@ -6,9 +6,6 @@
 <title>Calendrier Travail 2023–2035</title>
 
 <style>
-/* =======================
-   BASE (mobile inchangé)
-   ======================= */
 :root{
   --bg:#0e1117;
   --panel:#151a23;
@@ -17,14 +14,15 @@
   --muted:#9aa4b2;
   --primary:#1f6feb;
 
-  --jour:#facc15;     /* jaune */
---nuit:#8b5cf6;    /* violet */
---conges:#7f1d1d;  /* rouge foncé */
---repos:#6b7280;   /* gris */
---autre:#f59e0b;   /* orange (inchangé pour "autre") */
+  --jour:#facc15;
+  --nuit:#8b5cf6;
+  --conges:#7f1d1d;
+  --repos:#6b7280;
+  --autre:#f59e0b;
 
   --radius:14px;
 }
+
 *{box-sizing:border-box}
 body{
   margin:0;
@@ -32,18 +30,20 @@ body{
   background:var(--bg);
   color:var(--text);
 }
+
 button{
   background:none;
   border:1px solid var(--border);
   color:var(--text);
   border-radius:12px;
-  padding:10px 14px;
+  padding:8px 12px;
   font-weight:600;
   cursor:pointer;
 }
 button.primary{background:var(--primary);border-color:var(--primary)}
 button.danger{border-color:#3a1f1f;color:#ff6b6b}
 button:active{transform:scale(.97)}
+
 select,input{
   background:#0f1420;
   border:1px solid var(--border);
@@ -52,9 +52,7 @@ select,input{
   color:var(--text);
 }
 
-/* =======================
-   APPBAR
-   ======================= */
+/* ===== APPBAR ===== */
 .appbar{
   position:sticky;
   top:0;
@@ -66,20 +64,41 @@ select,input{
 .appbar-inner{
   max-width:1400px;
   margin:auto;
-  padding:12px;
+  padding:10px;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
-.nav{
+
+/* ===== NAV CALENDAR ===== */
+.nav-calendar{
   display:flex;
-  gap:6px;
   align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.nav-group{display:flex;gap:4px}
+.nav-current{
+  flex:1;
+  text-align:center;
+  line-height:1.1;
+}
+.nav-month{
+  font-size:16px;
+  font-weight:700;
+}
+.nav-year{
+  font-size:13px;
+  color:var(--muted);
+}
+.nav-actions{display:flex;gap:6px}
+
+@media(max-width:899px){
+  .nav-current{width:100%;order:-1;margin-bottom:6px}
+  .nav-actions{width:100%;justify-content:space-between}
 }
 
-/* =======================
-   LAYOUT
-   ======================= */
+/* ===== LAYOUT ===== */
 main{
   max-width:1400px;
   margin:auto;
@@ -91,9 +110,7 @@ main{
   gap:16px;
 }
 
-/* =======================
-   CALENDAR
-   ======================= */
+/* ===== CALENDAR ===== */
 .calendar{
   background:var(--panel);
   border:1px solid var(--border);
@@ -105,11 +122,9 @@ main{
   grid-template-columns:50px repeat(7,1fr);
   gap:6px;
   margin-bottom:6px;
-}
-.header-row div{
-  text-align:center;
   font-size:12px;
   color:var(--muted);
+  text-align:center;
 }
 .grid{
   display:grid;
@@ -117,9 +132,9 @@ main{
   gap:6px;
 }
 .week{
+  text-align:center;
   font-size:12px;
   color:var(--muted);
-  text-align:center;
   padding-top:14px;
 }
 .day{
@@ -135,15 +150,28 @@ main{
 }
 .day.out{opacity:.35}
 .day.selected{outline:2px solid var(--primary)}
-.day.jour{background:rgba(79,140,255,.25)}
-.day.nuit{background:rgba(185,131,255,.25)}
-.day.conges{background:rgba(46,204,113,.25)}
-.day.repos{background:rgba(127,140,141,.25)}
-.day.autre{background:rgba(243,156,18,.25)}
+.day.jour{background:rgba(250,204,21,.35)}
+.day.nuit{background:rgba(139,92,246,.35)}
+.day.conges{background:rgba(127,29,29,.45)}
+.day.repos{background:rgba(107,114,128,.35)}
+.day.autre{background:rgba(245,158,11,.35)}
 
-/* =======================
-   DOCK (mobile)
-   ======================= */
+/* ===== SIDEBAR DESKTOP ===== */
+.sidebar{
+  display:none;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px;
+}
+.sidebar h4{margin:0 0 8px}
+
+@media(min-width:900px){
+  .layout{grid-template-columns:1fr 280px}
+  .sidebar{display:block}
+}
+
+/* ===== DOCK MOBILE ===== */
 .dock{
   position:fixed;
   bottom:0;
@@ -166,43 +194,8 @@ main{
   grid-template-columns:repeat(5,1fr);
   gap:8px;
 }
-
-/* =======================
-   SIDEBAR DESKTOP ONLY
-   ======================= */
-.sidebar{
-  display:none;
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:12px;
-}
-.sidebar h4{margin:0 0 8px 0}
-
-/* =======================
-   DESKTOP ENHANCEMENTS
-   ======================= */
 @media(min-width:900px){
-  .layout{
-    grid-template-columns:1fr 280px;
-  }
-  .sidebar{
-    display:block;
-  }
-  .dock{
-    position:static;
-    background:none;
-    border:none;
-    padding:0;
-  }
-  .dock-inner{
-    flex-direction:row;
-    justify-content:space-between;
-    align-items:center;
-  }
-  .dock-actions{
-    grid-template-columns:auto auto auto auto auto;
-  }
+  .dock{position:static;background:none;border:none}
 }
 </style>
 </head>
@@ -211,14 +204,28 @@ main{
 
 <div class="appbar">
   <div class="appbar-inner">
-    <strong id="title">Calendrier</strong>
-    <div class="nav">
-      <button id="prevYear">◀◀</button>
-      <button id="prevMonth">◀</button>
-      <button id="nextMonth">▶</button>
-      <button id="nextYear">▶▶</button>
-      <button id="exportExcel">Exporter Excel</button>
-      <button id="logout" class="danger">Déconnexion</button>
+    <strong>Calendrier Travail</strong>
+
+    <div class="nav nav-calendar">
+      <div class="nav-group">
+        <button id="prevYear">«</button>
+        <button id="prevMonth">‹</button>
+      </div>
+
+      <div class="nav-current">
+        <div class="nav-month" id="navMonth">—</div>
+        <div class="nav-year" id="navYear">—</div>
+      </div>
+
+      <div class="nav-group">
+        <button id="nextMonth">›</button>
+        <button id="nextYear">»</button>
+      </div>
+
+      <div class="nav-actions">
+        <button id="exportExcel">Export Excel</button>
+        <button id="logout" class="danger">Déconnexion</button>
+      </div>
     </div>
   </div>
 </div>
@@ -227,15 +234,10 @@ main{
   <div class="layout">
     <div class="calendar">
       <div class="header-row">
-  <div>Sem</div>
-  <div>Di/Lu</div>
-  <div>Lu/Ma</div>
-  <div>Ma/Me</div>
-  <div>Me/Je</div>
-  <div>Je/Ve</div>
-  <div>Ve/Sa</div>
-  <div>Sa/Dim</div>
-</div>
+        <div>Sem</div>
+        <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
+        <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
+      </div>
       <div class="grid" id="grid"></div>
     </div>
 
@@ -278,21 +280,16 @@ main{
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const supabase=createClient(
+const supabase = createClient(
   "https://dstmyvzjirgyuwuojwnk.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk"
 );
 
+const MONTHS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+let year=2026, month=0, selected=null, user=null;
 const grid=document.getElementById("grid");
 const info=document.getElementById("info");
 const sideInfo=document.getElementById("sideInfo");
-const title=document.getElementById("title");
-
-let user=null;
-let year=2026;
-let month=0;
-let selected=null;
-const data=new Map();
 
 function isoWeek(d){
   const date=new Date(d);
@@ -304,28 +301,27 @@ function isoWeek(d){
 
 function render(){
   grid.innerHTML="";
-  title.textContent=`${year} - ${month+1}`;
+  document.getElementById("navMonth").textContent=MONTHS[month];
+  document.getElementById("navYear").textContent=year;
+
   const first=new Date(year,month,1);
   const start=new Date(first);
   start.setDate(1-first.getDay());
 
   for(let w=0;w<6;w++){
-    const d=new Date(start);
-    d.setDate(start.getDate()+w*7);
+    const d=new Date(start); d.setDate(start.getDate()+w*7);
     const wDiv=document.createElement("div");
     wDiv.className="week";
     wDiv.textContent=isoWeek(d);
     grid.appendChild(wDiv);
 
     for(let i=0;i<7;i++){
-      const day=new Date(d);
-      day.setDate(d.getDate()+i);
+      const day=new Date(d); day.setDate(d.getDate()+i);
       const key=day.toISOString().slice(0,10);
       const div=document.createElement("div");
       div.className="day";
       if(day.getMonth()!==month)div.classList.add("out");
       if(key===selected)div.classList.add("selected");
-      if(data.has(key))div.classList.add(data.get(key).status);
       div.textContent=day.getDate();
       div.onclick=()=>{
         selected=key;
@@ -338,96 +334,17 @@ function render(){
   }
 }
 
-async function load(){
-  const {data:rows}=await supabase
-    .from("work_calendar_entries")
-    .select("work_date,status,custom_label")
-    .eq("user_id",user.id);
-  rows.forEach(r=>data.set(r.work_date,{status:r.status,label:r.custom_label}));
-}
-
-async function save(state,label=null){
-  if(!selected)return;
-  data.set(selected,{status:state,label});
-  await supabase.from("work_calendar_entries").upsert({
-    user_id:user.id,
-    work_date:selected,
-    status:state,
-    custom_label:label
-  });
-  render();
-}
-
-document.querySelectorAll("[data-s]").forEach(b=>{
-  b.onclick=()=>{
-    if (b.dataset.s === "autre") {
-
-  // MOBILE
-  if (window.innerWidth < 900) {
-    const choice = prompt(
-      "Type de jour (OCP, Férié ou texte personnalisé) :",
-      "OCP"
-    );
-
-    if (choice === null) return; // annulation
-
-    const label = choice.trim();
-    if (!label) return;
-
-    save("autre", label);
-    info.textContent = `${selected} — Autre (${label})`;
-    return;
-  }
-
-  // DESKTOP (sidebar existante)
-  document.getElementById("autreBox").style.display = "block";
-  const sel = document.getElementById("autreSelect");
-  const custom = document.getElementById("autreCustom");
-
-  if (sel.value === "custom") {
-    custom.style.display = "block";
-    save("autre", custom.value);
-  } else {
-    custom.style.display = "none";
-    save("autre", sel.value);
-  }
-}else{
-      save(b.dataset.s);
-    }
-  };
-});
-
 document.getElementById("prevMonth").onclick=()=>{month--;if(month<0){month=11;year--;}render();}
 document.getElementById("nextMonth").onclick=()=>{month++;if(month>11){month=0;year++;}render();}
 document.getElementById("prevYear").onclick=()=>{year--;render();}
 document.getElementById("nextYear").onclick=()=>{year++;render();}
-
-document.getElementById("exportExcel").onclick=()=>{
-  let csv="Date;Année;Semaine;Type;Libellé\n";
-  data.forEach((v,k)=>{
-    const d=new Date(k);
-    csv+=`${k};${d.getFullYear()};${isoWeek(d)};${v.status};${v.label||""}\n`;
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="calendrier.csv";
-  a.click();
-};
 
 document.getElementById("logout").onclick=async()=>{
   await supabase.auth.signOut();
   location.reload();
 };
 
-async function init(){
-  const {data:u}=await supabase.auth.getUser();
-  if(!u.user)return;
-  user=u.user;
-  await load();
-  render();
-}
-init();
+render();
 </script>
 </body>
 </html>
