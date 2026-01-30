@@ -15,10 +15,8 @@
       --text: rgba(255,255,255,.92);
       --muted: rgba(255,255,255,.62);
       --muted2: rgba(255,255,255,.46);
-
       --shadow: 0 18px 50px rgba(0,0,0,.45);
       --radius: 18px;
-      --radius2: 16px;
 
       --jour:#60a5fa;
       --nuit:#c084fc;
@@ -32,14 +30,8 @@
       --teletravail:#fde047;
       --autre:#e5e7eb;
 
-      --chipJour: rgba(96,165,250,.18);
-      --chipNuit: rgba(192,132,252,.16);
-      --chipConges: rgba(34,197,94,.14);
-      --chipRepos: rgba(148,163,184,.14);
-
-      --cell: 48px;
+      --cell: 52px;
       --maxw: 1100px;
-
       --safeTop: env(safe-area-inset-top);
       --safeBottom: env(safe-area-inset-bottom);
     }
@@ -57,14 +49,9 @@
         var(--bg);
       overflow-x:hidden;
     }
+    .wrap{ max-width: var(--maxw); margin: 0 auto; padding: 0 14px; }
 
-    .wrap{
-      max-width: var(--maxw);
-      margin: 0 auto;
-      padding: 0 14px;
-    }
-
-    /* ===== Top Appbar (mobile clean, aligné) ===== */
+    /* ===== Appbar ===== */
     .appbar{
       position: sticky;
       top: 0;
@@ -76,21 +63,18 @@
       -webkit-backdrop-filter: blur(14px);
       border-bottom: 1px solid rgba(255,255,255,.06);
     }
-
     .barTop{
       display:flex;
       align-items:center;
       justify-content: space-between;
       gap: 10px;
     }
-
     .brand{
       display:flex;
       align-items:center;
       gap:10px;
       min-width: 0;
     }
-
     .logo{
       width: 36px; height: 36px; border-radius: 12px;
       background: linear-gradient(135deg, rgba(96,165,250,.95), rgba(192,132,252,.95));
@@ -105,7 +89,6 @@
       background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), transparent 45%);
       transform: rotate(25deg);
     }
-
     .title{
       min-width: 0;
       display:flex;
@@ -135,6 +118,8 @@
       align-items:center;
       gap: 8px;
       flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .btn{
@@ -167,29 +152,6 @@
       border-color: rgba(239,68,68,.25);
     }
 
-    .seg{
-      display:flex;
-      border:1px solid var(--stroke);
-      background: rgba(255,255,255,.05);
-      border-radius: 16px;
-      overflow:hidden;
-      height: 40px;
-    }
-    .seg button{
-      border:0;
-      background: transparent;
-      color: var(--muted);
-      padding: 0 12px;
-      cursor:pointer;
-      font-weight: 900;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .seg button.active{
-      background: rgba(255,255,255,.10);
-      color: var(--text);
-    }
-
-    /* Month row (grid alignée) */
     .barMonth{
       margin-top: 10px;
       display:grid;
@@ -224,7 +186,6 @@
       padding-bottom: 2px;
     }
     .chips::-webkit-scrollbar{ display:none; }
-
     .pill{
       display:inline-flex;
       align-items:center;
@@ -242,17 +203,13 @@
     .dot{ width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
 
     .statusRow{
-      margin-top: 10px;
       display:flex;
       gap: 10px;
       flex-wrap: wrap;
       align-items:center;
     }
 
-    /* ===== Main ===== */
-    main{
-      padding: 14px 0 calc(92px + var(--safeBottom));
-    }
+    main{ padding: 14px 0 calc(92px + var(--safeBottom)); }
 
     .layout{
       display:grid;
@@ -269,9 +226,7 @@
       overflow:hidden;
     }
 
-    .calendar{
-      padding: 14px;
-    }
+    .calendar{ padding: 14px; }
 
     .dow{
       display:grid;
@@ -322,11 +277,7 @@
       border-radius: 18px 0 0 18px;
       background: transparent;
     }
-    .num{
-      font-weight: 950;
-      font-size: 13px;
-      letter-spacing:.2px;
-    }
+    .num{ font-weight: 950; font-size: 13px; letter-spacing:.2px; }
     .tag{
       position:absolute;
       right: 9px;
@@ -341,7 +292,6 @@
       color: var(--muted);
     }
 
-    /* state colors */
     .state-jour .bar{ background: var(--jour); }
     .state-nuit .bar{ background: var(--nuit); }
     .state-conges .bar{ background: var(--conges); }
@@ -354,12 +304,6 @@
     .state-teletravail .bar{ background: var(--teletravail); }
     .state-autre .bar{ background: var(--autre); }
 
-    .state-jour{ background: linear-gradient(135deg, var(--chipJour), rgba(255,255,255,.04)); }
-    .state-nuit{ background: linear-gradient(135deg, var(--chipNuit), rgba(255,255,255,.04)); }
-    .state-conges{ background: linear-gradient(135deg, var(--chipConges), rgba(255,255,255,.04)); }
-    .state-repos{ background: linear-gradient(135deg, var(--chipRepos), rgba(255,255,255,.04)); }
-
-    /* Right panel */
     .side{
       padding: 14px;
       display:flex;
@@ -377,21 +321,12 @@
       padding: 12px;
     }
 
-    .h{
-      font-weight: 950;
-      letter-spacing:.2px;
-      margin: 0 0 6px;
-    }
+    .h{ font-weight: 950; letter-spacing:.2px; margin: 0 0 6px; }
     .small{ font-size: 12px; color: var(--muted); font-weight: 800; line-height: 1.35; }
 
-    .field{
-      display:flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-    input[type="email"]{
-      flex: 1 1 220px;
+    .field{ display:flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    input[type="email"], input[type="password"]{
+      flex: 1 1 240px;
       padding: 11px 12px;
       border-radius: 14px;
       border:1px solid rgba(255,255,255,.12);
@@ -429,7 +364,7 @@
     .kpi .v{ font-size: 18px; font-weight: 950; }
     .kpi .k{ font-size: 12px; color: var(--muted); font-weight: 850; margin-top: 4px; }
 
-    /* ===== Login gate (obligatoire) ===== */
+    /* ===== Auth Gate ===== */
     .gate{
       position: fixed;
       inset: 0;
@@ -452,24 +387,33 @@
       box-shadow: var(--shadow);
       padding: 16px;
     }
-    .gateHead{
+    .gateHead{ display:flex; gap: 12px; align-items:center; }
+    .gateTitle{ font-weight: 950; letter-spacing:.2px; font-size: 16px; margin: 0; }
+    .gateSub{ margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 800; line-height: 1.35; }
+
+    .tabs{
+      margin-top: 14px;
       display:flex;
-      gap: 12px;
-      align-items:center;
+      border:1px solid var(--stroke);
+      background: rgba(255,255,255,.05);
+      border-radius: 16px;
+      overflow:hidden;
+      height: 44px;
     }
-    .gateTitle{
-      font-weight: 950;
-      letter-spacing:.2px;
-      font-size: 16px;
-      margin: 0;
-    }
-    .gateSub{
-      margin-top: 4px;
-      font-size: 12px;
+    .tabs button{
+      flex:1;
+      border:0;
+      background: transparent;
       color: var(--muted);
-      font-weight: 800;
-      line-height: 1.35;
+      font-weight: 950;
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
     }
+    .tabs button.active{
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+    }
+
     .toast{
       position: fixed;
       left: 14px;
@@ -484,12 +428,12 @@
       background: rgba(20,26,38,.92);
       padding: 12px 12px;
       color: rgba(255,255,255,.92);
-      font-weight: 800;
+      font-weight: 850;
       box-shadow: 0 18px 60px rgba(0,0,0,.55);
     }
     .toast.show{ display:block; }
 
-    /* ===== Mobile bottom bar (saisie ultra rapide) ===== */
+    /* ===== Bottom tool bar ===== */
     .bottombar{
       position: fixed;
       left: 0; right: 0; bottom: 0;
@@ -520,7 +464,7 @@
       background: rgba(147,197,253,.12);
     }
 
-    /* Action sheet (Plus) */
+    /* Sheet */
     .sheetBack{
       position: fixed; inset: 0;
       z-index: 90;
@@ -547,11 +491,7 @@
       transform: translateY(0);
     }
     .sheet.show{ transform: translateY(calc(-520px - var(--safeBottom))); }
-    .grab{
-      width: 44px; height: 5px; border-radius: 999px;
-      background: rgba(255,255,255,.22);
-      margin: 6px auto 12px;
-    }
+    .grab{ width: 44px; height: 5px; border-radius: 999px; background: rgba(255,255,255,.22); margin: 6px auto 12px; }
     .sheetHead{
       display:flex;
       justify-content: space-between;
@@ -559,17 +499,8 @@
       gap: 10px;
       margin-bottom: 10px;
     }
-    .sheetDate{
-      font-weight: 950;
-      letter-spacing:.2px;
-      font-size: 14px;
-    }
-    .sheetMeta{
-      margin-top: 4px;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 850;
-    }
+    .sheetDate{ font-weight: 950; letter-spacing:.2px; font-size: 14px; }
+    .sheetMeta{ margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 850; }
     .sheetGrid{
       display:grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -584,23 +515,14 @@
     }
     .sheetRow .btn{ flex:1; height: 46px; border-radius: 16px; }
 
-    /* Responsive */
     @media (max-width: 980px){
       .layout{ grid-template-columns: 1fr; }
       .side{ position: relative; top: 0; }
     }
-
     @media (max-width: 520px){
-      :root{ --cell: 50px; }
-      .topActions .btn{ padding: 10px 10px; }
-      .seg{ width: 100%; }
-      .topActions{ gap: 8px; }
       .barTop{ flex-direction: column; align-items: stretch; }
       .topActions{ justify-content: space-between; }
-      .seg{ justify-content: space-between; }
-      .seg button{ flex: 1; }
     }
-
     @media (prefers-reduced-motion: reduce){
       *{ transition:none !important; }
     }
@@ -608,32 +530,73 @@
 </head>
 
 <body>
-  <!-- LOGIN GATE (obligatoire) -->
+  <div class="toast" id="toast"></div>
+
+  <!-- AUTH GATE -->
   <div class="gate" id="gate">
     <div class="gateCard">
       <div class="gateHead">
         <div class="logo" aria-hidden="true"></div>
         <div style="min-width:0;">
-          <p class="gateTitle">Connexion requise</p>
-          <div class="gateSub">
-            Accès au calendrier uniquement après connexion (Supabase).<br/>
-            Saisie rapide : choisis un outil (Jour/Nuit/Congés/Repos), puis tape les dates.
-          </div>
+          <p class="gateTitle">Accès au calendrier</p>
+          <div class="gateSub">Connexion par <b>email + mot de passe</b>. Création de compte + réinitialisation.</div>
         </div>
       </div>
 
-      <div class="field" style="margin-top:14px;">
-        <input id="email" type="email" placeholder="email@exemple.com" autocomplete="email" />
-        <button class="btn primary" id="btnMagic" type="button">Recevoir le lien</button>
+      <div class="tabs" role="tablist" aria-label="Auth">
+        <button id="tabLogin" class="active" type="button">Connexion</button>
+        <button id="tabSignup" type="button">Créer un compte</button>
       </div>
 
-      <div class="small" style="margin-top:10px;">
-        Tu reçois un email → clique le lien → retour ici → calendrier chargé.
+      <!-- LOGIN -->
+      <div id="authLogin" style="margin-top:14px;">
+        <div class="field">
+          <input id="loginEmail" type="email" placeholder="Email" autocomplete="email" />
+          <input id="loginPass" type="password" placeholder="Mot de passe" autocomplete="current-password" />
+        </div>
+        <div class="field">
+          <button class="btn primary" id="btnLogin" type="button">Se connecter</button>
+          <button class="btn" id="btnForgot" type="button">Mot de passe oublié</button>
+        </div>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="authSignup" style="margin-top:14px; display:none;">
+        <div class="field">
+          <input id="signEmail" type="email" placeholder="Email" autocomplete="email" />
+          <input id="signPass" type="password" placeholder="Mot de passe (min 6)" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <button class="btn primary" id="btnSignup" type="button">Créer le compte</button>
+          <button class="btn" id="btnBackLogin" type="button">Retour</button>
+        </div>
+      </div>
+
+      <!-- RESET REQUEST -->
+      <div id="authReset" style="margin-top:14px; display:none;">
+        <div class="small">Entre ton email, Supabase envoie un lien de réinitialisation (ce n’est pas un magic link de connexion).</div>
+        <div class="field">
+          <input id="resetEmail" type="email" placeholder="Email" autocomplete="email" />
+        </div>
+        <div class="field">
+          <button class="btn primary" id="btnSendReset" type="button">Envoyer</button>
+          <button class="btn" id="btnResetBack" type="button">Annuler</button>
+        </div>
+      </div>
+
+      <!-- NEW PASSWORD (after reset link) -->
+      <div id="authNewPass" style="margin-top:14px; display:none;">
+        <div class="small">Définis ton nouveau mot de passe.</div>
+        <div class="field">
+          <input id="newPass" type="password" placeholder="Nouveau mot de passe" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <button class="btn primary" id="btnApplyNewPass" type="button">Mettre à jour</button>
+          <button class="btn" id="btnNewPassBack" type="button">Retour</button>
+        </div>
       </div>
     </div>
   </div>
-
-  <div class="toast" id="toast"></div>
 
   <!-- APPBAR -->
   <div class="appbar">
@@ -643,15 +606,11 @@
           <div class="logo" aria-hidden="true"></div>
           <div class="title">
             <div class="t">Calendrier 2026</div>
-            <div class="s">Semaine Dimanche → Samedi • Connexion obligatoire</div>
+            <div class="s">Semaine Dimanche → Samedi • Email + mot de passe</div>
           </div>
         </div>
 
         <div class="topActions">
-          <div class="seg" role="tablist" aria-label="Mode">
-            <button id="modeMonth" class="active" type="button" role="tab" aria-selected="true">Mois</button>
-            <button id="modeYear" type="button" role="tab" aria-selected="false">Année</button>
-          </div>
           <button class="btn" id="btnToday" type="button">Aujourd’hui</button>
           <button class="btn primary" id="btnExport" type="button">Exporter</button>
           <button class="btn danger" id="btnLogout" type="button">Déconnexion</button>
@@ -663,6 +622,7 @@
 
         <div class="monthCenter">
           <div class="monthName" id="monthName">—</div>
+
           <div class="chips">
             <span class="pill"><span class="dot" style="background: var(--jour)"></span> Jour</span>
             <span class="pill"><span class="dot" style="background: var(--nuit)"></span> Nuit</span>
@@ -705,8 +665,8 @@
             <div class="small">Optionnel (ex: heures sup, RDV, etc.).</div>
             <textarea id="noteText" placeholder="Écris un message pour cette date…"></textarea>
             <div class="field">
-              <button class="btn primary" id="btnSaveNote" type="button">Enregistrer la note</button>
-              <button class="btn danger" id="btnClearDay" type="button">Effacer la journée</button>
+              <button class="btn primary" id="btnSaveNote" type="button">Enregistrer</button>
+              <button class="btn danger" id="btnClearDay" type="button">Effacer</button>
             </div>
           </div>
 
@@ -719,7 +679,7 @@
               <div class="kpi"><div class="v" id="kRepos">0</div><div class="k">Repos</div></div>
             </div>
             <div class="small" style="margin-top:10px;">
-              Saisie rapide : sélectionne un outil en bas, puis tape les dates (aucun menu à ouvrir).
+              Saisie rapide : choisis un outil en bas, puis tape sur les dates.
             </div>
           </div>
         </aside>
@@ -727,7 +687,7 @@
     </div>
   </main>
 
-  <!-- Bottom tool bar (rapide smartphone) -->
+  <!-- Bottom tools -->
   <div class="bottombar" aria-label="Barre d’outils">
     <div class="barGrid">
       <button class="btn tool" data-tool="jour" type="button">Jour</button>
@@ -738,7 +698,7 @@
     </div>
   </div>
 
-  <!-- Action Sheet -->
+  <!-- Sheet -->
   <div class="sheetBack" id="sheetBack"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true">
     <div class="grab" aria-hidden="true"></div>
@@ -762,13 +722,11 @@
     </div>
 
     <div class="sheetRow">
-      <button class="btn primary" id="btnSheetNote" type="button">Éditer la note</button>
+      <button class="btn primary" id="btnSheetNote" type="button">Éditer note</button>
       <button class="btn" id="btnCycle" type="button">Cycle</button>
     </div>
 
-    <div class="small" style="margin-top:10px;">
-      Astuce : appui long sur une date = cycle rapide.
-    </div>
+    <div class="small" style="margin-top:10px;">Appui long sur une date = cycle rapide.</div>
   </div>
 
   <script type="module">
@@ -778,16 +736,16 @@
     // SUPABASE CONFIG (tes infos)
     // =========================
     const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // =========================
-    // APP CONFIG
+    // CONFIG APP
     // =========================
     const YEAR = 2026;
     const TABLE = "work_calendar_entries";
     const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-    const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"]; // Sunday-first
+    const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"]; // Dimanche -> Samedi
 
     const STATES = ["", "jour","nuit","repos","conges","ferie","maladie","astreinte","formation","deplacement","teletravail","autre"];
     const LABEL = {
@@ -800,21 +758,48 @@
     // =========================
     // DOM
     // =========================
-    const gate = document.getElementById("gate");
     const toastEl = document.getElementById("toast");
+    const gate = document.getElementById("gate");
 
-    const email = document.getElementById("email");
-    const btnMagic = document.getElementById("btnMagic");
+    // auth tabs / panels
+    const tabLogin = document.getElementById("tabLogin");
+    const tabSignup = document.getElementById("tabSignup");
+    const authLogin = document.getElementById("authLogin");
+    const authSignup = document.getElementById("authSignup");
+    const authReset = document.getElementById("authReset");
+    const authNewPass = document.getElementById("authNewPass");
 
+    // login
+    const loginEmail = document.getElementById("loginEmail");
+    const loginPass = document.getElementById("loginPass");
+    const btnLogin = document.getElementById("btnLogin");
+    const btnForgot = document.getElementById("btnForgot");
+
+    // signup
+    const signEmail = document.getElementById("signEmail");
+    const signPass = document.getElementById("signPass");
+    const btnSignup = document.getElementById("btnSignup");
+    const btnBackLogin = document.getElementById("btnBackLogin");
+
+    // reset request
+    const resetEmail = document.getElementById("resetEmail");
+    const btnSendReset = document.getElementById("btnSendReset");
+    const btnResetBack = document.getElementById("btnResetBack");
+
+    // new pass
+    const newPass = document.getElementById("newPass");
+    const btnApplyNewPass = document.getElementById("btnApplyNewPass");
+    const btnNewPassBack = document.getElementById("btnNewPassBack");
+
+    // app ui
     const authState = document.getElementById("authState");
     const syncState = document.getElementById("syncState");
     const toolState = document.getElementById("toolState");
-    const btnLogout = document.getElementById("btnLogout");
 
-    const modeMonth = document.getElementById("modeMonth");
-    const modeYear = document.getElementById("modeYear");
     const btnToday = document.getElementById("btnToday");
     const btnExport = document.getElementById("btnExport");
+    const btnLogout = document.getElementById("btnLogout");
+
     const prev = document.getElementById("prev");
     const next = document.getElementById("next");
     const monthName = document.getElementById("monthName");
@@ -850,13 +835,11 @@
     // State
     // =========================
     let user = null;
-    let viewMode = "month";
     let viewMonth = 0;
-    let selectedKey = "";     // YYYY-MM-DD
-    let activeTool = "jour";  // outil rapide (tap date => applique)
-    let cache = new Map();    // key -> { status, note }
+    let selectedKey = `${YEAR}-01-01`;
+    let activeTool = "jour";
+    let cache = new Map();
 
-    // init month
     const now = new Date();
     if (now.getFullYear() === YEAR) viewMonth = now.getMonth();
 
@@ -873,13 +856,6 @@
       toastEl.textContent = msg;
       toastEl.classList.add("show");
       setTimeout(()=>toastEl.classList.remove("show"), 3200);
-    }
-
-    function setModeButtons(){
-      modeMonth.classList.toggle("active", viewMode === "month");
-      modeYear.classList.toggle("active", viewMode === "year");
-      modeMonth.setAttribute("aria-selected", viewMode === "month" ? "true" : "false");
-      modeYear.setAttribute("aria-selected", viewMode === "year" ? "true" : "false");
     }
 
     function setToolUI(){
@@ -914,7 +890,6 @@
       selectedState.textContent = LABEL[e?.status || ""];
       noteText.value = e?.note || "";
 
-      // outline
       grid.querySelectorAll(".daycell").forEach(el => el.style.outline = "");
       const cur = grid.querySelector(`.daycell[data-key="${k}"]`);
       if (cur){
@@ -922,7 +897,6 @@
         cur.style.outlineOffset = "2px";
       }
 
-      // sheet meta
       sheetDate.textContent = selectedInfo.textContent;
       sheetMeta.textContent = `État actuel: ${LABEL[e?.status || ""]}`;
     }
@@ -953,19 +927,39 @@
     }
 
     // =========================
+    // Auth UI switching
+    // =========================
+    function showAuthPanel(panel){
+      authLogin.style.display = "none";
+      authSignup.style.display = "none";
+      authReset.style.display = "none";
+      authNewPass.style.display = "none";
+
+      if (panel === "login") authLogin.style.display = "block";
+      if (panel === "signup") authSignup.style.display = "block";
+      if (panel === "reset") authReset.style.display = "block";
+      if (panel === "newpass") authNewPass.style.display = "block";
+
+      tabLogin.classList.toggle("active", panel === "login");
+      tabSignup.classList.toggle("active", panel === "signup");
+    }
+
+    // =========================
     // Supabase Data
     // =========================
     async function refreshUser(){
       const { data } = await supabase.auth.getUser();
       user = data.user || null;
+
       if (!user){
         authState.textContent = "Non connecté";
         syncState.textContent = "—";
         gate.classList.add("show");
-      } else {
-        authState.textContent = user.email || "Connecté";
-        gate.classList.remove("show");
+        return;
       }
+
+      authState.textContent = user.email || "Connecté";
+      gate.classList.remove("show");
     }
 
     async function loadYear(){
@@ -990,17 +984,11 @@
       }
 
       cache.clear();
-      (data || []).forEach(row => {
-        cache.set(row.work_date, { status: row.status, note: row.note || "" });
-      });
+      (data || []).forEach(row => cache.set(row.work_date, { status: row.status, note: row.note || "" }));
 
       syncState.textContent = "OK";
       updateStats();
-      render();
-      // selection par défaut
-      if (!selectedKey){
-        selectedKey = `${YEAR}-01-01`;
-      }
+      renderMonth(viewMonth);
       select(selectedKey);
     }
 
@@ -1009,10 +997,7 @@
       syncState.textContent = "…";
 
       const payload = { user_id: user.id, work_date: dateKey, ...patch };
-
-      const { error } = await supabase
-        .from(TABLE)
-        .upsert(payload, { onConflict: "user_id,work_date" });
+      const { error } = await supabase.from(TABLE).upsert(payload, { onConflict: "user_id,work_date" });
 
       if (error){
         console.error(error);
@@ -1055,7 +1040,7 @@
     }
 
     // =========================
-    // Rendering
+    // Rendering (mois)
     // =========================
     function cellEl(d, isOut){
       const k = keyFor(d);
@@ -1079,7 +1064,7 @@
 
       applyStateToCell(el, cache.get(k)?.status || "");
 
-      // Tap = sélection + applique outil (rapide)
+      // Tap = sélection + applique outil
       el.addEventListener("click", async () => {
         select(k);
         await upsertDay(k, { status: activeTool });
@@ -1096,7 +1081,7 @@
         haptic();
       });
 
-      // Double tap = ouvrir "Plus"
+      // Double tap (mobile) = ouvre sheet
       let lastTap = 0;
       el.addEventListener("touchend", (e) => {
         const t = Date.now();
@@ -1116,7 +1101,7 @@
       monthName.textContent = `${MONTHS[m]} ${YEAR}`;
 
       const first = new Date(YEAR, m, 1);
-      const offset = first.getDay(); // Sunday-first
+      const offset = first.getDay(); // dimanche-first
       const start = new Date(YEAR, m, 1 - offset);
 
       for (let i=0; i<42; i++){
@@ -1125,26 +1110,7 @@
         grid.appendChild(cellEl(d, d.getMonth() !== m));
       }
 
-      if (selectedKey){
-        repaintCell(selectedKey);
-        select(selectedKey);
-      }
-    }
-
-    function renderYear(){
-      clearGrid();
-      monthName.textContent = `Année ${YEAR}`;
-      // simple: on garde la vue "Année" pour plus tard si besoin
-      // Ici on affiche juste Janvier→Décembre sous forme de scroll mois (plus clean mobile)
-      viewMode = "month";
-      setModeButtons();
-      renderMonth(viewMonth);
-      toast("Vue Année: à activer ensuite (priorité mobile propre).");
-    }
-
-    function render(){
-      if (viewMode === "month") renderMonth(viewMonth);
-      else renderYear();
+      select(selectedKey);
     }
 
     function updateStats(){
@@ -1160,6 +1126,94 @@
     }
 
     // =========================
+    // Auth logic (email + mot de passe)
+    // =========================
+    function detectRecoveryFromUrl(){
+      const hash = window.location.hash || "";
+      const isRecovery = hash.includes("type=recovery") || hash.includes("access_token=");
+      if (isRecovery){
+        gate.classList.add("show");
+        showAuthPanel("newpass");
+        toast("Réinitialisation : choisis un nouveau mot de passe.");
+      }
+    }
+
+    tabLogin.addEventListener("click", () => showAuthPanel("login"));
+    tabSignup.addEventListener("click", () => showAuthPanel("signup"));
+
+    btnBackLogin.addEventListener("click", () => showAuthPanel("login"));
+    btnForgot.addEventListener("click", () => { resetEmail.value = (loginEmail.value || "").trim(); showAuthPanel("reset"); });
+    btnResetBack.addEventListener("click", () => showAuthPanel("login"));
+    btnNewPassBack.addEventListener("click", () => showAuthPanel("login"));
+
+    btnSignup.addEventListener("click", async () => {
+      const e = (signEmail.value || "").trim();
+      const p = (signPass.value || "");
+      if (!e || !p) return toast("Email + mot de passe requis.");
+      if (p.length < 6) return toast("Mot de passe: 6 caractères minimum.");
+
+      const { error } = await supabase.auth.signUp({ email: e, password: p });
+      if (error){
+        console.error(error);
+        return toast(error.message || "Erreur création compte.");
+      }
+
+      toast("Compte créé. Si confirmation email activée, valide l’email puis connecte-toi.");
+      showAuthPanel("login");
+      loginEmail.value = e;
+      loginPass.value = "";
+    });
+
+    btnLogin.addEventListener("click", async () => {
+      const e = (loginEmail.value || "").trim();
+      const p = (loginPass.value || "");
+      if (!e || !p) return toast("Email + mot de passe requis.");
+
+      const { error } = await supabase.auth.signInWithPassword({ email: e, password: p });
+      if (error){
+        console.error(error);
+        return toast(error.message || "Erreur connexion.");
+      }
+
+      toast("Connecté.");
+      await refreshUser();
+      await loadYear();
+    });
+
+    btnSendReset.addEventListener("click", async () => {
+      const e = (resetEmail.value || "").trim();
+      if (!e) return toast("Entre un email.");
+
+      const { error } = await supabase.auth.resetPasswordForEmail(e, {
+        redirectTo: window.location.origin + window.location.pathname
+      });
+
+      if (error){
+        console.error(error);
+        return toast(error.message || "Erreur reset.");
+      }
+
+      toast("Lien de réinitialisation envoyé.");
+      showAuthPanel("login");
+    });
+
+    btnApplyNewPass.addEventListener("click", async () => {
+      const p = (newPass.value || "");
+      if (p.length < 6) return toast("Mot de passe: 6 caractères minimum.");
+
+      const { error } = await supabase.auth.updateUser({ password: p });
+      if (error){
+        console.error(error);
+        return toast(error.message || "Erreur mise à jour.");
+      }
+
+      toast("Mot de passe mis à jour. Reconnecte-toi.");
+      history.replaceState(null, "", window.location.pathname);
+      showAuthPanel("login");
+      newPass.value = "";
+    });
+
+    // =========================
     // UI actions
     // =========================
     toolBtns.forEach(b => {
@@ -1171,7 +1225,7 @@
     });
 
     btnMore.addEventListener("click", () => {
-      if (!selectedKey) select(`${YEAR}-01-01`);
+      select(selectedKey);
       openSheet();
     });
 
@@ -1180,26 +1234,23 @@
 
     sheetSetBtns.forEach(b => {
       b.addEventListener("click", async () => {
-        if (!selectedKey) return;
         await upsertDay(selectedKey, { status: b.dataset.set });
         sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
       });
     });
 
     btnSheetClear.addEventListener("click", async () => {
-      if (!selectedKey) return;
       await deleteDay(selectedKey);
       sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
     });
 
     btnSheetNote.addEventListener("click", () => {
       closeSheet();
-      document.getElementById("noteText").scrollIntoView({ behavior:"smooth", block:"center" });
+      noteText.scrollIntoView({ behavior:"smooth", block:"center" });
       noteText.focus();
     });
 
     btnCycle.addEventListener("click", async () => {
-      if (!selectedKey) return;
       const cur = cache.get(selectedKey)?.status || "";
       const idx = STATES.indexOf(cur);
       const next = STATES[(idx + 1) % STATES.length];
@@ -1210,13 +1261,11 @@
     });
 
     btnSaveNote.addEventListener("click", async () => {
-      if (!selectedKey) return;
       await upsertDay(selectedKey, { note: noteText.value || "" });
       toast("Note enregistrée.");
     });
 
     btnClearDay.addEventListener("click", async () => {
-      if (!selectedKey) return;
       await deleteDay(selectedKey);
       toast("Journée effacée.");
     });
@@ -1231,31 +1280,14 @@
       renderMonth(viewMonth);
     });
 
-    modeMonth.addEventListener("click", () => {
-      viewMode = "month";
-      setModeButtons();
-      render();
-    });
-
-    modeYear.addEventListener("click", () => {
-      viewMode = "year";
-      setModeButtons();
-      render();
-    });
-
     btnToday.addEventListener("click", () => {
       const d = new Date();
-      if (d.getFullYear() !== YEAR){
-        viewMonth = 0;
-      } else {
-        viewMonth = d.getMonth();
-      }
-      viewMode = "month";
-      setModeButtons();
+      viewMonth = (d.getFullYear() === YEAR) ? d.getMonth() : 0;
       renderMonth(viewMonth);
-      const k = keyFor(new Date(YEAR, viewMonth, 1));
-      if (!selectedKey) selectedKey = k;
-      select(selectedKey);
+      if (d.getFullYear() === YEAR){
+        const k = keyFor(d);
+        select(k);
+      }
     });
 
     btnExport.addEventListener("click", () => {
@@ -1265,7 +1297,7 @@
         const e = cache.get(k);
         rows.push([k, e?.status || "", (e?.note || "").replace(/\n/g," ")]);
       });
-      const csv = rows.map(r => r.join(";")).join("\\n");
+      const csv = rows.map(r => r.join(";")).join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -1275,56 +1307,33 @@
       setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
     });
 
-    // Auth actions
-    btnMagic.addEventListener("click", async () => {
-      const v = (email.value || "").trim();
-      if (!v) return toast("Entre un email.");
-      const { error } = await supabase.auth.signInWithOtp({
-        email: v,
-        options: { emailRedirectTo: window.location.href }
-      });
-      if (error){
-        console.error(error);
-        toast("Erreur envoi du lien.");
-        return;
-      }
-      toast("Lien envoyé. Ouvre l’email puis reviens ici.");
-    });
-
     btnLogout.addEventListener("click", async () => {
       await supabase.auth.signOut();
       cache.clear();
-      selectedKey = "";
       syncState.textContent = "—";
       authState.textContent = "Non connecté";
       gate.classList.add("show");
+      showAuthPanel("login");
       toast("Déconnecté.");
     });
 
+    // =========================
+    // Init
+    // =========================
+    syncState.textContent = "—";
+    setToolUI();
+    renderMonth(viewMonth);
+    showAuthPanel("login");
+    detectRecoveryFromUrl();
+
     supabase.auth.onAuthStateChange(async () => {
       await refreshUser();
-      if (user) {
-        await loadYear();
-        toast("Calendrier prêt.");
-      }
+      if (user) await loadYear();
     });
 
-    // =========================
-    // Init (connexion obligatoire)
-    // =========================
-    activeTool = "jour";
-    setToolUI();
-    setModeButtons();
-
     await refreshUser();
-    if (user){
-      await loadYear();
-    } else {
-      gate.classList.add("show");
-    }
-
-    // sélection par défaut (sera appliquée après loadYear)
-    selectedKey = `${YEAR}-01-01`;
+    if (user) await loadYear();
+    else gate.classList.add("show");
   </script>
 </body>
 </html>
