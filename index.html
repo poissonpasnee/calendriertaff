@@ -5,101 +5,136 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Calendrier 2026 — Jour / Nuit</title>
+  <title>Calendrier 2026 — Travail</title>
 
   <style>
     :root{
       --bg:#0b0f16;
       --panel: rgba(255,255,255,.06);
-      --panel2: rgba(255,255,255,.09);
       --stroke: rgba(255,255,255,.10);
       --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.68);
-      --muted2: rgba(255,255,255,.52);
+      --muted: rgba(255,255,255,.62);
+      --muted2: rgba(255,255,255,.46);
+
       --shadow: 0 18px 50px rgba(0,0,0,.45);
-
-      --chip-jour: rgba(59,130,246,.20);
-      --chip-nuit: rgba(168,85,247,.20);
-      --chip-repos: rgba(148,163,184,.16);
-      --chip-conges: rgba(34,197,94,.16);
-      --chip-ferie: rgba(245,158,11,.18);
-      --chip-maladie: rgba(239,68,68,.16);
-      --chip-astreinte: rgba(14,165,233,.16);
-      --chip-formation: rgba(236,72,153,.14);
-      --chip-deplacement: rgba(163,230,53,.14);
-      --chip-teletravail: rgba(250,204,21,.12);
-      --chip-autre: rgba(255,255,255,.10);
-
-      --jour: #60a5fa;
-      --nuit: #c084fc;
-      --repos: #94a3b8;
-      --conges: #22c55e;
-      --ferie: #fbbf24;
-      --maladie: #fb7185;
-      --astreinte: #38bdf8;
-      --formation: #f472b6;
-      --deplacement: #a3e635;
-      --teletravail: #fde047;
-      --autre: #e5e7eb;
-
-      --accent: #93c5fd;
       --radius: 18px;
-      --radius2: 14px;
-      --cell: 44px;
+      --radius2: 16px;
+
+      --jour:#60a5fa;
+      --nuit:#c084fc;
+      --conges:#22c55e;
+      --repos:#94a3b8;
+      --ferie:#fbbf24;
+      --maladie:#fb7185;
+      --astreinte:#38bdf8;
+      --formation:#f472b6;
+      --deplacement:#a3e635;
+      --teletravail:#fde047;
+      --autre:#e5e7eb;
+
+      --chipJour: rgba(96,165,250,.18);
+      --chipNuit: rgba(192,132,252,.16);
+      --chipConges: rgba(34,197,94,.14);
+      --chipRepos: rgba(148,163,184,.14);
+
+      --cell: 48px;
+      --maxw: 1100px;
+
+      --safeTop: env(safe-area-inset-top);
+      --safeBottom: env(safe-area-inset-bottom);
     }
 
-    *{ box-sizing: border-box; }
+    *{ box-sizing:border-box; }
     html,body{ height:100%; }
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color: var(--text);
       background:
-        radial-gradient(1200px 700px at 15% 10%, rgba(96,165,250,.18), transparent 60%),
-        radial-gradient(900px 600px at 85% 15%, rgba(192,132,252,.16), transparent 62%),
+        radial-gradient(1200px 700px at 15% 10%, rgba(96,165,250,.16), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(192,132,252,.14), transparent 62%),
         radial-gradient(900px 700px at 50% 95%, rgba(34,197,94,.10), transparent 62%),
         var(--bg);
-      color: var(--text);
       overflow-x:hidden;
     }
 
-    .app{ max-width: 1120px; margin: 0 auto; padding: 18px 14px 130px; }
+    .wrap{
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 14px;
+    }
 
-    header{
+    /* ===== Top Appbar (mobile clean, aligné) ===== */
+    .appbar{
       position: sticky;
       top: 0;
-      z-index: 30;
-      padding: 12px 0 10px;
+      z-index: 50;
+      padding-top: calc(10px + var(--safeTop));
+      padding-bottom: 10px;
+      background: linear-gradient(to bottom, rgba(11,15,22,.88), rgba(11,15,22,.58));
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      background: linear-gradient(to bottom, rgba(11,15,22,.82), rgba(11,15,22,.55));
       border-bottom: 1px solid rgba(255,255,255,.06);
     }
-    .topbar{
+
+    .barTop{
       display:flex;
-      gap: 10px;
       align-items:center;
       justify-content: space-between;
-      flex-wrap: wrap;
+      gap: 10px;
     }
-    .brand{ display:flex; align-items:center; gap:10px; min-width: 220px; }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width: 0;
+    }
+
     .logo{
       width: 36px; height: 36px; border-radius: 12px;
       background: linear-gradient(135deg, rgba(96,165,250,.95), rgba(192,132,252,.95));
-      box-shadow: 0 12px 30px rgba(0,0,0,.38);
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
       position: relative; overflow:hidden;
+      flex: 0 0 auto;
     }
     .logo:after{
-      content:""; position:absolute; inset:-40%;
+      content:"";
+      position:absolute;
+      inset:-40%;
       background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), transparent 45%);
       transform: rotate(25deg);
     }
-    .titleblock{ line-height: 1.1; }
-    .titleblock .t{ font-size: 15px; font-weight: 800; letter-spacing: .2px; }
-    .titleblock .s{ font-size: 12px; color: var(--muted); margin-top: 3px; }
 
-    .controls{
-      display:flex; align-items:center; gap: 8px; flex: 1;
-      justify-content: flex-end; flex-wrap: wrap;
+    .title{
+      min-width: 0;
+      display:flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .title .t{
+      font-weight: 950;
+      letter-spacing:.2px;
+      font-size: 15px;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .title .s{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topActions{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      flex: 0 0 auto;
     }
 
     .btn{
@@ -109,21 +144,22 @@
       color: var(--text);
       padding: 10px 12px;
       border-radius: 14px;
-      cursor: pointer;
-      font-weight: 750;
+      cursor:pointer;
+      font-weight: 850;
       letter-spacing:.2px;
       display:inline-flex;
-      gap: 8px;
       align-items:center;
-      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      justify-content:center;
+      gap: 8px;
       user-select:none;
       -webkit-tap-highlight-color: transparent;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
       white-space: nowrap;
     }
     .btn:active{ transform: translateY(1px) scale(.99); }
     .btn:hover{ background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.14); }
     .btn.primary{
-      background: linear-gradient(135deg, rgba(96,165,250,.22), rgba(192,132,252,.18));
+      background: linear-gradient(135deg, rgba(96,165,250,.22), rgba(192,132,252,.16));
       border-color: rgba(147,197,253,.30);
     }
     .btn.danger{
@@ -133,15 +169,19 @@
 
     .seg{
       display:flex;
-      border: 1px solid var(--stroke);
+      border:1px solid var(--stroke);
       background: rgba(255,255,255,.05);
       border-radius: 16px;
       overflow:hidden;
+      height: 40px;
     }
     .seg button{
-      border:0; background: transparent; color: var(--muted);
-      padding: 10px 12px; cursor:pointer; font-weight: 800;
-      transition: background .12s ease, color .12s ease;
+      border:0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 12px;
+      cursor:pointer;
+      font-weight: 900;
       -webkit-tap-highlight-color: transparent;
     }
     .seg button.active{
@@ -149,41 +189,78 @@
       color: var(--text);
     }
 
-    .monthbar{
+    /* Month row (grid alignée) */
+    .barMonth{
       margin-top: 10px;
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
+      display:grid;
+      grid-template-columns: 44px 1fr 44px;
       gap: 10px;
-      flex-wrap: wrap;
+      align-items:center;
     }
-    .monthnav{ display:flex; align-items:center; gap: 8px; }
-    .monthname{ font-size: 16px; font-weight: 900; letter-spacing: .2px; }
-    .subinfo{
-      font-size: 12px; color: var(--muted);
-      display:flex; gap: 10px; align-items:center; flex-wrap: wrap;
-      justify-content: flex-end;
+    .navbtn{
+      width: 44px; height: 44px;
+      padding: 0;
+      border-radius: 16px;
     }
+    .monthCenter{
+      min-width: 0;
+      display:flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .monthName{
+      font-size: 18px;
+      font-weight: 950;
+      letter-spacing:.2px;
+      line-height: 1.1;
+    }
+
+    .chips{
+      display:flex;
+      gap: 8px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .chips::-webkit-scrollbar{ display:none; }
+
     .pill{
-      padding: 6px 10px;
-      border:1px solid rgba(255,255,255,.10);
+      display:inline-flex;
+      align-items:center;
+      gap: 7px;
+      padding: 7px 10px;
       border-radius: 999px;
+      border:1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.05);
       color: var(--muted);
-      font-weight: 750;
-      display:inline-flex;
-      gap:6px;
+      font-weight: 850;
+      font-size: 12px;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .dot{ width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
+
+    .statusRow{
+      margin-top: 10px;
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
       align-items:center;
     }
-    .dot{ width: 8px; height: 8px; border-radius: 999px; display:inline-block; background: rgba(255,255,255,.35); }
+
+    /* ===== Main ===== */
+    main{
+      padding: 14px 0 calc(92px + var(--safeBottom));
+    }
 
     .layout{
-      margin-top: 14px;
       display:grid;
-      grid-template-columns: 1.25fr .75fr;
+      grid-template-columns: 1.2fr .8fr;
       gap: 12px;
       align-items:start;
     }
+
     .card{
       background: var(--panel);
       border: 1px solid var(--stroke);
@@ -192,27 +269,34 @@
       overflow:hidden;
     }
 
-    .calendar{ padding: 14px; }
+    .calendar{
+      padding: 14px;
+    }
+
     .dow{
       display:grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 8px;
       margin-bottom: 8px;
-      padding: 0 2px;
     }
     .dow div{
       text-align:center;
       font-size: 12px;
       color: var(--muted2);
-      font-weight: 900;
+      font-weight: 950;
       letter-spacing:.35px;
-      padding: 8px 0;
+      padding: 6px 0;
     }
-    .grid{ display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+    }
 
     .daycell{
       height: var(--cell);
-      border-radius: 16px;
+      border-radius: 18px;
       border: 1px solid rgba(255,255,255,.08);
       background: rgba(255,255,255,.04);
       position: relative;
@@ -225,35 +309,43 @@
     }
     .daycell:hover{ background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
     .daycell:active{ transform: translateY(1px) scale(.995); }
-    .daycell.out{ opacity: .38; filter: saturate(.7); }
+    .daycell.out{ opacity:.35; filter:saturate(.7); }
     .daycell.today{
       border-color: rgba(147,197,253,.35);
       background: linear-gradient(135deg, rgba(147,197,253,.14), rgba(255,255,255,.04));
     }
-    .num{ font-weight: 950; font-size: 13px; letter-spacing:.2px; }
+
+    .bar{
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width: 5px;
+      border-radius: 18px 0 0 18px;
+      background: transparent;
+    }
+    .num{
+      font-weight: 950;
+      font-size: 13px;
+      letter-spacing:.2px;
+    }
     .tag{
       position:absolute;
-      inset:auto 10px 8px auto;
+      right: 9px;
+      bottom: 7px;
       font-size: 11px;
       font-weight: 950;
-      letter-spacing:.25px;
-      padding: 5px 8px;
+      letter-spacing:.2px;
+      padding: 4px 7px;
       border-radius: 999px;
-      border:1px solid rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.06);
       color: var(--muted);
     }
-    .bar{
-      position:absolute; left: 0; top: 0; bottom: 0;
-      width: 5px; border-radius: 16px 0 0 16px;
-      background: rgba(255,255,255,.0);
-    }
 
-    /* states */
+    /* state colors */
     .state-jour .bar{ background: var(--jour); }
     .state-nuit .bar{ background: var(--nuit); }
-    .state-repos .bar{ background: var(--repos); }
     .state-conges .bar{ background: var(--conges); }
+    .state-repos .bar{ background: var(--repos); }
     .state-ferie .bar{ background: var(--ferie); }
     .state-maladie .bar{ background: var(--maladie); }
     .state-astreinte .bar{ background: var(--astreinte); }
@@ -262,879 +354,977 @@
     .state-teletravail .bar{ background: var(--teletravail); }
     .state-autre .bar{ background: var(--autre); }
 
-    .state-jour{ background: linear-gradient(135deg, var(--chip-jour), rgba(255,255,255,.04)); }
-    .state-nuit{ background: linear-gradient(135deg, var(--chip-nuit), rgba(255,255,255,.04)); }
-    .state-repos{ background: linear-gradient(135deg, var(--chip-repos), rgba(255,255,255,.04)); }
-    .state-conges{ background: linear-gradient(135deg, var(--chip-conges), rgba(255,255,255,.04)); }
-    .state-ferie{ background: linear-gradient(135deg, var(--chip-ferie), rgba(255,255,255,.04)); }
-    .state-maladie{ background: linear-gradient(135deg, var(--chip-maladie), rgba(255,255,255,.04)); }
-    .state-astreinte{ background: linear-gradient(135deg, var(--chip-astreinte), rgba(255,255,255,.04)); }
-    .state-formation{ background: linear-gradient(135deg, var(--chip-formation), rgba(255,255,255,.04)); }
-    .state-deplacement{ background: linear-gradient(135deg, var(--chip-deplacement), rgba(255,255,255,.04)); }
-    .state-teletravail{ background: linear-gradient(135deg, var(--chip-teletravail), rgba(255,255,255,.04)); }
-    .state-autre{ background: linear-gradient(135deg, var(--chip-autre), rgba(255,255,255,.04)); }
+    .state-jour{ background: linear-gradient(135deg, var(--chipJour), rgba(255,255,255,.04)); }
+    .state-nuit{ background: linear-gradient(135deg, var(--chipNuit), rgba(255,255,255,.04)); }
+    .state-conges{ background: linear-gradient(135deg, var(--chipConges), rgba(255,255,255,.04)); }
+    .state-repos{ background: linear-gradient(135deg, var(--chipRepos), rgba(255,255,255,.04)); }
 
-    /* side */
-    .side{ padding: 14px; display:flex; flex-direction: column; gap: 12px; position: sticky; top: 92px; align-self: start; }
-    .paneltitle{ display:flex; align-items:flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-    .paneltitle .h{ font-weight: 950; letter-spacing:.2px; }
-    .paneltitle .small{ font-size: 12px; color: var(--muted); font-weight: 800; margin-top: 4px; }
+    /* Right panel */
+    .side{
+      padding: 14px;
+      display:flex;
+      flex-direction: column;
+      gap: 12px;
+      position: sticky;
+      top: calc(120px + var(--safeTop));
+      align-self:start;
+    }
 
-    .authbox, .note, .stats, .quick{
-      border:1px solid rgba(255,255,255,.10);
+    .block{
+      border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.05);
       border-radius: 16px;
       padding: 12px;
     }
+
+    .h{
+      font-weight: 950;
+      letter-spacing:.2px;
+      margin: 0 0 6px;
+    }
+    .small{ font-size: 12px; color: var(--muted); font-weight: 800; line-height: 1.35; }
+
     .field{
-      display:flex; gap: 8px; align-items:center; margin-top: 10px; flex-wrap: wrap;
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
     }
     input[type="email"]{
-      flex:1;
-      min-width: 220px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      outline: none;
-      font-weight: 750;
-    }
-    textarea{
-      width:100%;
-      min-height: 88px;
-      resize: vertical;
-      padding: 10px 12px;
+      flex: 1 1 220px;
+      padding: 11px 12px;
       border-radius: 14px;
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.06);
       color: var(--text);
       outline:none;
-      line-height: 1.35;
-      font-weight: 650;
+      font-weight: 850;
     }
-    .hint{ font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.35; }
+    textarea{
+      width: 100%;
+      min-height: 92px;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      outline:none;
+      resize: vertical;
+      font-weight: 700;
+      line-height: 1.35;
+    }
 
-    .row{ display:flex; gap: 8px; flex-wrap: wrap; }
-    .row .btn{ flex: 1; justify-content:center; min-width: 120px; }
-
-    .statsgrid{
+    .kpis{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-top: 10px;
     }
     .kpi{
-      border:1px solid rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.04);
       border-radius: 14px;
       padding: 10px;
     }
-    .kpi .v{ font-size: 18px; font-weight: 950; letter-spacing:.2px; }
+    .kpi .v{ font-size: 18px; font-weight: 950; }
     .kpi .k{ font-size: 12px; color: var(--muted); font-weight: 850; margin-top: 4px; }
 
-    /* Mobile action bar (meilleur placement boutons) */
-    .mobilebar{
+    /* ===== Login gate (obligatoire) ===== */
+    .gate{
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display:none;
+      background: radial-gradient(900px 600px at 25% 10%, rgba(96,165,250,.16), transparent 60%),
+                  radial-gradient(800px 560px at 80% 15%, rgba(192,132,252,.14), transparent 60%),
+                  rgba(11,15,22,.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: calc(18px + var(--safeTop)) 14px calc(18px + var(--safeBottom));
+    }
+    .gate.show{ display:block; }
+    .gateCard{
+      max-width: 520px;
+      margin: 0 auto;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .gateHead{
+      display:flex;
+      gap: 12px;
+      align-items:center;
+    }
+    .gateTitle{
+      font-weight: 950;
+      letter-spacing:.2px;
+      font-size: 16px;
+      margin: 0;
+    }
+    .gateSub{
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      line-height: 1.35;
+    }
+    .toast{
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: calc(88px + var(--safeBottom));
+      z-index: 120;
+      display:none;
+      max-width: 520px;
+      margin: 0 auto;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(20,26,38,.92);
+      padding: 12px 12px;
+      color: rgba(255,255,255,.92);
+      font-weight: 800;
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+    }
+    .toast.show{ display:block; }
+
+    /* ===== Mobile bottom bar (saisie ultra rapide) ===== */
+    .bottombar{
       position: fixed;
       left: 0; right: 0; bottom: 0;
-      z-index: 80;
-      padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
-      background: linear-gradient(to top, rgba(11,15,22,.92), rgba(11,15,22,.55));
+      z-index: 60;
+      background: linear-gradient(to top, rgba(11,15,22,.92), rgba(11,15,22,.58));
       border-top: 1px solid rgba(255,255,255,.08);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      display:none;
+      padding: 10px 10px calc(10px + var(--safeBottom));
     }
-    .mobilebar .barrow{ display:flex; gap: 8px; }
-    .mobilebar .btn{ flex: 1; justify-content:center; padding: 12px 10px; border-radius: 16px; }
+    .barGrid{
+      max-width: var(--maxw);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      gap: 8px;
+      padding: 0 4px;
+    }
+    .tool{
+      height: 46px;
+      border-radius: 16px;
+      padding: 0 10px;
+      font-weight: 950;
+      font-size: 13px;
+    }
+    .tool.active{
+      border-color: rgba(147,197,253,.35);
+      background: rgba(147,197,253,.12);
+    }
 
+    /* Action sheet (Plus) */
+    .sheetBack{
+      position: fixed; inset: 0;
+      z-index: 90;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .16s ease;
+    }
+    .sheetBack.show{ opacity: 1; pointer-events:auto; }
+
+    .sheet{
+      position: fixed;
+      left: 0; right: 0;
+      bottom: calc(-520px - var(--safeBottom));
+      z-index: 95;
+      background: rgba(18,24,35,.94);
+      border-top: 1px solid rgba(255,255,255,.10);
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -18px 70px rgba(0,0,0,.60);
+      padding: 12px 14px calc(14px + var(--safeBottom));
+      transition: transform .20s ease;
+      transform: translateY(0);
+    }
+    .sheet.show{ transform: translateY(calc(-520px - var(--safeBottom))); }
+    .grab{
+      width: 44px; height: 5px; border-radius: 999px;
+      background: rgba(255,255,255,.22);
+      margin: 6px auto 12px;
+    }
+    .sheetHead{
+      display:flex;
+      justify-content: space-between;
+      align-items:flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .sheetDate{
+      font-weight: 950;
+      letter-spacing:.2px;
+      font-size: 14px;
+    }
+    .sheetMeta{
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 850;
+    }
+    .sheetGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .sheetGrid .btn{ justify-content:center; height: 46px; border-radius: 16px; }
+    .sheetRow{
+      margin-top: 10px;
+      display:flex;
+      gap: 8px;
+    }
+    .sheetRow .btn{ flex:1; height: 46px; border-radius: 16px; }
+
+    /* Responsive */
     @media (max-width: 980px){
       .layout{ grid-template-columns: 1fr; }
       .side{ position: relative; top: 0; }
-      .mobilebar{ display:block; }
-      .controls{ justify-content: flex-start; }
     }
+
     @media (max-width: 520px){
-      :root{ --cell: 48px; }
-      .grid{ gap: 7px; }
-      .dow{ gap: 7px; }
-      .daycell{ border-radius: 18px; }
-      header{ padding: 10px 0 8px; }
-      .brand{ min-width: unset; }
+      :root{ --cell: 50px; }
+      .topActions .btn{ padding: 10px 10px; }
+      .seg{ width: 100%; }
+      .topActions{ gap: 8px; }
+      .barTop{ flex-direction: column; align-items: stretch; }
+      .topActions{ justify-content: space-between; }
+      .seg{ justify-content: space-between; }
+      .seg button{ flex: 1; }
     }
-    @media (prefers-reduced-motion: reduce){ *{ transition: none !important; } }
+
+    @media (prefers-reduced-motion: reduce){
+      *{ transition:none !important; }
+    }
   </style>
 </head>
 
 <body>
-<header>
-  <div class="app">
-    <div class="topbar">
-      <div class="brand">
+  <!-- LOGIN GATE (obligatoire) -->
+  <div class="gate" id="gate">
+    <div class="gateCard">
+      <div class="gateHead">
         <div class="logo" aria-hidden="true"></div>
-        <div class="titleblock">
-          <div class="t">Calendrier 2026</div>
-          <div class="s">Supabase sync + notes • semaine Dimanche → Samedi</div>
+        <div style="min-width:0;">
+          <p class="gateTitle">Connexion requise</p>
+          <div class="gateSub">
+            Accès au calendrier uniquement après connexion (Supabase).<br/>
+            Saisie rapide : choisis un outil (Jour/Nuit/Congés/Repos), puis tape les dates.
+          </div>
         </div>
       </div>
 
-      <div class="controls">
-        <div class="seg" role="tablist" aria-label="Mode">
-          <button id="modeMonth" class="active" type="button" role="tab" aria-selected="true">Mois</button>
-          <button id="modeYear" type="button" role="tab" aria-selected="false">Année</button>
-        </div>
-        <button class="btn" id="btnToday" type="button">Aujourd’hui</button>
-        <button class="btn primary" id="btnExport" type="button">Exporter</button>
-        <button class="btn danger" id="btnReset" type="button">Réinitialiser</button>
+      <div class="field" style="margin-top:14px;">
+        <input id="email" type="email" placeholder="email@exemple.com" autocomplete="email" />
+        <button class="btn primary" id="btnMagic" type="button">Recevoir le lien</button>
+      </div>
+
+      <div class="small" style="margin-top:10px;">
+        Tu reçois un email → clique le lien → retour ici → calendrier chargé.
       </div>
     </div>
+  </div>
 
-    <div class="monthbar">
-      <div class="monthnav">
-        <button class="btn" id="prev" type="button">◀</button>
-        <div>
-          <div class="monthname" id="monthName">—</div>
-          <div class="subinfo">
+  <div class="toast" id="toast"></div>
+
+  <!-- APPBAR -->
+  <div class="appbar">
+    <div class="wrap">
+      <div class="barTop">
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div class="title">
+            <div class="t">Calendrier 2026</div>
+            <div class="s">Semaine Dimanche → Samedi • Connexion obligatoire</div>
+          </div>
+        </div>
+
+        <div class="topActions">
+          <div class="seg" role="tablist" aria-label="Mode">
+            <button id="modeMonth" class="active" type="button" role="tab" aria-selected="true">Mois</button>
+            <button id="modeYear" type="button" role="tab" aria-selected="false">Année</button>
+          </div>
+          <button class="btn" id="btnToday" type="button">Aujourd’hui</button>
+          <button class="btn primary" id="btnExport" type="button">Exporter</button>
+          <button class="btn danger" id="btnLogout" type="button">Déconnexion</button>
+        </div>
+      </div>
+
+      <div class="barMonth">
+        <button class="btn navbtn" id="prev" type="button" aria-label="Mois précédent">◀</button>
+
+        <div class="monthCenter">
+          <div class="monthName" id="monthName">—</div>
+          <div class="chips">
             <span class="pill"><span class="dot" style="background: var(--jour)"></span> Jour</span>
             <span class="pill"><span class="dot" style="background: var(--nuit)"></span> Nuit</span>
             <span class="pill"><span class="dot" style="background: var(--conges)"></span> Congés</span>
             <span class="pill"><span class="dot" style="background: var(--repos)"></span> Repos</span>
+            <span class="pill"><span class="dot" style="background: var(--ferie)"></span> Férié</span>
+          </div>
+
+          <div class="statusRow">
+            <span class="pill">Compte: <b id="authState">—</b></span>
+            <span class="pill">Sync: <b id="syncState">—</b></span>
+            <span class="pill">Outil: <b id="toolState">—</b></span>
           </div>
         </div>
-        <button class="btn" id="next" type="button">▶</button>
-      </div>
 
-      <div class="subinfo">
-        <span class="pill" id="authPill">Compte: <b id="authState">—</b></span>
-        <span class="pill" id="syncPill">Sync: <b id="syncState">—</b></span>
+        <button class="btn navbtn" id="next" type="button" aria-label="Mois suivant">▶</button>
       </div>
     </div>
   </div>
-</header>
 
-<main class="app">
-  <div class="layout">
-    <section class="card calendar" aria-label="Calendrier">
-      <div class="dow" aria-hidden="true">
-        <div>Dim</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div>
-      </div>
-      <div id="grid" class="grid" aria-live="polite"></div>
-    </section>
+  <main>
+    <div class="wrap">
+      <div class="layout">
+        <section class="card calendar" aria-label="Calendrier">
+          <div class="dow" aria-hidden="true">
+            <div>Dim</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div>
+          </div>
+          <div id="grid" class="grid" aria-live="polite"></div>
+        </section>
 
-    <aside class="card side" aria-label="Panneau">
-      <div class="paneltitle">
-        <div>
-          <div class="h">Sélection</div>
-          <div class="small" id="selectedInfo">—</div>
-        </div>
-        <div class="pill" id="selectionStatePill">État: —</div>
-      </div>
+        <aside class="card side" aria-label="Panneau">
+          <div class="block">
+            <div class="h">Sélection</div>
+            <div class="small" id="selectedInfo">—</div>
+            <div class="small" style="margin-top:8px;">État: <b id="selectedState">—</b></div>
+          </div>
 
-      <div class="authbox" aria-label="Connexion">
-        <div style="font-weight:950; letter-spacing:.2px;">Connexion (Supabase Auth)</div>
-        <div class="hint" style="margin-top:6px;">
-          Entrez votre email → vous recevez un lien de connexion (Magic Link).
-        </div>
-        <div class="field">
-          <input id="email" type="email" placeholder="email@exemple.com" autocomplete="email" />
-          <button class="btn primary" id="btnMagic" type="button">Envoyer le lien</button>
-          <button class="btn" id="btnLogout" type="button" style="display:none;">Déconnexion</button>
-        </div>
-        <div class="hint" id="authMsg" style="display:none;"></div>
-      </div>
+          <div class="block">
+            <div class="h">Note du jour</div>
+            <div class="small">Optionnel (ex: heures sup, RDV, etc.).</div>
+            <textarea id="noteText" placeholder="Écris un message pour cette date…"></textarea>
+            <div class="field">
+              <button class="btn primary" id="btnSaveNote" type="button">Enregistrer la note</button>
+              <button class="btn danger" id="btnClearDay" type="button">Effacer la journée</button>
+            </div>
+          </div>
 
-      <div class="note" aria-label="Note">
-        <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
-          <div style="font-weight:950;">Message / note du jour</div>
-          <button class="btn" id="btnSaveNote" type="button">Enregistrer</button>
-        </div>
-        <textarea id="noteText" placeholder="Ex: shift compliqué, heures sup, rdv, etc."></textarea>
-        <div class="hint">Le message est sauvegardé avec la date (sync multi-appareils).</div>
+          <div class="block">
+            <div class="h">Stats 2026</div>
+            <div class="kpis">
+              <div class="kpi"><div class="v" id="kJour">0</div><div class="k">Jour</div></div>
+              <div class="kpi"><div class="v" id="kNuit">0</div><div class="k">Nuit</div></div>
+              <div class="kpi"><div class="v" id="kConges">0</div><div class="k">Congés</div></div>
+              <div class="kpi"><div class="v" id="kRepos">0</div><div class="k">Repos</div></div>
+            </div>
+            <div class="small" style="margin-top:10px;">
+              Saisie rapide : sélectionne un outil en bas, puis tape les dates (aucun menu à ouvrir).
+            </div>
+          </div>
+        </aside>
       </div>
+    </div>
+  </main>
 
-      <div class="quick" aria-label="Options">
-        <div style="font-weight:950;">Marquer la journée</div>
-        <div class="row" style="margin-top:10px;">
-          <button class="btn" data-set="jour" type="button">Jour</button>
-          <button class="btn" data-set="nuit" type="button">Nuit</button>
-        </div>
-        <div class="row">
-          <button class="btn" data-set="conges" type="button">Congés</button>
-          <button class="btn" data-set="repos" type="button">Repos</button>
-        </div>
-        <div class="row">
-          <button class="btn" data-set="ferie" type="button">Férié</button>
-          <button class="btn" data-set="maladie" type="button">Maladie</button>
-        </div>
-        <div class="row">
-          <button class="btn" data-set="astreinte" type="button">Astreinte</button>
-          <button class="btn" data-set="teletravail" type="button">Télétravail</button>
-        </div>
-        <div class="row">
-          <button class="btn" data-set="formation" type="button">Formation</button>
-          <button class="btn" data-set="deplacement" type="button">Déplacement</button>
-        </div>
-        <div class="row">
-          <button class="btn" data-set="autre" type="button">Autre</button>
-          <button class="btn danger" id="btnClearOne" type="button">Effacer</button>
-        </div>
-        <div class="hint">Tap sur une date → puis un bouton. Appui long sur une date = cycle rapide.</div>
-      </div>
-
-      <div class="stats" aria-label="Statistiques">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <div style="font-weight:950;">Stats 2026</div>
-          <div class="pill">Total</div>
-        </div>
-        <div class="statsgrid">
-          <div class="kpi"><div class="v" id="kJour">0</div><div class="k">Jour</div></div>
-          <div class="kpi"><div class="v" id="kNuit">0</div><div class="k">Nuit</div></div>
-          <div class="kpi"><div class="v" id="kConges">0</div><div class="k">Congés</div></div>
-          <div class="kpi"><div class="v" id="kRepos">0</div><div class="k">Repos</div></div>
-        </div>
-      </div>
-    </aside>
+  <!-- Bottom tool bar (rapide smartphone) -->
+  <div class="bottombar" aria-label="Barre d’outils">
+    <div class="barGrid">
+      <button class="btn tool" data-tool="jour" type="button">Jour</button>
+      <button class="btn tool" data-tool="nuit" type="button">Nuit</button>
+      <button class="btn tool" data-tool="conges" type="button">Congés</button>
+      <button class="btn tool" data-tool="repos" type="button">Repos</button>
+      <button class="btn tool" id="btnMore" type="button">Plus</button>
+    </div>
   </div>
-</main>
 
-<!-- Mobile action bar -->
-<div class="mobilebar" aria-label="Barre mobile">
-  <div class="barrow">
-    <button class="btn" data-set="jour" type="button">Jour</button>
-    <button class="btn" data-set="nuit" type="button">Nuit</button>
-    <button class="btn" data-set="conges" type="button">Congés</button>
-    <button class="btn" data-set="repos" type="button">Repos</button>
+  <!-- Action Sheet -->
+  <div class="sheetBack" id="sheetBack"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheetHead">
+      <div>
+        <div class="sheetDate" id="sheetDate">—</div>
+        <div class="sheetMeta" id="sheetMeta">—</div>
+      </div>
+      <button class="btn" id="btnCloseSheet" type="button">Fermer</button>
+    </div>
+
+    <div class="sheetGrid">
+      <button class="btn" data-set="ferie" type="button">Férié</button>
+      <button class="btn" data-set="maladie" type="button">Maladie</button>
+      <button class="btn" data-set="astreinte" type="button">Astreinte</button>
+      <button class="btn" data-set="teletravail" type="button">Télétravail</button>
+      <button class="btn" data-set="formation" type="button">Formation</button>
+      <button class="btn" data-set="deplacement" type="button">Déplacement</button>
+      <button class="btn" data-set="autre" type="button">Autre</button>
+      <button class="btn danger" id="btnSheetClear" type="button">Effacer</button>
+    </div>
+
+    <div class="sheetRow">
+      <button class="btn primary" id="btnSheetNote" type="button">Éditer la note</button>
+      <button class="btn" id="btnCycle" type="button">Cycle</button>
+    </div>
+
+    <div class="small" style="margin-top:10px;">
+      Astuce : appui long sur une date = cycle rapide.
+    </div>
   </div>
-</div>
 
-<script type="module">
-  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-  // =========================
-  // SUPABASE CONFIG (tes infos)
-  // =========================
-  const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // =========================
+    // SUPABASE CONFIG (tes infos)
+    // =========================
+    const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // =========================
-  // APP CONFIG
-  // =========================
-  const YEAR = 2026;
-  const TABLE = "work_calendar_entries";
+    // =========================
+    // APP CONFIG
+    // =========================
+    const YEAR = 2026;
+    const TABLE = "work_calendar_entries";
+    const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+    const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"]; // Sunday-first
 
-  const STATES = ["", "jour","nuit","repos","conges","ferie","maladie","astreinte","formation","deplacement","teletravail","autre"];
-  const LABEL = {
-    "": "—",
-    jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", ferie:"Férié", maladie:"Maladie",
-    astreinte:"Astreinte", formation:"Formation", deplacement:"Déplacement", teletravail:"Télétravail", autre:"Autre"
-  };
-  const TAG = { jour:"J", nuit:"N", repos:"R", conges:"C", ferie:"F", maladie:"M", astreinte:"A", formation:"Fo", deplacement:"D", teletravail:"T", autre:"+" };
-
-  const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-  const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"]; // Sunday-first
-
-  // =========================
-  // DOM
-  // =========================
-  const grid = document.getElementById("grid");
-  const monthName = document.getElementById("monthName");
-
-  const modeMonth = document.getElementById("modeMonth");
-  const modeYear  = document.getElementById("modeYear");
-
-  const prevBtn = document.getElementById("prev");
-  const nextBtn = document.getElementById("next");
-  const todayBtn = document.getElementById("btnToday");
-  const exportBtn = document.getElementById("btnExport");
-  const resetBtn = document.getElementById("btnReset");
-
-  const selectedInfo = document.getElementById("selectedInfo");
-  const selectionStatePill = document.getElementById("selectionStatePill");
-
-  const noteText = document.getElementById("noteText");
-  const btnSaveNote = document.getElementById("btnSaveNote");
-  const btnClearOne = document.getElementById("btnClearOne");
-
-  const kJour = document.getElementById("kJour");
-  const kNuit = document.getElementById("kNuit");
-  const kConges = document.getElementById("kConges");
-  const kRepos = document.getElementById("kRepos");
-
-  const authState = document.getElementById("authState");
-  const syncState = document.getElementById("syncState");
-  const emailInput = document.getElementById("email");
-  const btnMagic = document.getElementById("btnMagic");
-  const btnLogout = document.getElementById("btnLogout");
-  const authMsg = document.getElementById("authMsg");
-
-  // Buttons (desktop + mobile)
-  const setButtons = document.querySelectorAll("[data-set]");
-
-  // =========================
-  // State
-  // =========================
-  let viewMode = "month";
-  let viewMonth = 0;
-  let selectedKey = ""; // YYYY-MM-DD
-  let cache = new Map(); // key -> { status, note }
-
-  const now = new Date();
-  if (now.getFullYear() === YEAR) viewMonth = now.getMonth();
-
-  // =========================
-  // Helpers
-  // =========================
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const keyFor = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  const parseKey = (k) => { const [y,m,d] = k.split("-").map(Number); return new Date(y, m-1, d); };
-  const fmtLong = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-  const in2026 = (k) => k.startsWith(`${YEAR}-`);
-
-  function clearGrid(){ while(grid.firstChild) grid.removeChild(grid.firstChild); }
-
-  function applyStateToCell(cell, state){
-    for (const s of STATES) if (s) cell.classList.remove(`state-${s}`);
-    const tag = cell.querySelector(".tag");
-    tag.textContent = "";
-    if (state){
-      cell.classList.add(`state-${state}`);
-      tag.textContent = TAG[state] || "";
-    }
-  }
-
-  function repaintCell(k){
-    const cell = grid.querySelector(`.daycell[data-key="${k}"]`);
-    if (!cell) return;
-    const entry = cache.get(k);
-    applyStateToCell(cell, entry?.status || "");
-  }
-
-  function selectKey(k){
-    const prev = grid.querySelector(".daycell[data-selected='true']");
-    if (prev) prev.removeAttribute("data-selected");
-
-    selectedKey = k;
-
-    const cur = grid.querySelector(`.daycell[data-key="${k}"]`);
-    grid.querySelectorAll(".daycell").forEach(el=> el.style.outline = "");
-    if (cur){
-      cur.setAttribute("data-selected","true");
-      cur.style.outline = "2px solid rgba(147,197,253,.28)";
-      cur.style.outlineOffset = "2px";
-    }
-
-    const d = parseKey(k);
-    const entry = cache.get(k);
-    selectedInfo.textContent = `Sélection: ${fmtLong(d)} (${DOW[d.getDay()]})`;
-    selectionStatePill.textContent = `État: ${LABEL[entry?.status || ""]}`;
-
-    noteText.value = entry?.note || "";
-  }
-
-  function setActiveModeButtons(){
-    const isMonth = viewMode === "month";
-    modeMonth.classList.toggle("active", isMonth);
-    modeYear.classList.toggle("active", !isMonth);
-    modeMonth.setAttribute("aria-selected", isMonth ? "true" : "false");
-    modeYear.setAttribute("aria-selected", !isMonth ? "true" : "false");
-  }
-
-  function addLongPress(el, cb){
-    let t=null, moved=false;
-    const start=()=>{ moved=false; if(t) clearTimeout(t); t=setTimeout(()=>{ t=null; if(!moved) cb(); }, 420); };
-    const cancel=()=>{ if(t) clearTimeout(t); t=null; };
-    el.addEventListener("touchstart", start, { passive:true });
-    el.addEventListener("touchmove", ()=>{ moved=true; cancel(); }, { passive:true });
-    el.addEventListener("touchend", cancel, { passive:true });
-    el.addEventListener("touchcancel", cancel, { passive:true });
-    el.addEventListener("mousedown", start);
-    el.addEventListener("mousemove", ()=>{ moved=true; cancel(); });
-    el.addEventListener("mouseup", cancel);
-    el.addEventListener("mouseleave", cancel);
-  }
-
-  function haptic(){ if (navigator.vibrate) navigator.vibrate(10); }
-
-  // =========================
-  // Supabase helpers
-  // =========================
-  async function getUser(){
-    const { data } = await supabase.auth.getUser();
-    return data.user || null;
-  }
-
-  async function upsertEntry(dateKey, patch){
-    const user = await getUser();
-    if (!user){
-      toast("Connecte-toi pour synchroniser.");
-      return;
-    }
-
-    syncState.textContent = "…";
-    const payload = {
-      user_id: user.id,
-      work_date: dateKey,
-      ...patch
+    const STATES = ["", "jour","nuit","repos","conges","ferie","maladie","astreinte","formation","deplacement","teletravail","autre"];
+    const LABEL = {
+      "": "—",
+      jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", ferie:"Férié", maladie:"Maladie",
+      astreinte:"Astreinte", formation:"Formation", deplacement:"Déplacement", teletravail:"Télétravail", autre:"Autre"
     };
+    const TAG = { jour:"J", nuit:"N", repos:"R", conges:"C", ferie:"F", maladie:"M", astreinte:"A", formation:"Fo", deplacement:"D", teletravail:"T", autre:"+" };
 
-    // upsert (unique user_id+work_date)
-    const { error } = await supabase
-      .from(TABLE)
-      .upsert(payload, { onConflict: "user_id,work_date" });
+    // =========================
+    // DOM
+    // =========================
+    const gate = document.getElementById("gate");
+    const toastEl = document.getElementById("toast");
 
-    if (error){
-      console.error(error);
-      syncState.textContent = "Erreur";
-      toast("Erreur sync Supabase.");
-      return;
+    const email = document.getElementById("email");
+    const btnMagic = document.getElementById("btnMagic");
+
+    const authState = document.getElementById("authState");
+    const syncState = document.getElementById("syncState");
+    const toolState = document.getElementById("toolState");
+    const btnLogout = document.getElementById("btnLogout");
+
+    const modeMonth = document.getElementById("modeMonth");
+    const modeYear = document.getElementById("modeYear");
+    const btnToday = document.getElementById("btnToday");
+    const btnExport = document.getElementById("btnExport");
+    const prev = document.getElementById("prev");
+    const next = document.getElementById("next");
+    const monthName = document.getElementById("monthName");
+    const grid = document.getElementById("grid");
+
+    const selectedInfo = document.getElementById("selectedInfo");
+    const selectedState = document.getElementById("selectedState");
+    const noteText = document.getElementById("noteText");
+    const btnSaveNote = document.getElementById("btnSaveNote");
+    const btnClearDay = document.getElementById("btnClearDay");
+
+    const kJour = document.getElementById("kJour");
+    const kNuit = document.getElementById("kNuit");
+    const kConges = document.getElementById("kConges");
+    const kRepos = document.getElementById("kRepos");
+
+    // bottom tools
+    const toolBtns = Array.from(document.querySelectorAll("[data-tool]"));
+    const btnMore = document.getElementById("btnMore");
+
+    // sheet
+    const sheetBack = document.getElementById("sheetBack");
+    const sheet = document.getElementById("sheet");
+    const sheetDate = document.getElementById("sheetDate");
+    const sheetMeta = document.getElementById("sheetMeta");
+    const btnCloseSheet = document.getElementById("btnCloseSheet");
+    const btnSheetClear = document.getElementById("btnSheetClear");
+    const btnSheetNote = document.getElementById("btnSheetNote");
+    const btnCycle = document.getElementById("btnCycle");
+    const sheetSetBtns = Array.from(document.querySelectorAll("[data-set]"));
+
+    // =========================
+    // State
+    // =========================
+    let user = null;
+    let viewMode = "month";
+    let viewMonth = 0;
+    let selectedKey = "";     // YYYY-MM-DD
+    let activeTool = "jour";  // outil rapide (tap date => applique)
+    let cache = new Map();    // key -> { status, note }
+
+    // init month
+    const now = new Date();
+    if (now.getFullYear() === YEAR) viewMonth = now.getMonth();
+
+    // =========================
+    // Helpers
+    // =========================
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const keyFor = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    const parseKey = (k) => { const [y,m,d] = k.split("-").map(Number); return new Date(y, m-1, d); };
+    const fmtLong = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    const inYear = (k) => k.startsWith(`${YEAR}-`);
+
+    function toast(msg){
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+      setTimeout(()=>toastEl.classList.remove("show"), 3200);
     }
 
-    // Update cache locally
-    const cur = cache.get(dateKey) || { status:"", note:"" };
-    cache.set(dateKey, { ...cur, ...patch });
-    syncState.textContent = "OK";
-    repaintCell(dateKey);
-    if (selectedKey === dateKey) {
-      selectionStatePill.textContent = `État: ${LABEL[(cache.get(dateKey)?.status)||""]}`;
-    }
-    updateStats();
-  }
-
-  async function deleteEntry(dateKey){
-    const user = await getUser();
-    if (!user){
-      toast("Connecte-toi pour synchroniser.");
-      return;
-    }
-    syncState.textContent = "…";
-    const { error } = await supabase
-      .from(TABLE)
-      .delete()
-      .eq("user_id", user.id)
-      .eq("work_date", dateKey);
-
-    if (error){
-      console.error(error);
-      syncState.textContent = "Erreur";
-      toast("Erreur suppression.");
-      return;
+    function setModeButtons(){
+      modeMonth.classList.toggle("active", viewMode === "month");
+      modeYear.classList.toggle("active", viewMode === "year");
+      modeMonth.setAttribute("aria-selected", viewMode === "month" ? "true" : "false");
+      modeYear.setAttribute("aria-selected", viewMode === "year" ? "true" : "false");
     }
 
-    cache.delete(dateKey);
-    syncState.textContent = "OK";
-    repaintCell(dateKey);
-    if (selectedKey === dateKey) {
-      selectionStatePill.textContent = "État: —";
-      noteText.value = "";
-    }
-    updateStats();
-  }
-
-  async function loadYearFromSupabase(){
-    const user = await getUser();
-    if (!user) return;
-
-    syncState.textContent = "Chargement…";
-    const from = `${YEAR}-01-01`;
-    const to   = `${YEAR}-12-31`;
-
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select("work_date,status,note")
-      .eq("user_id", user.id)
-      .gte("work_date", from)
-      .lte("work_date", to);
-
-    if (error){
-      console.error(error);
-      syncState.textContent = "Erreur";
-      toast("Erreur chargement.");
-      return;
+    function setToolUI(){
+      toolBtns.forEach(b => b.classList.toggle("active", b.dataset.tool === activeTool));
+      toolState.textContent = LABEL[activeTool] || "—";
     }
 
-    cache.clear();
-    for (const row of (data || [])){
-      cache.set(row.work_date, { status: row.status, note: row.note || "" });
-    }
-    syncState.textContent = "OK";
-    render();
-    updateStats();
-    if (selectedKey) selectKey(selectedKey);
-  }
+    function clearGrid(){ while(grid.firstChild) grid.removeChild(grid.firstChild); }
 
-  // =========================
-  // Rendering
-  // =========================
-  function cellElForDate(d, isOut){
-    const k = keyFor(d);
-    const cell = document.createElement("div");
-    cell.className = "daycell";
-    cell.dataset.key = k;
-    if (isOut) cell.classList.add("out");
-
-    const today = new Date();
-    if (d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth() && d.getDate()===today.getDate()) {
-      cell.classList.add("today");
-    }
-
-    const bar = document.createElement("div"); bar.className="bar"; cell.appendChild(bar);
-    const num = document.createElement("div"); num.className="num"; num.textContent=d.getDate(); cell.appendChild(num);
-    const tag = document.createElement("div"); tag.className="tag"; tag.textContent=""; cell.appendChild(tag);
-
-    const entry = cache.get(k);
-    applyStateToCell(cell, entry?.status || "");
-
-    cell.addEventListener("click", () => selectKey(k), { passive:true });
-    addLongPress(cell, () => {
-      selectKey(k);
-      const cur = cache.get(k)?.status || "";
-      const idx = STATES.indexOf(cur);
-      const next = STATES[(idx + 1) % STATES.length];
-      if (!next) deleteEntry(k);
-      else upsertEntry(k, { status: next });
-      haptic();
-    });
-
-    return cell;
-  }
-
-  function renderMonth(m){
-    clearGrid();
-    monthName.textContent = `${MONTHS[m]} ${YEAR}`;
-
-    // Sunday-first: start offset = JS getDay() (0=Sun..6=Sat)
-    const firstOfMonth = new Date(YEAR, m, 1);
-    const startOffset = firstOfMonth.getDay(); // 0..6
-    const start = new Date(YEAR, m, 1 - startOffset);
-
-    for (let i=0; i<42; i++){
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const isOut = d.getMonth() !== m;
-      grid.appendChild(cellElForDate(d, isOut));
-    }
-
-    if (selectedKey){
-      const cell = grid.querySelector(`.daycell[data-key="${selectedKey}"]`);
-      if (cell){
-        cell.setAttribute("data-selected","true");
-        cell.style.outline = "2px solid rgba(147,197,253,.28)";
-        cell.style.outlineOffset = "2px";
+    function applyStateToCell(cell, state){
+      STATES.forEach(s => { if (s) cell.classList.remove(`state-${s}`); });
+      const tag = cell.querySelector(".tag");
+      tag.textContent = "";
+      if (state){
+        cell.classList.add(`state-${state}`);
+        tag.textContent = TAG[state] || "";
       }
     }
-  }
 
-  function renderYear(){
-    clearGrid();
-    monthName.textContent = `Année ${YEAR}`;
-    grid.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
-    grid.style.gap = "12px";
+    function repaintCell(k){
+      const el = grid.querySelector(`.daycell[data-key="${k}"]`);
+      if (!el) return;
+      const e = cache.get(k);
+      applyStateToCell(el, e?.status || "");
+    }
 
-    for (let m=0; m<12; m++){
-      const block = document.createElement("div");
-      block.className = "card";
-      block.style.background = "rgba(255,255,255,.045)";
-      block.style.border = "1px solid rgba(255,255,255,.09)";
-      block.style.borderRadius = "18px";
-      block.style.padding = "10px";
-      block.style.boxShadow = "none";
+    function select(k){
+      selectedKey = k;
+      const d = parseKey(k);
+      const e = cache.get(k);
+      selectedInfo.textContent = `${fmtLong(d)} (${DOW[d.getDay()]})`;
+      selectedState.textContent = LABEL[e?.status || ""];
+      noteText.value = e?.note || "";
 
-      const h = document.createElement("div");
-      h.style.display="flex"; h.style.justifyContent="space-between"; h.style.alignItems="center"; h.style.marginBottom="8px";
-      const t = document.createElement("div"); t.textContent = MONTHS[m]; t.style.fontWeight="950"; t.style.fontSize="13px";
-      const small = document.createElement("div"); small.textContent = YEAR; small.style.color="rgba(255,255,255,.55)"; small.style.fontWeight="850"; small.style.fontSize="12px";
-      h.appendChild(t); h.appendChild(small);
+      // outline
+      grid.querySelectorAll(".daycell").forEach(el => el.style.outline = "");
+      const cur = grid.querySelector(`.daycell[data-key="${k}"]`);
+      if (cur){
+        cur.style.outline = "2px solid rgba(147,197,253,.28)";
+        cur.style.outlineOffset = "2px";
+      }
 
-      const miniDow = document.createElement("div");
-      miniDow.style.display="grid";
-      miniDow.style.gridTemplateColumns="repeat(7, minmax(0, 1fr))";
-      miniDow.style.gap="5px";
-      miniDow.style.marginBottom="6px";
-      ["D","L","M","M","J","V","S"].forEach(x=>{
-        const d = document.createElement("div");
-        d.textContent=x; d.style.textAlign="center"; d.style.fontSize="10px"; d.style.color="rgba(255,255,255,.45)"; d.style.fontWeight="900";
-        miniDow.appendChild(d);
+      // sheet meta
+      sheetDate.textContent = selectedInfo.textContent;
+      sheetMeta.textContent = `État actuel: ${LABEL[e?.status || ""]}`;
+    }
+
+    function addLongPress(el, cb){
+      let t=null, moved=false;
+      const start=()=>{ moved=false; if(t) clearTimeout(t); t=setTimeout(()=>{ t=null; if(!moved) cb(); }, 420); };
+      const cancel=()=>{ if(t) clearTimeout(t); t=null; };
+      el.addEventListener("touchstart", start, { passive:true });
+      el.addEventListener("touchmove", ()=>{ moved=true; cancel(); }, { passive:true });
+      el.addEventListener("touchend", cancel, { passive:true });
+      el.addEventListener("touchcancel", cancel, { passive:true });
+      el.addEventListener("mousedown", start);
+      el.addEventListener("mousemove", ()=>{ moved=true; cancel(); });
+      el.addEventListener("mouseup", cancel);
+      el.addEventListener("mouseleave", cancel);
+    }
+
+    function haptic(){ if (navigator.vibrate) navigator.vibrate(10); }
+
+    function openSheet(){
+      sheetBack.classList.add("show");
+      sheet.classList.add("show");
+    }
+    function closeSheet(){
+      sheetBack.classList.remove("show");
+      sheet.classList.remove("show");
+    }
+
+    // =========================
+    // Supabase Data
+    // =========================
+    async function refreshUser(){
+      const { data } = await supabase.auth.getUser();
+      user = data.user || null;
+      if (!user){
+        authState.textContent = "Non connecté";
+        syncState.textContent = "—";
+        gate.classList.add("show");
+      } else {
+        authState.textContent = user.email || "Connecté";
+        gate.classList.remove("show");
+      }
+    }
+
+    async function loadYear(){
+      if (!user) return;
+      syncState.textContent = "Chargement…";
+
+      const from = `${YEAR}-01-01`;
+      const to = `${YEAR}-12-31`;
+
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select("work_date,status,note")
+        .eq("user_id", user.id)
+        .gte("work_date", from)
+        .lte("work_date", to);
+
+      if (error){
+        console.error(error);
+        syncState.textContent = "Erreur";
+        toast("Erreur chargement Supabase.");
+        return;
+      }
+
+      cache.clear();
+      (data || []).forEach(row => {
+        cache.set(row.work_date, { status: row.status, note: row.note || "" });
       });
 
-      const mini = document.createElement("div");
-      mini.style.display="grid";
-      mini.style.gridTemplateColumns="repeat(7, minmax(0, 1fr))";
-      mini.style.gap="5px";
+      syncState.textContent = "OK";
+      updateStats();
+      render();
+      // selection par défaut
+      if (!selectedKey){
+        selectedKey = `${YEAR}-01-01`;
+      }
+      select(selectedKey);
+    }
+
+    async function upsertDay(dateKey, patch){
+      if (!user) return;
+      syncState.textContent = "…";
+
+      const payload = { user_id: user.id, work_date: dateKey, ...patch };
+
+      const { error } = await supabase
+        .from(TABLE)
+        .upsert(payload, { onConflict: "user_id,work_date" });
+
+      if (error){
+        console.error(error);
+        syncState.textContent = "Erreur";
+        toast("Erreur sync.");
+        return;
+      }
+
+      const cur = cache.get(dateKey) || { status:"", note:"" };
+      cache.set(dateKey, { ...cur, ...patch });
+
+      syncState.textContent = "OK";
+      updateStats();
+      repaintCell(dateKey);
+      if (selectedKey === dateKey) select(dateKey);
+    }
+
+    async function deleteDay(dateKey){
+      if (!user) return;
+      syncState.textContent = "…";
+
+      const { error } = await supabase
+        .from(TABLE)
+        .delete()
+        .eq("user_id", user.id)
+        .eq("work_date", dateKey);
+
+      if (error){
+        console.error(error);
+        syncState.textContent = "Erreur";
+        toast("Erreur suppression.");
+        return;
+      }
+
+      cache.delete(dateKey);
+      syncState.textContent = "OK";
+      updateStats();
+      repaintCell(dateKey);
+      if (selectedKey === dateKey) select(dateKey);
+    }
+
+    // =========================
+    // Rendering
+    // =========================
+    function cellEl(d, isOut){
+      const k = keyFor(d);
+      const el = document.createElement("div");
+      el.className = "daycell";
+      el.dataset.key = k;
+      if (isOut) el.classList.add("out");
+
+      const today = new Date();
+      if (d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth() && d.getDate()===today.getDate()){
+        el.classList.add("today");
+      }
+
+      const bar = document.createElement("div"); bar.className="bar";
+      const num = document.createElement("div"); num.className="num"; num.textContent = d.getDate();
+      const tag = document.createElement("div"); tag.className="tag";
+
+      el.appendChild(bar);
+      el.appendChild(num);
+      el.appendChild(tag);
+
+      applyStateToCell(el, cache.get(k)?.status || "");
+
+      // Tap = sélection + applique outil (rapide)
+      el.addEventListener("click", async () => {
+        select(k);
+        await upsertDay(k, { status: activeTool });
+      }, { passive:true });
+
+      // Long press = cycle
+      addLongPress(el, async () => {
+        select(k);
+        const cur = cache.get(k)?.status || "";
+        const idx = STATES.indexOf(cur);
+        const next = STATES[(idx + 1) % STATES.length];
+        if (!next) await deleteDay(k);
+        else await upsertDay(k, { status: next });
+        haptic();
+      });
+
+      // Double tap = ouvrir "Plus"
+      let lastTap = 0;
+      el.addEventListener("touchend", (e) => {
+        const t = Date.now();
+        if (t - lastTap < 260){
+          e.preventDefault();
+          select(k);
+          openSheet();
+        }
+        lastTap = t;
+      }, { passive:false });
+
+      return el;
+    }
+
+    function renderMonth(m){
+      clearGrid();
+      monthName.textContent = `${MONTHS[m]} ${YEAR}`;
 
       const first = new Date(YEAR, m, 1);
-      const offset = first.getDay();
+      const offset = first.getDay(); // Sunday-first
       const start = new Date(YEAR, m, 1 - offset);
 
       for (let i=0; i<42; i++){
-        const d = new Date(start); d.setDate(start.getDate()+i);
-        const isOut = d.getMonth() !== m;
-        const k = keyFor(d);
-
-        const c = document.createElement("div");
-        c.className="daycell";
-        c.dataset.key = k;
-        c.style.height="34px";
-        c.style.borderRadius="14px";
-        c.style.padding="6px 6px 6px 8px";
-        c.style.border="1px solid rgba(255,255,255,.08)";
-        c.style.background="rgba(255,255,255,.035)";
-        if (isOut) c.classList.add("out");
-
-        const bar = document.createElement("div"); bar.className="bar"; c.appendChild(bar);
-        const num = document.createElement("div"); num.className="num"; num.textContent=d.getDate(); num.style.fontSize="11px"; c.appendChild(num);
-        const tag = document.createElement("div"); tag.className="tag"; tag.style.fontSize="10px"; tag.style.padding="4px 6px"; tag.style.bottom="6px"; c.appendChild(tag);
-
-        applyStateToCell(c, cache.get(k)?.status || "");
-
-        c.addEventListener("click", () => {
-          viewMonth = m;
-          viewMode = "month";
-          setActiveModeButtons();
-          grid.style.gridTemplateColumns = "";
-          grid.style.gap = "";
-          renderMonth(viewMonth);
-          selectKey(k);
-        }, { passive:true });
-
-        addLongPress(c, () => {
-          selectKey(k);
-          const cur = cache.get(k)?.status || "";
-          const idx = STATES.indexOf(cur);
-          const next = STATES[(idx + 1) % STATES.length];
-          if (!next) deleteEntry(k);
-          else upsertEntry(k, { status: next });
-          applyStateToCell(c, cache.get(k)?.status || next || "");
-          haptic();
-        });
-
-        mini.appendChild(c);
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        grid.appendChild(cellEl(d, d.getMonth() !== m));
       }
 
-      block.appendChild(h);
-      block.appendChild(miniDow);
-      block.appendChild(mini);
-      grid.appendChild(block);
+      if (selectedKey){
+        repaintCell(selectedKey);
+        select(selectedKey);
+      }
     }
 
-    const mq1 = window.matchMedia("(max-width: 980px)");
-    const mq2 = window.matchMedia("(max-width: 560px)");
-    const applyCols = () => {
-      if (mq2.matches) grid.style.gridTemplateColumns = "repeat(1, minmax(0, 1fr))";
-      else if (mq1.matches) grid.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
-      else grid.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
-    };
-    applyCols();
-    mq1.addEventListener("change", applyCols);
-    mq2.addEventListener("change", applyCols);
-  }
-
-  function render(){
-    grid.style.gridTemplateColumns = "";
-    grid.style.gap = "";
-    if (viewMode === "month") renderMonth(viewMonth);
-    else renderYear();
-  }
-
-  function updateStats(){
-    const c = { jour:0, nuit:0, conges:0, repos:0 };
-    for (const [k,v] of cache.entries()){
-      if (!in2026(k)) continue;
-      if (c[v.status] !== undefined) c[v.status]++;
+    function renderYear(){
+      clearGrid();
+      monthName.textContent = `Année ${YEAR}`;
+      // simple: on garde la vue "Année" pour plus tard si besoin
+      // Ici on affiche juste Janvier→Décembre sous forme de scroll mois (plus clean mobile)
+      viewMode = "month";
+      setModeButtons();
+      renderMonth(viewMonth);
+      toast("Vue Année: à activer ensuite (priorité mobile propre).");
     }
-    kJour.textContent = c.jour;
-    kNuit.textContent = c.nuit;
-    kConges.textContent = c.conges;
-    kRepos.textContent = c.repos;
-  }
 
-  // =========================
-  // Auth UI
-  // =========================
-  function toast(msg){
-    authMsg.style.display = "block";
-    authMsg.textContent = msg;
-    setTimeout(()=>{ authMsg.style.display="none"; }, 4200);
-  }
-
-  async function refreshAuthUI(){
-    const user = await getUser();
-    if (user){
-      authState.textContent = user.email || "Connecté";
-      btnLogout.style.display = "inline-flex";
-      syncState.textContent = "OK";
-    } else {
-      authState.textContent = "Non connecté";
-      btnLogout.style.display = "none";
-      syncState.textContent = "—";
+    function render(){
+      if (viewMode === "month") renderMonth(viewMonth);
+      else renderYear();
     }
-  }
 
-  btnMagic.addEventListener("click", async () => {
-    const email = emailInput.value.trim();
-    if (!email) return toast("Entre un email.");
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.href }
+    function updateStats(){
+      const c = { jour:0, nuit:0, conges:0, repos:0 };
+      for (const [k,v] of cache.entries()){
+        if (!inYear(k)) continue;
+        if (c[v.status] !== undefined) c[v.status]++;
+      }
+      kJour.textContent = c.jour;
+      kNuit.textContent = c.nuit;
+      kConges.textContent = c.conges;
+      kRepos.textContent = c.repos;
+    }
+
+    // =========================
+    // UI actions
+    // =========================
+    toolBtns.forEach(b => {
+      b.addEventListener("click", () => {
+        activeTool = b.dataset.tool;
+        setToolUI();
+        haptic();
+      });
     });
-    if (error){
-      console.error(error);
-      toast("Erreur envoi du lien.");
-      return;
-    }
-    toast("Lien envoyé. Ouvre l’email puis reviens ici.");
-  });
 
-  btnLogout.addEventListener("click", async () => {
-    await supabase.auth.signOut();
-    await refreshAuthUI();
-    cache.clear();
-    render();
-    updateStats();
-    toast("Déconnecté.");
-  });
+    btnMore.addEventListener("click", () => {
+      if (!selectedKey) select(`${YEAR}-01-01`);
+      openSheet();
+    });
 
-  supabase.auth.onAuthStateChange(async () => {
-    await refreshAuthUI();
-    await loadYearFromSupabase();
-  });
+    sheetBack.addEventListener("click", closeSheet);
+    btnCloseSheet.addEventListener("click", closeSheet);
 
-  // =========================
-  // Actions
-  // =========================
-  prevBtn.addEventListener("click", () => {
-    if (viewMode === "year") return;
-    viewMonth = (viewMonth + 11) % 12;
-    renderMonth(viewMonth);
-  });
-  nextBtn.addEventListener("click", () => {
-    if (viewMode === "year") return;
-    viewMonth = (viewMonth + 1) % 12;
-    renderMonth(viewMonth);
-  });
+    sheetSetBtns.forEach(b => {
+      b.addEventListener("click", async () => {
+        if (!selectedKey) return;
+        await upsertDay(selectedKey, { status: b.dataset.set });
+        sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
+      });
+    });
 
-  modeMonth.addEventListener("click", () => { viewMode="month"; setActiveModeButtons(); render(); });
-  modeYear.addEventListener("click", () => { viewMode="year"; setActiveModeButtons(); render(); });
+    btnSheetClear.addEventListener("click", async () => {
+      if (!selectedKey) return;
+      await deleteDay(selectedKey);
+      sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
+    });
 
-  todayBtn.addEventListener("click", () => {
-    const d = new Date();
-    if (d.getFullYear() !== YEAR){
-      viewMonth = 0; viewMode="month"; setActiveModeButtons(); render();
+    btnSheetNote.addEventListener("click", () => {
+      closeSheet();
+      document.getElementById("noteText").scrollIntoView({ behavior:"smooth", block:"center" });
+      noteText.focus();
+    });
+
+    btnCycle.addEventListener("click", async () => {
+      if (!selectedKey) return;
+      const cur = cache.get(selectedKey)?.status || "";
+      const idx = STATES.indexOf(cur);
+      const next = STATES[(idx + 1) % STATES.length];
+      if (!next) await deleteDay(selectedKey);
+      else await upsertDay(selectedKey, { status: next });
+      sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
+      haptic();
+    });
+
+    btnSaveNote.addEventListener("click", async () => {
+      if (!selectedKey) return;
+      await upsertDay(selectedKey, { note: noteText.value || "" });
+      toast("Note enregistrée.");
+    });
+
+    btnClearDay.addEventListener("click", async () => {
+      if (!selectedKey) return;
+      await deleteDay(selectedKey);
+      toast("Journée effacée.");
+    });
+
+    prev.addEventListener("click", () => {
+      viewMonth = (viewMonth + 11) % 12;
+      renderMonth(viewMonth);
+    });
+
+    next.addEventListener("click", () => {
+      viewMonth = (viewMonth + 1) % 12;
+      renderMonth(viewMonth);
+    });
+
+    modeMonth.addEventListener("click", () => {
+      viewMode = "month";
+      setModeButtons();
+      render();
+    });
+
+    modeYear.addEventListener("click", () => {
+      viewMode = "year";
+      setModeButtons();
+      render();
+    });
+
+    btnToday.addEventListener("click", () => {
+      const d = new Date();
+      if (d.getFullYear() !== YEAR){
+        viewMonth = 0;
+      } else {
+        viewMonth = d.getMonth();
+      }
+      viewMode = "month";
+      setModeButtons();
+      renderMonth(viewMonth);
+      const k = keyFor(new Date(YEAR, viewMonth, 1));
+      if (!selectedKey) selectedKey = k;
+      select(selectedKey);
+    });
+
+    btnExport.addEventListener("click", () => {
+      const rows = [["date","etat","note"]];
+      const keys = Array.from(cache.keys()).filter(inYear).sort();
+      keys.forEach(k => {
+        const e = cache.get(k);
+        rows.push([k, e?.status || "", (e?.note || "").replace(/\n/g," ")]);
+      });
+      const csv = rows.map(r => r.join(";")).join("\\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `calendrier_${YEAR}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    });
+
+    // Auth actions
+    btnMagic.addEventListener("click", async () => {
+      const v = (email.value || "").trim();
+      if (!v) return toast("Entre un email.");
+      const { error } = await supabase.auth.signInWithOtp({
+        email: v,
+        options: { emailRedirectTo: window.location.href }
+      });
+      if (error){
+        console.error(error);
+        toast("Erreur envoi du lien.");
+        return;
+      }
+      toast("Lien envoyé. Ouvre l’email puis reviens ici.");
+    });
+
+    btnLogout.addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      cache.clear();
       selectedKey = "";
-      selectedInfo.textContent = "—";
-      selectionStatePill.textContent = "État: —";
-      noteText.value = "";
-      return;
-    }
-    viewMonth = d.getMonth();
-    viewMode = "month";
-    setActiveModeButtons();
-    renderMonth(viewMonth);
-    const k = keyFor(d);
-    selectKey(k);
-    const cell = grid.querySelector(`.daycell[data-key="${k}"]`);
-    if (cell) cell.scrollIntoView({ block:"center", inline:"nearest", behavior:"smooth" });
-  });
-
-  setButtons.forEach(btn => {
-    btn.addEventListener("click", async () => {
-      if (!selectedKey) return toast("Sélectionne une date.");
-      const state = btn.getAttribute("data-set");
-      await upsertEntry(selectedKey, { status: state });
+      syncState.textContent = "—";
+      authState.textContent = "Non connecté";
+      gate.classList.add("show");
+      toast("Déconnecté.");
     });
-  });
 
-  btnClearOne.addEventListener("click", async () => {
-    if (!selectedKey) return toast("Sélectionne une date.");
-    await deleteEntry(selectedKey);
-  });
+    supabase.auth.onAuthStateChange(async () => {
+      await refreshUser();
+      if (user) {
+        await loadYear();
+        toast("Calendrier prêt.");
+      }
+    });
 
-  btnSaveNote.addEventListener("click", async () => {
-    if (!selectedKey) return toast("Sélectionne une date.");
-    const note = noteText.value || "";
-    await upsertEntry(selectedKey, { note });
-  });
+    // =========================
+    // Init (connexion obligatoire)
+    // =========================
+    activeTool = "jour";
+    setToolUI();
+    setModeButtons();
 
-  resetBtn.addEventListener("click", async () => {
-    const ok = confirm("Tout effacer pour 2026 ? (Supabase + cache)");
-    if (!ok) return;
-    const user = await getUser();
-    if (!user) return toast("Connecte-toi pour effacer.");
-    syncState.textContent = "…";
-    const from = `${YEAR}-01-01`;
-    const to   = `${YEAR}-12-31`;
-    const { error } = await supabase
-      .from(TABLE)
-      .delete()
-      .eq("user_id", user.id)
-      .gte("work_date", from)
-      .lte("work_date", to);
-
-    if (error){
-      console.error(error);
-      syncState.textContent = "Erreur";
-      toast("Erreur suppression.");
-      return;
+    await refreshUser();
+    if (user){
+      await loadYear();
+    } else {
+      gate.classList.add("show");
     }
 
-    cache.clear();
-    syncState.textContent = "OK";
-    render();
-    updateStats();
-    selectedKey = "";
-    selectedInfo.textContent = "—";
-    selectionStatePill.textContent = "État: —";
-    noteText.value = "";
-  });
-
-  exportBtn.addEventListener("click", async () => {
-    const user = await getUser();
-    const rows = [["date","etat","note"]];
-    const keys = Array.from(cache.keys()).filter(in2026).sort();
-    for (const k of keys){
-      const e = cache.get(k);
-      rows.push([k, e?.status || "", (e?.note || "").replace(/\n/g," ")]);
-    }
-    const csv = rows.map(r => r.join(";")).join("\n");
-    const payload = {
-      year: YEAR,
-      user: user?.email || null,
-      exportedAt: new Date().toISOString(),
-      data: Object.fromEntries(Array.from(cache.entries()))
-    };
-    const text = [
-      "=== EXPORT CALENDRIER 2026 (Supabase) ===",
-      "",
-      "--- CSV (date;etat;note) ---",
-      csv,
-      "",
-      "--- JSON ---",
-      JSON.stringify(payload, null, 2)
-    ].join("\n");
-
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `calendrier_${YEAR}_export.txt`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
-  });
-
-  // =========================
-  // Init
-  // =========================
-  await refreshAuthUI();
-  render();
-
-  // Sélection par défaut: 1er janvier 2026
-  viewMonth = 0;
-  renderMonth(viewMonth);
-  selectedKey = `${YEAR}-01-01`;
-  selectKey(selectedKey);
-
-  // Si déjà connecté, charge Supabase
-  await loadYearFromSupabase();
-</script>
+    // sélection par défaut (sera appliquée après loadYear)
+    selectedKey = `${YEAR}-01-01`;
+  </script>
 </body>
 </html>
