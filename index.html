@@ -25,7 +25,6 @@
   --safeTop: env(safe-area-inset-top);
   --safeBottom: env(safe-area-inset-bottom);
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -37,10 +36,8 @@ body{
   color:var(--text);
   overflow-x:hidden;
 }
-
 .wrap{max-width:1100px;margin:0 auto;padding:0 12px}
-
-button, input, select, textarea{font:inherit}
+button,input,select,textarea{font:inherit}
 button{
   background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.08);
@@ -52,16 +49,11 @@ button{
   -webkit-tap-highlight-color:transparent;
 }
 button:active{transform:scale(.98)}
-button.primary{background:var(--primary); border-color: rgba(31,111,235,.6)}
-button.danger{border-color: rgba(255,107,107,.35); color:#ff7d7d}
-button.icon{
-  width:46px; height:46px; padding:0;
-  border-radius:16px;
-  display:inline-flex; align-items:center; justify-content:center;
-}
+button.primary{background:var(--primary);border-color:rgba(31,111,235,.6)}
+button.danger{border-color:rgba(255,107,107,.35);color:#ff7d7d}
+button.icon{width:46px;height:46px;padding:0;border-radius:16px;display:inline-flex;align-items:center;justify-content:center}
 button.pill{border-radius:999px}
-
-input, select, textarea{
+input,select,textarea{
   width:100%;
   background:rgba(15,20,32,.9);
   border:1px solid rgba(255,255,255,.10);
@@ -70,15 +62,14 @@ input, select, textarea{
   color:var(--text);
   outline:none;
 }
-textarea{min-height:96px; resize:vertical}
+textarea{min-height:96px;resize:vertical}
 
-/* ===== Appbar (mobile-first) ===== */
 .appbar{
-  position:sticky; top:0; z-index:50;
-  padding-top: calc(12px + var(--safeTop));
-  padding-bottom: 12px;
-  background: rgba(14,17,23,.92);
-  backdrop-filter: blur(14px);
+  position:sticky;top:0;z-index:50;
+  padding-top:calc(12px + var(--safeTop));
+  padding-bottom:12px;
+  background:rgba(14,17,23,.92);
+  backdrop-filter:blur(14px);
   border-bottom:1px solid rgba(255,255,255,.06);
 }
 .bar{display:flex;flex-direction:column;gap:10px}
@@ -99,237 +90,139 @@ textarea{min-height:96px; resize:vertical}
 .monthpill .m{font-size:18px;font-weight:950}
 .monthpill .y{font-size:14px;font-weight:900;color:var(--muted);margin-top:2px}
 
-.controls{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-.controls .arrows{
-  display:flex; gap:10px;
-}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.controls .arrows{display:flex;gap:10px}
 .controls .arrows button{flex:1}
-
-.controls2{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-
+.controls2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(min-width:900px){
-  .controls{grid-template-columns: 1fr 360px}
-  .controls2{grid-template-columns: 1fr 1fr 1fr 1fr}
+  .controls{grid-template-columns:1fr 360px}
+  .controls2{grid-template-columns:1fr 1fr 1fr 1fr}
 }
 
-/* ===== Main ===== */
-main{padding: 14px 0 calc(164px + var(--safeBottom))}
+main{padding:14px 0 calc(164px + var(--safeBottom))}
 .card{
   background:rgba(21,26,35,.72);
   border:1px solid rgba(255,255,255,.08);
-  border-radius: 22px;
-  padding: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  border-radius:22px;
+  padding:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
 }
 
-/* ===== Calendar ===== */
 .calendar-head{
   display:grid;
-  grid-template-columns: 52px repeat(7, 1fr);
+  grid-template-columns:52px repeat(7,1fr);
   gap:10px;
-  margin-bottom: 10px;
+  margin-bottom:10px;
   align-items:center;
   color:var(--muted);
   font-size:13px;
   font-weight:950;
 }
 .calendar-head div{text-align:center}
-
-.grid{
-  display:grid;
-  grid-template-columns: 52px repeat(7, 1fr);
-  gap:10px;
-}
-
-.weeknum{
-  text-align:center;
-  font-size:13px;
-  font-weight:950;
-  color:var(--muted);
-  padding-top: 16px;
-}
+.grid{display:grid;grid-template-columns:52px repeat(7,1fr);gap:10px}
+.weeknum{text-align:center;font-size:13px;font-weight:950;color:var(--muted);padding-top:16px}
 
 .day{
-  height: 52px;
-  border-radius: 18px;
+  height:52px;border-radius:18px;
   border:1px solid rgba(255,255,255,.07);
-  background: rgba(15,20,32,.75);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  font-weight:950;
-  font-size:18px;
+  background:rgba(15,20,32,.75);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;cursor:pointer;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  font-weight:950;font-size:18px;
 }
 .day.out{opacity:.35}
-.day.selected{outline:2px solid rgba(31,111,235,.70); outline-offset: 2px}
-.day.locked::after{
-  content:"🔒";
-  position:absolute;
-  top:6px; right:8px;
-  font-size:12px;
-  opacity:.95;
-}
-.dot{
-  position:absolute;
-  bottom:8px; left:10px;
-  width:6px; height:6px;
-  border-radius:999px;
-  background: rgba(255,255,255,.85);
-}
-.badge{
-  position:absolute;
-  bottom:6px; right:8px;
-  font-size:10px;
-  font-weight:950;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.18);
-  color: rgba(255,255,255,.9);
-}
+.day.selected{outline:2px solid rgba(31,111,235,.70);outline-offset:2px}
+.day.locked::after{content:"🔒";position:absolute;top:6px;right:8px;font-size:12px;opacity:.95}
+.dot{position:absolute;bottom:8px;left:10px;width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.85)}
+.badge{position:absolute;bottom:6px;right:8px;font-size:10px;font-weight:950;padding:2px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18)}
 
-/* Status colors */
-.day.jour{ background: rgba(250,204,21,.30); border-color: rgba(250,204,21,.18) }
-.day.nuit{ background: rgba(139,92,246,.30); border-color: rgba(139,92,246,.18) }
-.day.conges{ background: rgba(127,29,29,.42); border-color: rgba(127,29,29,.24) }
-.day.repos{ background: rgba(107,114,128,.28); border-color: rgba(107,114,128,.18) }
-.day.autre{ background: rgba(245,158,11,.28); border-color: rgba(245,158,11,.18) }
+.day.jour{background:rgba(250,204,21,.30);border-color:rgba(250,204,21,.18)}
+.day.nuit{background:rgba(139,92,246,.30);border-color:rgba(139,92,246,.18)}
+.day.conges{background:rgba(127,29,29,.42);border-color:rgba(127,29,29,.24)}
+.day.repos{background:rgba(107,114,128,.28);border-color:rgba(107,114,128,.18)}
+.day.autre{background:rgba(245,158,11,.28);border-color:rgba(245,158,11,.18)}
 
-/* ===== Totals ===== */
-.totals{
-  margin-top:12px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:space-between;
-}
-.pillchip{
-  display:inline-flex; gap:8px; align-items:center;
-  padding:10px 12px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.08);
-  background: rgba(255,255,255,.03);
-  font-weight:950;
-  color: rgba(255,255,255,.9);
-}
-.warn{color:#ffb86b; border-color: rgba(255,184,107,.25)}
+.totals{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.pillchip{display:inline-flex;gap:8px;align-items:center;padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-weight:950}
+.warn{color:#ffb86b;border-color:rgba(255,184,107,.25)}
 
-/* ===== Bottom dock ===== */
 .dock{
-  position:fixed; left:0; right:0; bottom:0;
-  z-index:60;
-  background: rgba(14,17,23,.94);
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:rgba(14,17,23,.94);
   border-top:1px solid rgba(255,255,255,.06);
-  backdrop-filter: blur(14px);
-  padding: 12px 12px calc(12px + var(--safeBottom));
+  backdrop-filter:blur(14px);
+  padding:12px 12px calc(12px + var(--safeBottom));
 }
 .selbar{
-  background: rgba(255,255,255,.03);
+  background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.08);
-  border-radius: 18px;
-  padding: 12px;
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  border-radius:18px;
+  padding:12px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
 }
 .selbar .left{min-width:0}
-.selbar .date{font-weight:950; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.selbar .state{font-weight:900; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.selbar .date{font-weight:950;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selbar .state{font-weight:900;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.actions{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: repeat(6, minmax(0,1fr));
-  gap:10px;
-}
-.actions button{padding:14px 10px; border-radius: 18px; font-size:14px}
+.actions{margin-top:12px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.actions button{padding:14px 10px;border-radius:18px;font-size:14px}
+@media(min-width:900px){main{padding-bottom:26px}.dock{position:sticky;bottom:0}}
 
-@media(min-width:900px){
-  main{padding-bottom: 26px;}
-  .dock{position:sticky; bottom:0;}
-}
-
-/* ===== Sheet ===== */
-.backdrop{
-  position:fixed; inset:0; z-index:80;
-  background: rgba(0,0,0,.45);
-  backdrop-filter: blur(10px);
-  display:none;
-}
+.backdrop{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);display:none}
 .backdrop.show{display:block}
 .sheet{
-  position:fixed; left:0; right:0; bottom:0;
-  z-index:90;
-  background: rgba(21,26,35,.96);
+  position:fixed;left:0;right:0;bottom:0;z-index:90;
+  background:rgba(21,26,35,.96);
   border-top:1px solid rgba(255,255,255,.08);
-  border-radius: 22px 22px 0 0;
-  padding: 12px 12px calc(14px + var(--safeBottom));
-  transform: translateY(110%);
-  transition: transform .18s ease;
+  border-radius:22px 22px 0 0;
+  padding:12px 12px calc(14px + var(--safeBottom));
+  transform:translateY(110%);
+  transition:transform .18s ease;
 }
-.sheet.show{transform: translateY(0)}
-.grab{width:44px; height:5px; border-radius:999px; background: rgba(255,255,255,.22); margin: 6px auto 12px}
-.sheet-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px}
+.sheet.show{transform:translateY(0)}
+.grab{width:44px;height:5px;border-radius:999px;background:rgba(255,255,255,.22);margin:6px auto 12px}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .sheet-title{font-weight:950}
-.sheet-sub{font-weight:900; font-size:12px; color:var(--muted); margin-top:2px}
-.row{display:flex; gap:10px; margin-top:12px}
-.row > *{flex:1}
-.sheet-actions{display:flex; gap:10px; margin-top:12px}
+.sheet-sub{font-weight:900;font-size:12px;color:var(--muted);margin-top:2px}
+.row{display:flex;gap:10px;margin-top:12px}
+.row>*{flex:1}
+.sheet-actions{display:flex;gap:10px;margin-top:12px}
 .sheet-actions button{flex:1}
 
-/* ===== Auth gate ===== */
 .gate{
-  position:fixed; inset:0; z-index:100;
-  padding: calc(14px + var(--safeTop)) 12px calc(14px + var(--safeBottom));
-  background: rgba(14,17,23,.94);
-  backdrop-filter: blur(14px);
+  position:fixed;inset:0;z-index:100;
+  padding:calc(14px + var(--safeTop)) 12px calc(14px + var(--safeBottom));
+  background:rgba(14,17,23,.94);
+  backdrop-filter:blur(14px);
   display:none;
 }
 .gate.show{display:block}
 .gate-card{
-  max-width: 420px;
-  margin: 0 auto;
-  background: rgba(255,255,255,.03);
+  max-width:420px;margin:0 auto;
+  background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.08);
-  border-radius: 20px;
-  padding: 14px;
+  border-radius:20px;
+  padding:14px;
 }
-.tabs{display:flex; gap:10px; margin-top:12px}
+.tabs{display:flex;gap:10px;margin-top:12px}
 .tabs button{flex:1}
-.small{color:var(--muted); font-size:12px; font-weight:900; margin-top:8px; line-height:1.3}
+.small{color:var(--muted);font-size:12px;font-weight:900;margin-top:8px;line-height:1.3}
 
-/* ===== Toast ===== */
 .toast{
-  position:fixed;
-  left:12px; right:12px;
-  bottom: calc(190px + var(--safeBottom));
-  z-index:120;
-  display:none;
-  max-width: 520px;
-  margin: 0 auto;
-  border-radius: 16px;
-  border:1px solid rgba(255,255,255,.08);
-  background: rgba(20,26,38,.92);
-  padding: 12px 14px;
-  font-weight:950;
+  position:fixed;left:12px;right:12px;
+  bottom:calc(190px + var(--safeBottom));
+  z-index:120;display:none;
+  max-width:520px;margin:0 auto;
+  border-radius:16px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(20,26,38,.92);
+  padding:12px 14px;font-weight:950;
 }
 .toast.show{display:block}
 </style>
 </head>
 
 <body>
-
 <div class="toast" id="toast"></div>
 
 <div class="appbar">
@@ -363,7 +256,6 @@ main{padding: 14px 0 calc(164px + var(--safeBottom))}
         <button id="btnLockMonth" class="pill">Verrouiller mois</button>
         <button id="btnLogout" class="pill danger">Déconnexion</button>
       </div>
-
     </div>
   </div>
 </div>
@@ -376,7 +268,6 @@ main{padding: 14px 0 calc(164px + var(--safeBottom))}
         <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
         <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
       </div>
-
       <div class="grid" id="grid"></div>
       <div class="totals" id="totals"></div>
     </div>
@@ -408,7 +299,6 @@ main{padding: 14px 0 calc(164px + var(--safeBottom))}
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true">
   <div class="grab"></div>
-
   <div class="sheet-head">
     <div>
       <div class="sheet-title" id="sheetTitle">—</div>
@@ -446,7 +336,6 @@ main{padding: 14px 0 calc(164px + var(--safeBottom))}
   <div class="gate-card">
     <div style="font-weight:950; font-size:16px">Connexion</div>
     <div class="small">Email + mot de passe (création + reset).</div>
-
     <div class="tabs">
       <button id="tabLogin" class="primary">Connexion</button>
       <button id="tabSignup">Créer</button>
@@ -480,18 +369,26 @@ main{padding: 14px 0 calc(164px + var(--safeBottom))}
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 /* =========================
-   SUPABASE
+   CONFIG
    ========================= */
-const supabase = createClient(
-  "https://dstmyvzjirgyuwuojwnk.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk"
-);
+const SUPABASE_URL  = "https://dstmyvzjirgyuwuojwnk.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false
+  }
+});
 
 const MIN_YEAR = 2023;
 const MAX_YEAR = 2035;
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 const LABEL = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
+
+const LS_KEY = "sncf_planning_state_v1";
 
 /* =========================
    DOM
@@ -531,10 +428,10 @@ const loginHint = document.getElementById("loginHint");
    ========================= */
 let user = null;
 let viewYear = 2026;
-let viewMonth = 0;      // 0-11
+let viewMonth = 0;
 let selectedKey = null;
 
-const entries = new Map(); // key -> {status, custom_label, note, locked}
+const entries = new Map(); // date -> {status, custom_label, note, locked}
 let monthLocked = false;
 
 /* =========================
@@ -549,7 +446,7 @@ function clampYear(y){ return Math.max(MIN_YEAR, Math.min(MAX_YEAR, y)); }
 function toast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2400);
+  setTimeout(()=>toastEl.classList.remove("show"), 2600);
 }
 
 function isoWeek(date){
@@ -570,7 +467,37 @@ function getSncfNow(){
   return d;
 }
 
-/* ===== Sheet ===== */
+/* Persist view position */
+function saveViewState(){
+  const payload = { viewYear, viewMonth, selectedKey };
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(payload)); }catch{}
+}
+function restoreViewState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return false;
+    const st = JSON.parse(raw);
+    if(st && typeof st.viewYear==="number" && typeof st.viewMonth==="number"){
+      viewYear = clampYear(st.viewYear);
+      viewMonth = Math.max(0, Math.min(11, st.viewMonth));
+      selectedKey = (typeof st.selectedKey==="string" && st.selectedKey.includes("-")) ? st.selectedKey : null;
+      return true;
+    }
+  }catch{}
+  return false;
+}
+
+/* Plage EXACTE affichée (42 jours) */
+function gridRangeForMonth(year, month){
+  const first = new Date(year, month, 1);
+  const offset = first.getDay(); // dimanche-first
+  const start = new Date(year, month, 1 - offset);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 41);
+  return { start, end, fromKey: keyFor(start), toKey: keyFor(end) };
+}
+
+/* Sheet */
 function openSheet(mode){
   sheetOther.style.display = (mode==="other") ? "block" : "none";
   sheetNote.style.display = (mode==="note") ? "block" : "none";
@@ -584,9 +511,8 @@ function closeSheet(){
 backdrop.addEventListener("click", closeSheet);
 document.getElementById("btnCloseSheet").addEventListener("click", closeSheet);
 document.getElementById("btnCancelOther").addEventListener("click", closeSheet);
-
 otherSelect.addEventListener("change", ()=>{
-  otherCustom.style.display = (otherSelect.value === "custom") ? "block" : "none";
+  otherCustom.style.display = (otherSelect.value==="custom") ? "block" : "none";
 });
 
 /* =========================
@@ -645,44 +571,34 @@ document.getElementById("btnLogout").addEventListener("click", async ()=>{
   await supabase.auth.signOut();
   entries.clear();
   monthLocked=false;
-  selectedKey=null;
+  user=null;
   topSub.textContent="Non connecté";
   gate.classList.add("show");
   renderMonth();
   renderTotals();
-  selDate.textContent="Sélectionne une date";
-  selState.textContent="État: —";
 });
 
 /* =========================
    SUPABASE LOAD/SAVE
    ========================= */
-async function refreshUser(){
-  const { data } = await supabase.auth.getUser();
-  user = data.user || null;
+async function refreshSessionUser(){
+  const { data, error } = await supabase.auth.getSession();
+  if(error){ console.error(error); user=null; }
+  user = data?.session?.user || null;
+
   if(!user){
     topSub.textContent="Non connecté";
     gate.classList.add("show");
-  }else{
-    topSub.textContent=user.email || "Connecté";
+  } else {
+    topSub.textContent = user.email || "Connecté";
     gate.classList.remove("show");
   }
-}
-
-/* IMPORTANT: on charge la plage EXACTE affichée (6 semaines),
-   sinon les couleurs peuvent ne jamais revenir. */
-function gridRangeForMonth(year, month){
-  const first = new Date(year, month, 1);
-  const offset = first.getDay(); // dimanche=0
-  const start = new Date(year, month, 1 - offset);
-  const end = new Date(start);
-  end.setDate(start.getDate() + (6*7) - 1); // 42 jours affichés
-  return { fromKey: keyFor(start), toKey: keyFor(end), start, end };
 }
 
 async function loadMonthLocks(){
   monthLocked = false;
   if(!user) return;
+
   const { data, error } = await supabase
     .from("work_calendar_month_locks")
     .select("locked")
@@ -693,6 +609,7 @@ async function loadMonthLocks(){
 
   if(error && error.code !== "PGRST116"){
     console.error(error);
+    toast("Erreur lock mois: " + (error.message || error.code || ""));
     return;
   }
   monthLocked = !!(data && data.locked);
@@ -714,7 +631,7 @@ async function loadGridEntries(){
 
   if(error){
     console.error(error);
-    toast("Erreur chargement Supabase.");
+    toast("Erreur Supabase: " + (error.message || error.code || ""));
     return;
   }
 
@@ -733,12 +650,21 @@ function isLocked(dateKey){
   return monthLocked || !!e?.locked;
 }
 
+/* Enregistrement immédiat:
+   - on applique tout de suite la classe (optimistic)
+   - si Supabase fail => revert */
 async function upsertDay(dateKey, patch){
   if(!user){ toast("Connecte-toi."); return; }
   if(isLocked(dateKey)){ toast("Verrouillé."); return; }
 
   const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"", locked:false };
   const next = { ...cur, ...patch };
+
+  // optimistic update
+  entries.set(dateKey, next);
+  renderMonth();
+  renderTotals();
+  setSelected(dateKey);
 
   const { error } = await supabase
     .from("work_calendar_entries")
@@ -753,15 +679,13 @@ async function upsertDay(dateKey, patch){
 
   if(error){
     console.error(error);
-    toast("Erreur sauvegarde.");
+    // revert
+    if(cur.status || cur.note || cur.custom_label || cur.locked) entries.set(dateKey, cur);
+    else entries.delete(dateKey);
+    renderMonth(); renderTotals(); setSelected(dateKey);
+    toast("Erreur sauvegarde: " + (error.message || error.code || ""));
     return;
   }
-
-  // Mise à jour locale immédiate (couleurs instant)
-  entries.set(dateKey, next);
-  renderMonth();
-  renderTotals();
-  setSelected(dateKey);
 }
 
 async function toggleLockDay(dateKey){
@@ -769,25 +693,7 @@ async function toggleLockDay(dateKey){
   if(monthLocked){ toast("Mois verrouillé."); return; }
 
   const cur = entries.get(dateKey) || { status:"jour", custom_label:"", note:"", locked:false };
-  const nextLocked = !cur.locked;
-
-  const { error } = await supabase
-    .from("work_calendar_entries")
-    .upsert({
-      user_id: user.id,
-      work_date: dateKey,
-      status: cur.status || "jour",
-      custom_label: cur.custom_label || null,
-      note: cur.note || null,
-      locked: nextLocked
-    }, { onConflict: "user_id,work_date" });
-
-  if(error){ console.error(error); toast("Erreur verrouillage."); return; }
-
-  entries.set(dateKey, { ...cur, locked: nextLocked });
-  renderMonth();
-  renderTotals();
-  setSelected(dateKey);
+  await upsertDay(dateKey, { ...cur, locked: !cur.locked, status: cur.status || "jour" });
 }
 
 async function toggleLockMonth(){
@@ -803,13 +709,11 @@ async function toggleLockMonth(){
       locked: next
     }, { onConflict: "user_id,year,month" });
 
-  if(error){ console.error(error); toast("Erreur verrouillage mois."); return; }
+  if(error){ console.error(error); toast("Erreur verrouillage mois: " + (error.message||error.code||"")); return; }
 
   monthLocked = next;
   document.getElementById("btnLockMonth").textContent = monthLocked ? "Déverrouiller mois" : "Verrouiller mois";
-  toast(monthLocked ? "Mois verrouillé" : "Mois déverrouillé");
-  renderMonth();
-  renderTotals();
+  renderMonth(); renderTotals();
 }
 
 /* =========================
@@ -863,6 +767,7 @@ function renderMonth(){
 
       cell.addEventListener("click", ()=>{
         setSelected(k);
+        saveViewState();
       }, { passive:true });
 
       grid.appendChild(cell);
@@ -904,14 +809,6 @@ function renderTotals(){
     if(e.status==="autre") cA++;
   }
 
-  // alerte nuits consécutives (dans la plage affichée)
-  let maxStreak=0, streak=0;
-  for(const k of keys){
-    const e = entries.get(k);
-    if(e?.status==="nuit"){ streak++; maxStreak=Math.max(maxStreak, streak); }
-    else streak=0;
-  }
-
   totalsEl.innerHTML = "";
   const chip = (t, cls="")=>{
     const d = document.createElement("div");
@@ -925,12 +822,11 @@ function renderTotals(){
   totalsEl.appendChild(chip(`Repos: ${cR}`));
   totalsEl.appendChild(chip(`Congés: ${cC}`));
   totalsEl.appendChild(chip(`Autres: ${cA}`));
-  if(maxStreak >= 3) totalsEl.appendChild(chip(`⚠︎ Nuits consécutives: ${maxStreak}`, "warn"));
   if(monthLocked) totalsEl.appendChild(chip("🔒 Mois verrouillé", "warn"));
 }
 
 /* =========================
-   ACTIONS (boutons)
+   BUTTON ACTIONS
    ========================= */
 function ensureSelected(){
   if(!selectedKey){
@@ -946,15 +842,14 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
     const k = ensureSelected();
     if(!k) return;
 
-    const type = btn.dataset.set;
-
-    // IMPORTANT: toujours refléter la sélection avant d'appliquer
-    if(!grid.querySelector(`.day[data-key="${k}"]`)){
-      // si on est sur un autre mois, on bascule dessus
-      const d = parseKey(k);
-      goToDate(d);
-      await reloadView();
+    // si sélection hors mois visible -> basculer au bon mois
+    const dSel = parseKey(k);
+    if(dSel.getFullYear() !== viewYear || dSel.getMonth() !== viewMonth){
+      goToDate(dSel);
+      await reloadView(true);
     }
+
+    const type = btn.dataset.set;
 
     if(type === "autre"){
       if(isLocked(k)){ toast("Verrouillé."); return; }
@@ -979,7 +874,7 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
     }
 
     await upsertDay(k, { status: type, custom_label: "" });
-    toast(`${LABEL[type]} appliqué`);
+    saveViewState();
   });
 });
 
@@ -992,6 +887,7 @@ document.getElementById("btnNote").addEventListener("click", ()=>{
 document.getElementById("btnLockDay").addEventListener("click", async ()=>{
   const k = ensureSelected();
   await toggleLockDay(k);
+  saveViewState();
 });
 
 document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
@@ -1004,7 +900,7 @@ document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
     if(!label){ toast("Entre un libellé."); return; }
   }
   await upsertDay(k, { status:"autre", custom_label: label });
-  toast(`Autre (${label}) appliqué`);
+  saveViewState();
   closeSheet();
 });
 
@@ -1013,7 +909,7 @@ document.getElementById("btnSaveNote").addEventListener("click", async ()=>{
   if(isLocked(k)){ toast("Verrouillé."); return; }
   const note = (noteText.value||"").trim();
   await upsertDay(k, { note });
-  toast("Note enregistrée");
+  saveViewState();
   closeSheet();
 });
 
@@ -1022,12 +918,13 @@ document.getElementById("btnClearNote").addEventListener("click", async ()=>{
   if(isLocked(k)){ toast("Verrouillé."); return; }
   noteText.value = "";
   await upsertDay(k, { note:"" });
-  toast("Note vidée");
+  saveViewState();
   closeSheet();
 });
 
 document.getElementById("btnLockMonth").addEventListener("click", async ()=>{
   await toggleLockMonth();
+  saveViewState();
 });
 
 /* =========================
@@ -1038,30 +935,35 @@ function goToDate(d){
   viewMonth = d.getMonth();
 }
 
-async function reloadView(){
+async function reloadView(keepSelection=false){
   await loadMonthLocks();
   await loadGridEntries();
   renderMonth();
   renderTotals();
+
+  if(!keepSelection){
+    const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
+    setSelected(k);
+  } else if(selectedKey){
+    setSelected(selectedKey);
+  }
 }
 
 async function changeMonth(delta){
-  let y = viewYear;
-  let m = viewMonth + delta;
-  if(m<0){m=11; y--;}
-  if(m>11){m=0; y++;}
-  y = clampYear(y);
-  viewYear=y; viewMonth=m;
-  await reloadView();
-  const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
-  setSelected(k);
+  let y=viewYear, m=viewMonth+delta;
+  if(m<0){m=11;y--}
+  if(m>11){m=0;y++}
+  viewYear = clampYear(y);
+  viewMonth = m;
+
+  await reloadView(false);
+  saveViewState();
 }
 
 async function changeYear(delta){
   viewYear = clampYear(viewYear + delta);
-  await reloadView();
-  const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
-  setSelected(k);
+  await reloadView(false);
+  saveViewState();
 }
 
 document.getElementById("btnPrevMonth").addEventListener("click", ()=>changeMonth(-1));
@@ -1072,84 +974,42 @@ document.getElementById("btnNextYear").addEventListener("click", ()=>changeYear(
 document.getElementById("btnToday").addEventListener("click", async ()=>{
   const d = getSncfNow();
   goToDate(d);
-  await reloadView();
-  setSelected(keyFor(d));
-  toast("Aujourd’hui SNCF");
+  selectedKey = keyFor(d);
+  await reloadView(true);
+  saveViewState();
 });
 
 /* =========================
-   EXPORTS (mois affiché)
+   EXPORTS (inchangés, optionnels)
    ========================= */
 document.getElementById("btnExportXLSX").addEventListener("click", ()=>{
   const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note","Verrouillé"]];
-  let cJ=0,cN=0,cR=0,cC=0,cA=0;
-
   const keys = Array.from(entries.keys()).sort();
   for(const k of keys){
     const e = entries.get(k);
     if(!e?.status) continue;
     const d = new Date(k);
-    if(e.status==="jour") cJ++;
-    if(e.status==="nuit") cN++;
-    if(e.status==="repos") cR++;
-    if(e.status==="conges") cC++;
-    if(e.status==="autre") cA++;
-
-    rows.push([
-      k,
-      d.getFullYear(),
-      MONTHS[d.getMonth()],
-      String(isoWeek(d)).padStart(2,"0"),
-      LABEL[e.status] || "",
-      e.custom_label || "",
-      e.note || "",
-      isLocked(k) ? "Oui" : ""
-    ]);
+    rows.push([k, d.getFullYear(), MONTHS[d.getMonth()], String(isoWeek(d)).padStart(2,"0"),
+      LABEL[e.status]||"", e.custom_label||"", e.note||"", isLocked(k)?"Oui":"" ]);
   }
-
-  const summary = [
-    ["Type","Total"],
-    ["Jour", cJ],
-    ["Nuit", cN],
-    ["Repos", cR],
-    ["Congés", cC],
-    ["Autre", cA],
-    ["Mois verrouillé", monthLocked ? "Oui" : "Non"]
-  ];
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Calendrier");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), "Résumé");
   XLSX.writeFile(wb, `planning_${viewYear}-${pad2(viewMonth+1)}.xlsx`);
 });
 
-function icsEscape(s){
-  return String(s||"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;");
-}
-function toICSDate(d){
-  const dt = new Date(d);
-  return `${dt.getFullYear()}${pad2(dt.getMonth()+1)}${pad2(dt.getDate())}`;
-}
+function icsEscape(s){return String(s||"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;")}
+function toICSDate(d){const dt=new Date(d);return `${dt.getFullYear()}${pad2(dt.getMonth()+1)}${pad2(dt.getDate())}`;}
 document.getElementById("btnExportICS").addEventListener("click", ()=>{
   const keys = Array.from(entries.keys()).sort();
-  const lines = [];
-  lines.push("BEGIN:VCALENDAR");
-  lines.push("VERSION:2.0");
-  lines.push("PRODID:-//Planning SNCF//FR");
-  lines.push("CALSCALE:GREGORIAN");
-
+  const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Planning SNCF//FR","CALSCALE:GREGORIAN"];
   for(const k of keys){
     const e = entries.get(k);
     if(!e?.status) continue;
     const d = new Date(k);
     const dt = toICSDate(d);
-    const uid = `${k}-${e.status}-${Math.random().toString(16).slice(2)}@planning-sncf`;
-    const title = e.status==="autre"
-      ? (`Autre - ${e.custom_label||""}`).trim()
-      : (LABEL[e.status] || "Service");
-
+    const title = e.status==="autre" ? (`Autre - ${e.custom_label||""}`).trim() : (LABEL[e.status]||"Service");
     lines.push("BEGIN:VEVENT");
-    lines.push(`UID:${icsEscape(uid)}`);
+    lines.push(`UID:${icsEscape(k+"-"+e.status+"@planning-sncf")}`);
     lines.push(`DTSTAMP:${dt}T000000Z`);
     lines.push(`DTSTART;VALUE=DATE:${dt}`);
     const d2 = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1);
@@ -1159,7 +1019,6 @@ document.getElementById("btnExportICS").addEventListener("click", ()=>{
     lines.push("END:VEVENT");
   }
   lines.push("END:VCALENDAR");
-
   const blob = new Blob([lines.join("\r\n")], {type:"text/calendar"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -1168,35 +1027,35 @@ document.getElementById("btnExportICS").addEventListener("click", ()=>{
 });
 
 /* =========================
-   INIT + AUTH STATE
+   INIT (IMPORTANT)
    ========================= */
 async function init(){
-  const now = getSncfNow();
-  viewYear = clampYear(now.getFullYear());
-  viewMonth = now.getMonth();
-  selectedKey = keyFor(now);
+  // 1) Restaurer la position (mois/année/date) AVANT de render
+  const restored = restoreViewState();
 
-  await refreshUser();
-
-  // Affiche l'UI tout de suite
-  renderMonth();
-  renderTotals();
-  setSelected(selectedKey);
-
-  if(user){
-    await reloadView();
-    setSelected(selectedKey);
+  if(!restored){
+    const now = getSncfNow();
+    viewYear = clampYear(now.getFullYear());
+    viewMonth = now.getMonth();
+    selectedKey = keyFor(now);
   }
 
+  // 2) Render immédiat (UX)
+  renderMonth();
+  renderTotals();
+  if(selectedKey) setSelected(selectedKey);
+
+  // 3) Charger session (getSession) + ensuite charger données
+  await refreshSessionUser();
+  if(user){
+    await reloadView(true);
+  }
+
+  // 4) Sur changement auth : recharger
   supabase.auth.onAuthStateChange(async ()=>{
-    await refreshUser();
+    await refreshSessionUser();
     if(user){
-      // recharge + réaffiche => couleurs
-      const d = selectedKey ? parseKey(selectedKey) : getSncfNow();
-      goToDate(d);
-      await reloadView();
-      setSelected(keyFor(d));
-      toast("Connecté.");
+      await reloadView(true);
     }
   });
 }
