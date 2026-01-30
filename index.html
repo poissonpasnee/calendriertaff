@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Calendrier 2026 — Travail</title>
+  <title>Calendrier 2026 — Travail (Mobile)</title>
 
   <style>
     :root{
@@ -49,16 +49,17 @@
         var(--bg);
       overflow-x:hidden;
     }
+
     .wrap{ max-width: var(--maxw); margin: 0 auto; padding: 0 14px; }
 
-    /* ===== Appbar ===== */
+    /* ===== Appbar (mobile-first) ===== */
     .appbar{
       position: sticky;
       top: 0;
-      z-index: 50;
+      z-index: 60;
       padding-top: calc(10px + var(--safeTop));
       padding-bottom: 10px;
-      background: linear-gradient(to bottom, rgba(11,15,22,.88), rgba(11,15,22,.58));
+      background: linear-gradient(to bottom, rgba(11,15,22,.92), rgba(11,15,22,.60));
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border-bottom: 1px solid rgba(255,255,255,.06);
@@ -107,19 +108,10 @@
     .title .s{
       font-size: 12px;
       color: var(--muted);
-      font-weight: 750;
+      font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .topActions{
-      display:flex;
-      align-items:center;
-      gap: 8px;
-      flex: 0 0 auto;
-      flex-wrap: wrap;
-      justify-content: flex-end;
     }
 
     .btn{
@@ -130,7 +122,7 @@
       padding: 10px 12px;
       border-radius: 14px;
       cursor:pointer;
-      font-weight: 850;
+      font-weight: 900;
       letter-spacing:.2px;
       display:inline-flex;
       align-items:center;
@@ -142,7 +134,6 @@
       white-space: nowrap;
     }
     .btn:active{ transform: translateY(1px) scale(.99); }
-    .btn:hover{ background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.14); }
     .btn.primary{
       background: linear-gradient(135deg, rgba(96,165,250,.22), rgba(192,132,252,.16));
       border-color: rgba(147,197,253,.30);
@@ -151,21 +142,21 @@
       background: rgba(239,68,68,.12);
       border-color: rgba(239,68,68,.25);
     }
+    .iconBtn{
+      width: 44px; height: 44px;
+      padding: 0;
+      border-radius: 16px;
+    }
 
-    .barMonth{
+    .monthBar{
       margin-top: 10px;
       display:grid;
       grid-template-columns: 44px 1fr 44px;
       gap: 10px;
       align-items:center;
     }
-    .navbtn{
-      width: 44px; height: 44px;
-      padding: 0;
-      border-radius: 16px;
-    }
     .monthCenter{
-      min-width: 0;
+      min-width:0;
       display:flex;
       flex-direction: column;
       gap: 8px;
@@ -175,17 +166,17 @@
       font-weight: 950;
       letter-spacing:.2px;
       line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .chips{
+    .miniRow{
       display:flex;
-      gap: 8px;
-      overflow-x:auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      padding-bottom: 2px;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items:center;
     }
-    .chips::-webkit-scrollbar{ display:none; }
     .pill{
       display:inline-flex;
       align-items:center;
@@ -195,28 +186,12 @@
       border:1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.05);
       color: var(--muted);
-      font-weight: 850;
+      font-weight: 900;
       font-size: 12px;
       white-space: nowrap;
-      flex: 0 0 auto;
-    }
-    .dot{ width: 8px; height: 8px; border-radius: 999px; display:inline-block; }
-
-    .statusRow{
-      display:flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items:center;
     }
 
-    main{ padding: 14px 0 calc(92px + var(--safeBottom)); }
-
-    .layout{
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap: 12px;
-      align-items:start;
-    }
+    main{ padding: 12px 0 calc(150px + var(--safeBottom)); }
 
     .card{
       background: var(--panel);
@@ -262,12 +237,15 @@
       transition: transform .12s ease, background .12s ease, border-color .12s ease;
       overflow:hidden;
     }
-    .daycell:hover{ background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
     .daycell:active{ transform: translateY(1px) scale(.995); }
     .daycell.out{ opacity:.35; filter:saturate(.7); }
     .daycell.today{
       border-color: rgba(147,197,253,.35);
       background: linear-gradient(135deg, rgba(147,197,253,.14), rgba(255,255,255,.04));
+    }
+    .daycell.selected{
+      outline: 2px solid rgba(147,197,253,.28);
+      outline-offset: 2px;
     }
 
     .bar{
@@ -304,40 +282,111 @@
     .state-teletravail .bar{ background: var(--teletravail); }
     .state-autre .bar{ background: var(--autre); }
 
-    .side{
-      padding: 14px;
+    /* ===== Mobile dock: status buttons apply to selected day ===== */
+    .dock{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 70;
+      background: linear-gradient(to top, rgba(11,15,22,.94), rgba(11,15,22,.62));
+      border-top: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 10px 10px calc(10px + var(--safeBottom));
+    }
+    .dockWrap{
+      max-width: var(--maxw);
+      margin: 0 auto;
       display:flex;
       flex-direction: column;
-      gap: 12px;
-      position: sticky;
-      top: calc(120px + var(--safeTop));
-      align-self:start;
+      gap: 10px;
     }
-
-    .block{
+    .selBar{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
       border: 1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
       background: rgba(255,255,255,.05);
+    }
+    .selLeft{
+      min-width:0;
+      display:flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .selDate{
+      font-weight: 950;
+      letter-spacing:.2px;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .selState{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 900;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .dockRow{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      gap: 8px;
+    }
+    .tool{
+      height: 48px;
       border-radius: 16px;
-      padding: 12px;
+      padding: 0 10px;
+      font-weight: 950;
+      font-size: 13px;
     }
 
-    .h{ font-weight: 950; letter-spacing:.2px; margin: 0 0 6px; }
-    .small{ font-size: 12px; color: var(--muted); font-weight: 800; line-height: 1.35; }
-
-    .field{ display:flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    input[type="email"], input[type="password"]{
-      flex: 1 1 240px;
-      padding: 11px 12px;
-      border-radius: 14px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      outline:none;
-      font-weight: 850;
+    /* ===== Sheet (note & extra) ===== */
+    .sheetBack{
+      position: fixed; inset: 0;
+      z-index: 90;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .16s ease;
     }
+    .sheetBack.show{ opacity: 1; pointer-events:auto; }
+
+    .sheet{
+      position: fixed;
+      left: 0; right: 0;
+      bottom: calc(-560px - var(--safeBottom));
+      z-index: 95;
+      background: rgba(18,24,35,.94);
+      border-top: 1px solid rgba(255,255,255,.10);
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -18px 70px rgba(0,0,0,.60);
+      padding: 12px 14px calc(14px + var(--safeBottom));
+      transition: transform .20s ease;
+      transform: translateY(0);
+    }
+    .sheet.show{ transform: translateY(calc(-560px - var(--safeBottom))); }
+    .grab{ width: 44px; height: 5px; border-radius: 999px; background: rgba(255,255,255,.22); margin: 6px auto 12px; }
+
+    .sheetHead{
+      display:flex;
+      justify-content: space-between;
+      align-items:flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .sheetTitle{ font-weight: 950; letter-spacing:.2px; font-size: 14px; }
+    .sheetSub{ margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 900; }
+
     textarea{
       width: 100%;
-      min-height: 92px;
+      min-height: 110px;
       padding: 11px 12px;
       border-radius: 14px;
       border:1px solid rgba(255,255,255,.12);
@@ -345,30 +394,50 @@
       color: var(--text);
       outline:none;
       resize: vertical;
-      font-weight: 700;
+      font-weight: 800;
       line-height: 1.35;
     }
 
-    .kpis{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+    .sheetActions{
       margin-top: 10px;
+      display:flex;
+      gap: 8px;
     }
-    .kpi{
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.04);
-      border-radius: 14px;
-      padding: 10px;
-    }
-    .kpi .v{ font-size: 18px; font-weight: 950; }
-    .kpi .k{ font-size: 12px; color: var(--muted); font-weight: 850; margin-top: 4px; }
+    .sheetActions .btn{ flex:1; height: 46px; border-radius: 16px; }
 
-    /* ===== Auth Gate ===== */
+    .sheetGrid{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 8px;
+    }
+    .sheetGrid .btn{ height: 46px; border-radius: 16px; }
+
+    /* Toast */
+    .toast{
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: calc(170px + var(--safeBottom));
+      z-index: 120;
+      display:none;
+      max-width: 520px;
+      margin: 0 auto;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(20,26,38,.92);
+      padding: 12px 12px;
+      color: rgba(255,255,255,.92);
+      font-weight: 900;
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+    }
+    .toast.show{ display:block; }
+
+    /* Auth gate */
     .gate{
       position: fixed;
       inset: 0;
-      z-index: 100;
+      z-index: 110;
       display:none;
       background: radial-gradient(900px 600px at 25% 10%, rgba(96,165,250,.16), transparent 60%),
                   radial-gradient(800px 560px at 80% 15%, rgba(192,132,252,.14), transparent 60%),
@@ -389,7 +458,7 @@
     }
     .gateHead{ display:flex; gap: 12px; align-items:center; }
     .gateTitle{ font-weight: 950; letter-spacing:.2px; font-size: 16px; margin: 0; }
-    .gateSub{ margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 800; line-height: 1.35; }
+    .gateSub{ margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 900; line-height: 1.35; }
 
     .tabs{
       margin-top: 14px;
@@ -414,114 +483,21 @@
       color: var(--text);
     }
 
-    .toast{
-      position: fixed;
-      left: 14px;
-      right: 14px;
-      bottom: calc(88px + var(--safeBottom));
-      z-index: 120;
-      display:none;
-      max-width: 520px;
-      margin: 0 auto;
-      border-radius: 16px;
+    .field{ display:flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    input[type="email"], input[type="password"]{
+      flex: 1 1 240px;
+      padding: 11px 12px;
+      border-radius: 14px;
       border:1px solid rgba(255,255,255,.12);
-      background: rgba(20,26,38,.92);
-      padding: 12px 12px;
-      color: rgba(255,255,255,.92);
-      font-weight: 850;
-      box-shadow: 0 18px 60px rgba(0,0,0,.55);
-    }
-    .toast.show{ display:block; }
-
-    /* ===== Bottom tool bar ===== */
-    .bottombar{
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      z-index: 60;
-      background: linear-gradient(to top, rgba(11,15,22,.92), rgba(11,15,22,.58));
-      border-top: 1px solid rgba(255,255,255,.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 10px 10px calc(10px + var(--safeBottom));
-    }
-    .barGrid{
-      max-width: var(--maxw);
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0,1fr));
-      gap: 8px;
-      padding: 0 4px;
-    }
-    .tool{
-      height: 46px;
-      border-radius: 16px;
-      padding: 0 10px;
-      font-weight: 950;
-      font-size: 13px;
-    }
-    .tool.active{
-      border-color: rgba(147,197,253,.35);
-      background: rgba(147,197,253,.12);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      outline:none;
+      font-weight: 900;
     }
 
-    /* Sheet */
-    .sheetBack{
-      position: fixed; inset: 0;
-      z-index: 90;
-      background: rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      opacity: 0;
-      pointer-events:none;
-      transition: opacity .16s ease;
-    }
-    .sheetBack.show{ opacity: 1; pointer-events:auto; }
-
-    .sheet{
-      position: fixed;
-      left: 0; right: 0;
-      bottom: calc(-520px - var(--safeBottom));
-      z-index: 95;
-      background: rgba(18,24,35,.94);
-      border-top: 1px solid rgba(255,255,255,.10);
-      border-radius: 22px 22px 0 0;
-      box-shadow: 0 -18px 70px rgba(0,0,0,.60);
-      padding: 12px 14px calc(14px + var(--safeBottom));
-      transition: transform .20s ease;
-      transform: translateY(0);
-    }
-    .sheet.show{ transform: translateY(calc(-520px - var(--safeBottom))); }
-    .grab{ width: 44px; height: 5px; border-radius: 999px; background: rgba(255,255,255,.22); margin: 6px auto 12px; }
-    .sheetHead{
-      display:flex;
-      justify-content: space-between;
-      align-items:flex-start;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .sheetDate{ font-weight: 950; letter-spacing:.2px; font-size: 14px; }
-    .sheetMeta{ margin-top: 4px; font-size: 12px; color: var(--muted); font-weight: 850; }
-    .sheetGrid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 10px;
-    }
-    .sheetGrid .btn{ justify-content:center; height: 46px; border-radius: 16px; }
-    .sheetRow{
-      margin-top: 10px;
-      display:flex;
-      gap: 8px;
-    }
-    .sheetRow .btn{ flex:1; height: 46px; border-radius: 16px; }
-
-    @media (max-width: 980px){
-      .layout{ grid-template-columns: 1fr; }
-      .side{ position: relative; top: 0; }
-    }
-    @media (max-width: 520px){
-      .barTop{ flex-direction: column; align-items: stretch; }
-      .topActions{ justify-content: space-between; }
+    @media (min-width: 981px){
+      /* Desktop still OK: center content */
+      main{ padding-bottom: 160px; }
     }
     @media (prefers-reduced-motion: reduce){
       *{ transition:none !important; }
@@ -574,7 +550,7 @@
 
       <!-- RESET REQUEST -->
       <div id="authReset" style="margin-top:14px; display:none;">
-        <div class="small">Entre ton email, Supabase envoie un lien de réinitialisation (ce n’est pas un magic link de connexion).</div>
+        <div class="gateSub">Supabase envoie un lien de réinitialisation (ce n’est pas un magic link de connexion).</div>
         <div class="field">
           <input id="resetEmail" type="email" placeholder="Email" autocomplete="email" />
         </div>
@@ -584,9 +560,9 @@
         </div>
       </div>
 
-      <!-- NEW PASSWORD (after reset link) -->
+      <!-- NEW PASSWORD -->
       <div id="authNewPass" style="margin-top:14px; display:none;">
-        <div class="small">Définis ton nouveau mot de passe.</div>
+        <div class="gateSub">Définis ton nouveau mot de passe.</div>
         <div class="field">
           <input id="newPass" type="password" placeholder="Nouveau mot de passe" autocomplete="new-password" />
         </div>
@@ -606,108 +582,84 @@
           <div class="logo" aria-hidden="true"></div>
           <div class="title">
             <div class="t">Calendrier 2026</div>
-            <div class="s">Semaine Dimanche → Samedi • Email + mot de passe</div>
+            <div class="s">Mobile: 1 tap = sélectionner • Boutons = appliquer</div>
           </div>
         </div>
-
-        <div class="topActions">
-          <button class="btn" id="btnToday" type="button">Aujourd’hui</button>
-          <button class="btn primary" id="btnExport" type="button">Exporter</button>
-          <button class="btn danger" id="btnLogout" type="button">Déconnexion</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn iconBtn" id="btnToday" type="button" aria-label="Aujourd’hui">⦿</button>
+          <button class="btn iconBtn" id="btnLogout" type="button" aria-label="Déconnexion">⎋</button>
         </div>
       </div>
 
-      <div class="barMonth">
-        <button class="btn navbtn" id="prev" type="button" aria-label="Mois précédent">◀</button>
-
+      <div class="monthBar">
+        <button class="btn iconBtn" id="prev" type="button" aria-label="Mois précédent">◀</button>
         <div class="monthCenter">
           <div class="monthName" id="monthName">—</div>
-
-          <div class="chips">
-            <span class="pill"><span class="dot" style="background: var(--jour)"></span> Jour</span>
-            <span class="pill"><span class="dot" style="background: var(--nuit)"></span> Nuit</span>
-            <span class="pill"><span class="dot" style="background: var(--conges)"></span> Congés</span>
-            <span class="pill"><span class="dot" style="background: var(--repos)"></span> Repos</span>
-            <span class="pill"><span class="dot" style="background: var(--ferie)"></span> Férié</span>
-          </div>
-
-          <div class="statusRow">
+          <div class="miniRow">
             <span class="pill">Compte: <b id="authState">—</b></span>
             <span class="pill">Sync: <b id="syncState">—</b></span>
-            <span class="pill">Outil: <b id="toolState">—</b></span>
           </div>
         </div>
-
-        <button class="btn navbtn" id="next" type="button" aria-label="Mois suivant">▶</button>
+        <button class="btn iconBtn" id="next" type="button" aria-label="Mois suivant">▶</button>
       </div>
     </div>
   </div>
 
   <main>
     <div class="wrap">
-      <div class="layout">
-        <section class="card calendar" aria-label="Calendrier">
-          <div class="dow" aria-hidden="true">
-            <div>Dim</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div>
-          </div>
-          <div id="grid" class="grid" aria-live="polite"></div>
-        </section>
-
-        <aside class="card side" aria-label="Panneau">
-          <div class="block">
-            <div class="h">Sélection</div>
-            <div class="small" id="selectedInfo">—</div>
-            <div class="small" style="margin-top:8px;">État: <b id="selectedState">—</b></div>
-          </div>
-
-          <div class="block">
-            <div class="h">Note du jour</div>
-            <div class="small">Optionnel (ex: heures sup, RDV, etc.).</div>
-            <textarea id="noteText" placeholder="Écris un message pour cette date…"></textarea>
-            <div class="field">
-              <button class="btn primary" id="btnSaveNote" type="button">Enregistrer</button>
-              <button class="btn danger" id="btnClearDay" type="button">Effacer</button>
-            </div>
-          </div>
-
-          <div class="block">
-            <div class="h">Stats 2026</div>
-            <div class="kpis">
-              <div class="kpi"><div class="v" id="kJour">0</div><div class="k">Jour</div></div>
-              <div class="kpi"><div class="v" id="kNuit">0</div><div class="k">Nuit</div></div>
-              <div class="kpi"><div class="v" id="kConges">0</div><div class="k">Congés</div></div>
-              <div class="kpi"><div class="v" id="kRepos">0</div><div class="k">Repos</div></div>
-            </div>
-            <div class="small" style="margin-top:10px;">
-              Saisie rapide : choisis un outil en bas, puis tape sur les dates.
-            </div>
-          </div>
-        </aside>
-      </div>
+      <section class="card calendar" aria-label="Calendrier">
+        <div class="dow" aria-hidden="true">
+          <div>Dim</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div>
+        </div>
+        <div id="grid" class="grid" aria-live="polite"></div>
+      </section>
     </div>
   </main>
 
-  <!-- Bottom tools -->
-  <div class="bottombar" aria-label="Barre d’outils">
-    <div class="barGrid">
-      <button class="btn tool" data-tool="jour" type="button">Jour</button>
-      <button class="btn tool" data-tool="nuit" type="button">Nuit</button>
-      <button class="btn tool" data-tool="conges" type="button">Congés</button>
-      <button class="btn tool" data-tool="repos" type="button">Repos</button>
-      <button class="btn tool" id="btnMore" type="button">Plus</button>
+  <!-- DOCK: one-click apply to selected day -->
+  <div class="dock" aria-label="Actions rapides">
+    <div class="dockWrap">
+      <div class="selBar">
+        <div class="selLeft">
+          <div class="selDate" id="selDate">Sélectionne une date</div>
+          <div class="selState" id="selState">État: —</div>
+        </div>
+        <button class="btn" id="btnNote" type="button">Note</button>
+      </div>
+
+      <div class="dockRow">
+        <button class="btn tool" data-set="jour" type="button">Jour</button>
+        <button class="btn tool" data-set="nuit" type="button">Nuit</button>
+        <button class="btn tool" data-set="conges" type="button">Congés</button>
+        <button class="btn tool" data-set="repos" type="button">Repos</button>
+        <button class="btn tool" id="btnMore" type="button">Plus</button>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="btnClear" type="button" style="flex:1;">Effacer</button>
+        <button class="btn primary" id="btnExport" type="button" style="flex:1;">Exporter</button>
+      </div>
     </div>
   </div>
 
-  <!-- Sheet -->
+  <!-- Sheet (note + autres statuts) -->
   <div class="sheetBack" id="sheetBack"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true">
     <div class="grab" aria-hidden="true"></div>
+
     <div class="sheetHead">
       <div>
-        <div class="sheetDate" id="sheetDate">—</div>
-        <div class="sheetMeta" id="sheetMeta">—</div>
+        <div class="sheetTitle" id="sheetTitle">—</div>
+        <div class="sheetSub" id="sheetSub">—</div>
       </div>
       <button class="btn" id="btnCloseSheet" type="button">Fermer</button>
+    </div>
+
+    <textarea id="noteText" placeholder="Écris une note pour cette date…"></textarea>
+
+    <div class="sheetActions">
+      <button class="btn primary" id="btnSaveNote" type="button">Enregistrer</button>
+      <button class="btn danger" id="btnDeleteNote" type="button">Vider note</button>
     </div>
 
     <div class="sheetGrid">
@@ -718,36 +670,29 @@
       <button class="btn" data-set="formation" type="button">Formation</button>
       <button class="btn" data-set="deplacement" type="button">Déplacement</button>
       <button class="btn" data-set="autre" type="button">Autre</button>
-      <button class="btn danger" id="btnSheetClear" type="button">Effacer</button>
+      <button class="btn danger" id="btnSheetClear" type="button">Effacer état</button>
     </div>
-
-    <div class="sheetRow">
-      <button class="btn primary" id="btnSheetNote" type="button">Éditer note</button>
-      <button class="btn" id="btnCycle" type="button">Cycle</button>
-    </div>
-
-    <div class="small" style="margin-top:10px;">Appui long sur une date = cycle rapide.</div>
   </div>
 
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
     // =========================
-    // SUPABASE CONFIG (tes infos)
+    // SUPABASE CONFIG
     // =========================
     const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // =========================
-    // CONFIG APP
+    // APP CONFIG
     // =========================
     const YEAR = 2026;
     const TABLE = "work_calendar_entries";
     const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-    const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"]; // Dimanche -> Samedi
+    const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 
-    const STATES = ["", "jour","nuit","repos","conges","ferie","maladie","astreinte","formation","deplacement","teletravail","autre"];
+    const STATES = ["jour","nuit","repos","conges","ferie","maladie","astreinte","formation","deplacement","teletravail","autre"];
     const LABEL = {
       "": "—",
       jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", ferie:"Férié", maladie:"Maladie",
@@ -761,7 +706,6 @@
     const toastEl = document.getElementById("toast");
     const gate = document.getElementById("gate");
 
-    // auth tabs / panels
     const tabLogin = document.getElementById("tabLogin");
     const tabSignup = document.getElementById("tabSignup");
     const authLogin = document.getElementById("authLogin");
@@ -769,67 +713,54 @@
     const authReset = document.getElementById("authReset");
     const authNewPass = document.getElementById("authNewPass");
 
-    // login
     const loginEmail = document.getElementById("loginEmail");
     const loginPass = document.getElementById("loginPass");
     const btnLogin = document.getElementById("btnLogin");
     const btnForgot = document.getElementById("btnForgot");
 
-    // signup
     const signEmail = document.getElementById("signEmail");
     const signPass = document.getElementById("signPass");
     const btnSignup = document.getElementById("btnSignup");
     const btnBackLogin = document.getElementById("btnBackLogin");
 
-    // reset request
     const resetEmail = document.getElementById("resetEmail");
     const btnSendReset = document.getElementById("btnSendReset");
     const btnResetBack = document.getElementById("btnResetBack");
 
-    // new pass
     const newPass = document.getElementById("newPass");
     const btnApplyNewPass = document.getElementById("btnApplyNewPass");
     const btnNewPassBack = document.getElementById("btnNewPassBack");
 
-    // app ui
     const authState = document.getElementById("authState");
     const syncState = document.getElementById("syncState");
-    const toolState = document.getElementById("toolState");
-
-    const btnToday = document.getElementById("btnToday");
-    const btnExport = document.getElementById("btnExport");
-    const btnLogout = document.getElementById("btnLogout");
 
     const prev = document.getElementById("prev");
     const next = document.getElementById("next");
     const monthName = document.getElementById("monthName");
     const grid = document.getElementById("grid");
 
-    const selectedInfo = document.getElementById("selectedInfo");
-    const selectedState = document.getElementById("selectedState");
-    const noteText = document.getElementById("noteText");
-    const btnSaveNote = document.getElementById("btnSaveNote");
-    const btnClearDay = document.getElementById("btnClearDay");
+    const btnToday = document.getElementById("btnToday");
+    const btnLogout = document.getElementById("btnLogout");
 
-    const kJour = document.getElementById("kJour");
-    const kNuit = document.getElementById("kNuit");
-    const kConges = document.getElementById("kConges");
-    const kRepos = document.getElementById("kRepos");
-
-    // bottom tools
-    const toolBtns = Array.from(document.querySelectorAll("[data-tool]"));
+    const selDate = document.getElementById("selDate");
+    const selState = document.getElementById("selState");
+    const btnNote = document.getElementById("btnNote");
     const btnMore = document.getElementById("btnMore");
+    const btnClear = document.getElementById("btnClear");
+    const btnExport = document.getElementById("btnExport");
 
-    // sheet
     const sheetBack = document.getElementById("sheetBack");
     const sheet = document.getElementById("sheet");
-    const sheetDate = document.getElementById("sheetDate");
-    const sheetMeta = document.getElementById("sheetMeta");
     const btnCloseSheet = document.getElementById("btnCloseSheet");
+    const sheetTitle = document.getElementById("sheetTitle");
+    const sheetSub = document.getElementById("sheetSub");
+    const noteText = document.getElementById("noteText");
+    const btnSaveNote = document.getElementById("btnSaveNote");
+    const btnDeleteNote = document.getElementById("btnDeleteNote");
     const btnSheetClear = document.getElementById("btnSheetClear");
-    const btnSheetNote = document.getElementById("btnSheetNote");
-    const btnCycle = document.getElementById("btnCycle");
-    const sheetSetBtns = Array.from(document.querySelectorAll("[data-set]"));
+
+    const dockSetBtns = Array.from(document.querySelectorAll(".tool[data-set]"));
+    const sheetSetBtns = Array.from(document.querySelectorAll(".sheetGrid [data-set]"));
 
     // =========================
     // State
@@ -837,8 +768,7 @@
     let user = null;
     let viewMonth = 0;
     let selectedKey = `${YEAR}-01-01`;
-    let activeTool = "jour";
-    let cache = new Map();
+    const cache = new Map();
 
     const now = new Date();
     if (now.getFullYear() === YEAR) viewMonth = now.getMonth();
@@ -855,66 +785,8 @@
     function toast(msg){
       toastEl.textContent = msg;
       toastEl.classList.add("show");
-      setTimeout(()=>toastEl.classList.remove("show"), 3200);
+      setTimeout(()=>toastEl.classList.remove("show"), 2600);
     }
-
-    function setToolUI(){
-      toolBtns.forEach(b => b.classList.toggle("active", b.dataset.tool === activeTool));
-      toolState.textContent = LABEL[activeTool] || "—";
-    }
-
-    function clearGrid(){ while(grid.firstChild) grid.removeChild(grid.firstChild); }
-
-    function applyStateToCell(cell, state){
-      STATES.forEach(s => { if (s) cell.classList.remove(`state-${s}`); });
-      const tag = cell.querySelector(".tag");
-      tag.textContent = "";
-      if (state){
-        cell.classList.add(`state-${state}`);
-        tag.textContent = TAG[state] || "";
-      }
-    }
-
-    function repaintCell(k){
-      const el = grid.querySelector(`.daycell[data-key="${k}"]`);
-      if (!el) return;
-      const e = cache.get(k);
-      applyStateToCell(el, e?.status || "");
-    }
-
-    function select(k){
-      selectedKey = k;
-      const d = parseKey(k);
-      const e = cache.get(k);
-      selectedInfo.textContent = `${fmtLong(d)} (${DOW[d.getDay()]})`;
-      selectedState.textContent = LABEL[e?.status || ""];
-      noteText.value = e?.note || "";
-
-      grid.querySelectorAll(".daycell").forEach(el => el.style.outline = "");
-      const cur = grid.querySelector(`.daycell[data-key="${k}"]`);
-      if (cur){
-        cur.style.outline = "2px solid rgba(147,197,253,.28)";
-        cur.style.outlineOffset = "2px";
-      }
-
-      sheetDate.textContent = selectedInfo.textContent;
-      sheetMeta.textContent = `État actuel: ${LABEL[e?.status || ""]}`;
-    }
-
-    function addLongPress(el, cb){
-      let t=null, moved=false;
-      const start=()=>{ moved=false; if(t) clearTimeout(t); t=setTimeout(()=>{ t=null; if(!moved) cb(); }, 420); };
-      const cancel=()=>{ if(t) clearTimeout(t); t=null; };
-      el.addEventListener("touchstart", start, { passive:true });
-      el.addEventListener("touchmove", ()=>{ moved=true; cancel(); }, { passive:true });
-      el.addEventListener("touchend", cancel, { passive:true });
-      el.addEventListener("touchcancel", cancel, { passive:true });
-      el.addEventListener("mousedown", start);
-      el.addEventListener("mousemove", ()=>{ moved=true; cancel(); });
-      el.addEventListener("mouseup", cancel);
-      el.addEventListener("mouseleave", cancel);
-    }
-
     function haptic(){ if (navigator.vibrate) navigator.vibrate(10); }
 
     function openSheet(){
@@ -926,9 +798,39 @@
       sheet.classList.remove("show");
     }
 
-    // =========================
-    // Auth UI switching
-    // =========================
+    function applyStateToCell(cell, state){
+      STATES.forEach(s => cell.classList.remove(`state-${s}`));
+      const tag = cell.querySelector(".tag");
+      tag.textContent = "";
+      if (state){
+        cell.classList.add(`state-${state}`);
+        tag.textContent = TAG[state] || "";
+      }
+    }
+
+    function repaintCell(k){
+      const el = grid.querySelector(`.daycell[data-key="${k}"]`);
+      if (!el) return;
+      applyStateToCell(el, cache.get(k)?.status || "");
+    }
+
+    function setSelected(k){
+      selectedKey = k;
+      const d = parseKey(k);
+      const e = cache.get(k);
+
+      selDate.textContent = `${fmtLong(d)} (${DOW[d.getDay()]})`;
+      selState.textContent = `État: ${LABEL[e?.status || ""]}`;
+
+      sheetTitle.textContent = selDate.textContent;
+      sheetSub.textContent = `État actuel: ${LABEL[e?.status || ""]}`;
+      noteText.value = e?.note || "";
+
+      grid.querySelectorAll(".daycell").forEach(el => el.classList.remove("selected"));
+      const cur = grid.querySelector(`.daycell[data-key="${k}"]`);
+      if (cur) cur.classList.add("selected");
+    }
+
     function showAuthPanel(panel){
       authLogin.style.display = "none";
       authSignup.style.display = "none";
@@ -944,8 +846,18 @@
       tabSignup.classList.toggle("active", panel === "signup");
     }
 
+    function detectRecoveryFromUrl(){
+      const hash = window.location.hash || "";
+      const isRecovery = hash.includes("type=recovery") || hash.includes("access_token=");
+      if (isRecovery){
+        gate.classList.add("show");
+        showAuthPanel("newpass");
+        toast("Réinitialisation : choisis un nouveau mot de passe.");
+      }
+    }
+
     // =========================
-    // Supabase Data
+    // Supabase data
     // =========================
     async function refreshUser(){
       const { data } = await supabase.auth.getUser();
@@ -957,7 +869,6 @@
         gate.classList.add("show");
         return;
       }
-
       authState.textContent = user.email || "Connecté";
       gate.classList.remove("show");
     }
@@ -985,17 +896,24 @@
 
       cache.clear();
       (data || []).forEach(row => cache.set(row.work_date, { status: row.status, note: row.note || "" }));
-
       syncState.textContent = "OK";
-      updateStats();
+
       renderMonth(viewMonth);
-      select(selectedKey);
+
+      // Sélection intelligente: aujourd'hui si dans 2026, sinon 1er jour du mois
+      const today = new Date();
+      if (today.getFullYear() === YEAR){
+        setSelected(keyFor(today));
+      } else {
+        setSelected(`${YEAR}-${pad2(viewMonth+1)}-01`);
+      }
     }
 
     async function upsertDay(dateKey, patch){
       if (!user) return;
-      syncState.textContent = "…";
+      if (!inYear(dateKey)) return;
 
+      syncState.textContent = "…";
       const payload = { user_id: user.id, work_date: dateKey, ...patch };
       const { error } = await supabase.from(TABLE).upsert(payload, { onConflict: "user_id,work_date" });
 
@@ -1010,15 +928,15 @@
       cache.set(dateKey, { ...cur, ...patch });
 
       syncState.textContent = "OK";
-      updateStats();
       repaintCell(dateKey);
-      if (selectedKey === dateKey) select(dateKey);
+      setSelected(dateKey);
     }
 
     async function deleteDay(dateKey){
       if (!user) return;
-      syncState.textContent = "…";
+      if (!inYear(dateKey)) return;
 
+      syncState.textContent = "…";
       const { error } = await supabase
         .from(TABLE)
         .delete()
@@ -1034,14 +952,29 @@
 
       cache.delete(dateKey);
       syncState.textContent = "OK";
-      updateStats();
       repaintCell(dateKey);
-      if (selectedKey === dateKey) select(dateKey);
+      setSelected(dateKey);
     }
 
     // =========================
-    // Rendering (mois)
+    // Rendering (mobile-first, 1 tap = select only)
     // =========================
+    function clearGrid(){ while(grid.firstChild) grid.removeChild(grid.firstChild); }
+
+    function addLongPress(el, cb){
+      let t=null, moved=false;
+      const start=()=>{ moved=false; if(t) clearTimeout(t); t=setTimeout(()=>{ t=null; if(!moved) cb(); }, 420); };
+      const cancel=()=>{ if(t) clearTimeout(t); t=null; };
+      el.addEventListener("touchstart", start, { passive:true });
+      el.addEventListener("touchmove", ()=>{ moved=true; cancel(); }, { passive:true });
+      el.addEventListener("touchend", cancel, { passive:true });
+      el.addEventListener("touchcancel", cancel, { passive:true });
+      el.addEventListener("mousedown", start);
+      el.addEventListener("mousemove", ()=>{ moved=true; cancel(); });
+      el.addEventListener("mouseup", cancel);
+      el.addEventListener("mouseleave", cancel);
+    }
+
     function cellEl(d, isOut){
       const k = keyFor(d);
       const el = document.createElement("div");
@@ -1064,34 +997,18 @@
 
       applyStateToCell(el, cache.get(k)?.status || "");
 
-      // Tap = sélection + applique outil
-      el.addEventListener("click", async () => {
-        select(k);
-        await upsertDay(k, { status: activeTool });
+      // 1 tap = sélection (aucun changement de statut)
+      el.addEventListener("click", () => {
+        setSelected(k);
+        haptic();
       }, { passive:true });
 
-      // Long press = cycle
-      addLongPress(el, async () => {
-        select(k);
-        const cur = cache.get(k)?.status || "";
-        const idx = STATES.indexOf(cur);
-        const next = STATES[(idx + 1) % STATES.length];
-        if (!next) await deleteDay(k);
-        else await upsertDay(k, { status: next });
+      // Long press = ouvrir note / plus
+      addLongPress(el, () => {
+        setSelected(k);
+        openSheet();
         haptic();
       });
-
-      // Double tap (mobile) = ouvre sheet
-      let lastTap = 0;
-      el.addEventListener("touchend", (e) => {
-        const t = Date.now();
-        if (t - lastTap < 260){
-          e.preventDefault();
-          select(k);
-          openSheet();
-        }
-        lastTap = t;
-      }, { passive:false });
 
       return el;
     }
@@ -1110,34 +1027,13 @@
         grid.appendChild(cellEl(d, d.getMonth() !== m));
       }
 
-      select(selectedKey);
-    }
-
-    function updateStats(){
-      const c = { jour:0, nuit:0, conges:0, repos:0 };
-      for (const [k,v] of cache.entries()){
-        if (!inYear(k)) continue;
-        if (c[v.status] !== undefined) c[v.status]++;
-      }
-      kJour.textContent = c.jour;
-      kNuit.textContent = c.nuit;
-      kConges.textContent = c.conges;
-      kRepos.textContent = c.repos;
+      // garde la sélection visible
+      setSelected(selectedKey);
     }
 
     // =========================
-    // Auth logic (email + mot de passe)
+    // Auth logic
     // =========================
-    function detectRecoveryFromUrl(){
-      const hash = window.location.hash || "";
-      const isRecovery = hash.includes("type=recovery") || hash.includes("access_token=");
-      if (isRecovery){
-        gate.classList.add("show");
-        showAuthPanel("newpass");
-        toast("Réinitialisation : choisis un nouveau mot de passe.");
-      }
-    }
-
     tabLogin.addEventListener("click", () => showAuthPanel("login"));
     tabSignup.addEventListener("click", () => showAuthPanel("signup"));
 
@@ -1214,80 +1110,92 @@
     });
 
     // =========================
-    // UI actions
+    // Dock actions: click status button => apply to selected day immediately
     // =========================
-    toolBtns.forEach(b => {
-      b.addEventListener("click", () => {
-        activeTool = b.dataset.tool;
-        setToolUI();
+    dockSetBtns.forEach(b => {
+      b.addEventListener("click", async () => {
+        if (!selectedKey) return;
+        const s = b.dataset.set;
+        await upsertDay(selectedKey, { status: s });
+        toast(`${LABEL[s]} ajouté`);
         haptic();
       });
     });
 
-    btnMore.addEventListener("click", () => {
-      select(selectedKey);
-      openSheet();
+    btnClear.addEventListener("click", async () => {
+      await deleteDay(selectedKey);
+      toast("Effacé");
+      haptic();
     });
 
+    btnMore.addEventListener("click", () => {
+      openSheet();
+      haptic();
+    });
+
+    btnNote.addEventListener("click", () => {
+      openSheet();
+      haptic();
+    });
+
+    // =========================
+    // Sheet actions
+    // =========================
     sheetBack.addEventListener("click", closeSheet);
     btnCloseSheet.addEventListener("click", closeSheet);
 
     sheetSetBtns.forEach(b => {
       b.addEventListener("click", async () => {
-        await upsertDay(selectedKey, { status: b.dataset.set });
-        sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
+        const s = b.dataset.set;
+        await upsertDay(selectedKey, { status: s });
+        sheetSub.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
+        toast(`${LABEL[s]} ajouté`);
+        haptic();
       });
     });
 
     btnSheetClear.addEventListener("click", async () => {
       await deleteDay(selectedKey);
-      sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
-    });
-
-    btnSheetNote.addEventListener("click", () => {
-      closeSheet();
-      noteText.scrollIntoView({ behavior:"smooth", block:"center" });
-      noteText.focus();
-    });
-
-    btnCycle.addEventListener("click", async () => {
-      const cur = cache.get(selectedKey)?.status || "";
-      const idx = STATES.indexOf(cur);
-      const next = STATES[(idx + 1) % STATES.length];
-      if (!next) await deleteDay(selectedKey);
-      else await upsertDay(selectedKey, { status: next });
-      sheetMeta.textContent = `État actuel: ${LABEL[cache.get(selectedKey)?.status || ""]}`;
+      sheetSub.textContent = `État actuel: —`;
+      toast("État effacé");
       haptic();
     });
 
     btnSaveNote.addEventListener("click", async () => {
       await upsertDay(selectedKey, { note: noteText.value || "" });
-      toast("Note enregistrée.");
+      toast("Note enregistrée");
+      haptic();
     });
 
-    btnClearDay.addEventListener("click", async () => {
-      await deleteDay(selectedKey);
-      toast("Journée effacée.");
+    btnDeleteNote.addEventListener("click", async () => {
+      noteText.value = "";
+      await upsertDay(selectedKey, { note: "" });
+      toast("Note vidée");
+      haptic();
     });
 
+    // =========================
+    // Month nav
+    // =========================
     prev.addEventListener("click", () => {
       viewMonth = (viewMonth + 11) % 12;
       renderMonth(viewMonth);
+      haptic();
     });
 
     next.addEventListener("click", () => {
       viewMonth = (viewMonth + 1) % 12;
       renderMonth(viewMonth);
+      haptic();
     });
 
     btnToday.addEventListener("click", () => {
       const d = new Date();
       viewMonth = (d.getFullYear() === YEAR) ? d.getMonth() : 0;
       renderMonth(viewMonth);
-      if (d.getFullYear() === YEAR){
-        const k = keyFor(d);
-        select(k);
-      }
+      if (d.getFullYear() === YEAR) setSelected(keyFor(d));
+      toast("Aujourd’hui");
+      haptic();
     });
 
     btnExport.addEventListener("click", () => {
@@ -1320,9 +1228,14 @@
     // =========================
     // Init
     // =========================
+    function initSelection(){
+      const d = new Date();
+      if (d.getFullYear() === YEAR) selectedKey = keyFor(d);
+      else selectedKey = `${YEAR}-${pad2(viewMonth+1)}-01`;
+      setSelected(selectedKey);
+    }
+
     syncState.textContent = "—";
-    setToolUI();
-    renderMonth(viewMonth);
     showAuthPanel("login");
     detectRecoveryFromUrl();
 
@@ -1332,6 +1245,8 @@
     });
 
     await refreshUser();
+    renderMonth(viewMonth);
+    initSelection();
     if (user) await loadYear();
     else gate.classList.add("show");
   </script>
