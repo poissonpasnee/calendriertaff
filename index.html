@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Calendrier Travail 2026</title>
+<title>Calendrier Travail 2023–2035</title>
 
 <style>
+/* =======================
+   BASE (mobile inchangé)
+   ======================= */
 :root{
   --bg:#0e1117;
   --panel:#151a23;
@@ -18,6 +21,7 @@
   --nuit:#b983ff;
   --conges:#2ecc71;
   --repos:#7f8c8d;
+  --autre:#f39c12;
 
   --radius:14px;
 }
@@ -40,7 +44,17 @@ button{
 button.primary{background:var(--primary);border-color:var(--primary)}
 button.danger{border-color:#3a1f1f;color:#ff6b6b}
 button:active{transform:scale(.97)}
+select,input{
+  background:#0f1420;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:8px;
+  color:var(--text);
+}
 
+/* =======================
+   APPBAR
+   ======================= */
 .appbar{
   position:sticky;
   top:0;
@@ -50,36 +64,66 @@ button:active{transform:scale(.97)}
   border-bottom:1px solid var(--border);
 }
 .appbar-inner{
-  max-width:1100px;
+  max-width:1400px;
   margin:auto;
   padding:12px;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
+.nav{
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+
+/* =======================
+   LAYOUT
+   ======================= */
 main{
-  max-width:1100px;
+  max-width:1400px;
   margin:auto;
   padding:16px 12px 140px;
 }
+.layout{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:16px;
+}
+
+/* =======================
+   CALENDAR
+   ======================= */
 .calendar{
   background:var(--panel);
   border:1px solid var(--border);
   border-radius:var(--radius);
   padding:12px;
 }
-.weekdays,.grid{
+.header-row{
   display:grid;
-  grid-template-columns:repeat(7,1fr);
+  grid-template-columns:50px repeat(7,1fr);
   gap:6px;
+  margin-bottom:6px;
 }
-.weekdays div{
+.header-row div{
   text-align:center;
   font-size:12px;
   color:var(--muted);
 }
+.grid{
+  display:grid;
+  grid-template-columns:50px repeat(7,1fr);
+  gap:6px;
+}
+.week{
+  font-size:12px;
+  color:var(--muted);
+  text-align:center;
+  padding-top:14px;
+}
 .day{
-  height:48px;
+  height:46px;
   border-radius:12px;
   background:#0f1420;
   border:1px solid var(--border);
@@ -95,7 +139,11 @@ main{
 .day.nuit{background:rgba(185,131,255,.25)}
 .day.conges{background:rgba(46,204,113,.25)}
 .day.repos{background:rgba(127,140,141,.25)}
+.day.autre{background:rgba(243,156,18,.25)}
 
+/* =======================
+   DOCK (mobile)
+   ======================= */
 .dock{
   position:fixed;
   bottom:0;
@@ -107,7 +155,7 @@ main{
   padding:10px;
 }
 .dock-inner{
-  max-width:1100px;
+  max-width:1400px;
   margin:auto;
   display:flex;
   flex-direction:column;
@@ -115,38 +163,46 @@ main{
 }
 .dock-actions{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(5,1fr);
   gap:8px;
 }
-@media(min-width:900px){
-  .dock{position:static;background:none;border:none}
-  .dock-inner{flex-direction:row;justify-content:space-between;align-items:center}
-  .dock-actions{grid-template-columns:auto auto auto auto}
-}
-.auth{
-  position:fixed;
-  inset:0;
-  background:rgba(14,17,23,.95);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.auth-card{
+
+/* =======================
+   SIDEBAR DESKTOP ONLY
+   ======================= */
+.sidebar{
+  display:none;
   background:var(--panel);
   border:1px solid var(--border);
-  border-radius:16px;
-  padding:20px;
-  width:100%;
-  max-width:360px;
+  border-radius:var(--radius);
+  padding:12px;
 }
-input{
-  width:100%;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:#0f1420;
-  color:var(--text);
-  margin-bottom:10px;
+.sidebar h4{margin:0 0 8px 0}
+
+/* =======================
+   DESKTOP ENHANCEMENTS
+   ======================= */
+@media(min-width:900px){
+  .layout{
+    grid-template-columns:1fr 280px;
+  }
+  .sidebar{
+    display:block;
+  }
+  .dock{
+    position:static;
+    background:none;
+    border:none;
+    padding:0;
+  }
+  .dock-inner{
+    flex-direction:row;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .dock-actions{
+    grid-template-columns:auto auto auto auto auto;
+  }
 }
 </style>
 </head>
@@ -155,17 +211,49 @@ input{
 
 <div class="appbar">
   <div class="appbar-inner">
-    <strong>Calendrier Travail 2026</strong>
-    <button id="logoutBtn" class="danger">Déconnexion</button>
+    <strong id="title">Calendrier</strong>
+    <div class="nav">
+      <button id="prevYear">◀◀</button>
+      <button id="prevMonth">◀</button>
+      <button id="nextMonth">▶</button>
+      <button id="nextYear">▶▶</button>
+      <button id="exportExcel">Exporter Excel</button>
+      <button id="logout" class="danger">Déconnexion</button>
+    </div>
   </div>
 </div>
 
 <main>
-  <div class="calendar">
-    <div class="weekdays">
-      <div>Dim</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div>
+  <div class="layout">
+    <div class="calendar">
+      <div class="header-row">
+        <div>Sem</div>
+        <div>Dim</div><div>Lun</div><div>Mar</div>
+        <div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div>
+      </div>
+      <div class="grid" id="grid"></div>
     </div>
-    <div class="grid" id="grid"></div>
+
+    <aside class="sidebar">
+      <h4>Jour sélectionné</h4>
+      <div id="sideInfo">—</div>
+
+      <h4 style="margin-top:12px">Type</h4>
+      <button data-s="jour">Jour</button>
+      <button data-s="nuit">Nuit</button>
+      <button data-s="conges">Congés</button>
+      <button data-s="repos">Repos</button>
+      <button data-s="autre">Autre</button>
+
+      <div id="autreBox" style="display:none;margin-top:10px">
+        <select id="autreSelect">
+          <option value="OCP">OCP</option>
+          <option value="Férié">Férié</option>
+          <option value="custom">Personnalisé</option>
+        </select>
+        <input id="autreCustom" placeholder="Libellé personnalisé" style="display:none;margin-top:6px">
+      </div>
+    </aside>
   </div>
 </main>
 
@@ -177,92 +265,135 @@ input{
       <button data-s="nuit">Nuit</button>
       <button data-s="conges">Congés</button>
       <button data-s="repos">Repos</button>
+      <button data-s="autre">Autre</button>
     </div>
-  </div>
-</div>
-
-<div class="auth" id="auth">
-  <div class="auth-card">
-    <h3>Connexion</h3>
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Mot de passe">
-    <button class="primary" id="login">Se connecter</button>
-    <button id="signup">Créer un compte</button>
   </div>
 </div>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const supabase = createClient(
+const supabase=createClient(
   "https://dstmyvzjirgyuwuojwnk.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk"
 );
 
-const YEAR=2026;
 const grid=document.getElementById("grid");
 const info=document.getElementById("info");
+const sideInfo=document.getElementById("sideInfo");
+const title=document.getElementById("title");
+
 let user=null;
+let year=2026;
+let month=0;
 let selected=null;
 const data=new Map();
 
-async function load(){
-  const {data:rows}=await supabase
-    .from("work_calendar_entries")
-    .select("work_date,status")
-    .eq("user_id",user.id);
-  rows.forEach(r=>data.set(r.work_date,r.status));
+function isoWeek(d){
+  const date=new Date(d);
+  date.setHours(0,0,0,0);
+  date.setDate(date.getDate()+3-(date.getDay()+6)%7);
+  const week1=new Date(date.getFullYear(),0,4);
+  return 1+Math.round(((date-week1)/86400000-3+(week1.getDay()+6)%7)/7);
 }
 
 function render(){
   grid.innerHTML="";
-  const first=new Date(YEAR,0,1);
+  title.textContent=`${year} - ${month+1}`;
+  const first=new Date(year,month,1);
   const start=new Date(first);
   start.setDate(1-first.getDay());
-  for(let i=0;i<42;i++){
-    const d=new Date(start); d.setDate(start.getDate()+i);
-    const key=d.toISOString().slice(0,10);
-    const div=document.createElement("div");
-    div.className="day";
-    if(d.getFullYear()!==YEAR)div.classList.add("out");
-    if(key===selected)div.classList.add("selected");
-    if(data.has(key))div.classList.add(data.get(key));
-    div.textContent=d.getDate();
-    div.onclick=()=>{selected=key;info.textContent=key;render();}
-    grid.appendChild(div);
+
+  for(let w=0;w<6;w++){
+    const d=new Date(start);
+    d.setDate(start.getDate()+w*7);
+    const wDiv=document.createElement("div");
+    wDiv.className="week";
+    wDiv.textContent=isoWeek(d);
+    grid.appendChild(wDiv);
+
+    for(let i=0;i<7;i++){
+      const day=new Date(d);
+      day.setDate(d.getDate()+i);
+      const key=day.toISOString().slice(0,10);
+      const div=document.createElement("div");
+      div.className="day";
+      if(day.getMonth()!==month)div.classList.add("out");
+      if(key===selected)div.classList.add("selected");
+      if(data.has(key))div.classList.add(data.get(key).status);
+      div.textContent=day.getDate();
+      div.onclick=()=>{
+        selected=key;
+        info.textContent=key;
+        sideInfo.textContent=key;
+        render();
+      };
+      grid.appendChild(div);
+    }
   }
 }
 
-async function save(state){
+async function load(){
+  const {data:rows}=await supabase
+    .from("work_calendar_entries")
+    .select("work_date,status,custom_label")
+    .eq("user_id",user.id);
+  rows.forEach(r=>data.set(r.work_date,{status:r.status,label:r.custom_label}));
+}
+
+async function save(state,label=null){
   if(!selected)return;
-  data.set(selected,state);
+  data.set(selected,{status:state,label});
   await supabase.from("work_calendar_entries").upsert({
-    user_id:user.id,work_date:selected,status:state
+    user_id:user.id,
+    work_date:selected,
+    status:state,
+    custom_label:label
   });
   render();
 }
 
-document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>save(b.dataset.s));
+document.querySelectorAll("[data-s]").forEach(b=>{
+  b.onclick=()=>{
+    if(b.dataset.s==="autre"){
+      document.getElementById("autreBox").style.display="block";
+      const sel=document.getElementById("autreSelect");
+      const custom=document.getElementById("autreCustom");
+      if(sel.value==="custom")custom.style.display="block";
+      save("autre",sel.value==="custom"?custom.value:sel.value);
+    }else{
+      save(b.dataset.s);
+    }
+  };
+});
 
-document.getElementById("login").onclick=async()=>{
-  const e=email.value,p=password.value;
-  const {error}=await supabase.auth.signInWithPassword({email:e,password:p});
-  if(!error)init();
-};
-document.getElementById("signup").onclick=async()=>{
-  const e=email.value,p=password.value;
-  await supabase.auth.signUp({email:e,password:p});
+document.getElementById("prevMonth").onclick=()=>{month--;if(month<0){month=11;year--;}render();}
+document.getElementById("nextMonth").onclick=()=>{month++;if(month>11){month=0;year++;}render();}
+document.getElementById("prevYear").onclick=()=>{year--;render();}
+document.getElementById("nextYear").onclick=()=>{year++;render();}
+
+document.getElementById("exportExcel").onclick=()=>{
+  let csv="Date;Année;Semaine;Type;Libellé\n";
+  data.forEach((v,k)=>{
+    const d=new Date(k);
+    csv+=`${k};${d.getFullYear()};${isoWeek(d)};${v.status};${v.label||""}\n`;
+  });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="calendrier.csv";
+  a.click();
 };
 
-document.getElementById("logoutBtn").onclick=async()=>{
-  await supabase.auth.signOut();location.reload();
+document.getElementById("logout").onclick=async()=>{
+  await supabase.auth.signOut();
+  location.reload();
 };
 
 async function init(){
   const {data:u}=await supabase.auth.getUser();
   if(!u.user)return;
   user=u.user;
-  auth.style.display="none";
   await load();
   render();
 }
