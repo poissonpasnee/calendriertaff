@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Planning SNCF — Calendrier mensuel</title>
+<title>Planning SNCF – Calendrier mensuel</title>
 
 <style>
 :root{
@@ -15,1074 +15,205 @@
   --muted:#9aa4b2;
   --primary:#1f6feb;
 
-  /* Couleurs demandées */
-  --jour:#facc15;     /* jaune */
-  --nuit:#8b5cf6;     /* violet */
-  --conges:#7f1d1d;   /* rouge foncé */
-  --repos:#6b7280;    /* gris */
-  --autre:#f59e0b;    /* orange */
-
-  --r:14px;
-  --safeTop: env(safe-area-inset-top);
-  --safeBottom: env(safe-area-inset-bottom);
+  --jour:#facc15;
+  --nuit:#8b5cf6;
+  --conges:#7f1d1d;
+  --repos:#6b7280;
+  --autre:#f59e0b;
 }
-
 *{box-sizing:border-box}
-html,body{height:100%}
 body{
   margin:0;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
   background:var(--bg);
   color:var(--text);
-  overflow-x:hidden;
 }
 
-button, input, select, textarea{
-  font: inherit;
-}
+.day.jour{background:rgba(250,204,21,.35)}
+.day.nuit{background:rgba(139,92,246,.35)}
+.day.conges{background:rgba(127,29,29,.45)}
+.day.repos{background:rgba(107,114,128,.35)}
+.day.autre{background:rgba(245,158,11,.35)}
 
-button{
-  background:rgba(255,255,255,.02);
+.day{
+  height:48px;
+  border-radius:14px;
   border:1px solid var(--border);
-  color:var(--text);
-  border-radius:12px;
-  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   font-weight:700;
   cursor:pointer;
-  -webkit-tap-highlight-color: transparent;
 }
-button:active{transform:scale(.98)}
-button.primary{background:var(--primary); border-color:var(--primary)}
-button.danger{border-color:#3a1f1f;color:#ff6b6b}
-button.ghost{background:transparent}
-button.icon{width:44px; height:44px; padding:0; border-radius:14px; display:inline-flex; align-items:center; justify-content:center}
-
-input, select, textarea{
-  width:100%;
-  background:var(--panel2);
-  border:1px solid var(--border);
-  color:var(--text);
-  border-radius:12px;
-  padding:10px 12px;
-  outline:none;
-}
-textarea{min-height:96px; resize:vertical}
-
-.wrap{max-width:1200px; margin:0 auto; padding:0 12px}
-
-/* ===== Top bar ===== */
-.appbar{
-  position:sticky; top:0; z-index:50;
-  padding-top: calc(10px + var(--safeTop));
-  padding-bottom: 10px;
-  background: rgba(14,17,23,.92);
-  backdrop-filter: blur(12px);
-  border-bottom:1px solid rgba(255,255,255,.06);
-}
-.bar{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-}
-.brand{
-  display:flex; flex-direction:column; gap:2px; min-width:0;
-}
-.brand .t{font-weight:900; letter-spacing:.2px; font-size:14px}
-.brand .s{font-weight:800; color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-
-.nav{
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-}
-
-.nav-current{
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-width: 130px;
-  line-height:1.1;
-  padding: 6px 10px;
-  border-radius: 14px;
-  border:1px solid rgba(255,255,255,.06);
-  background: rgba(255,255,255,.03);
-}
-.nav-current .m{font-weight:950; font-size:14px}
-.nav-current .y{font-weight:900; font-size:12px; color:var(--muted)}
-
-@media (max-width: 899px){
-  .nav{justify-content:space-between; width:100%}
-  .bar{flex-direction:column; align-items:stretch}
-  .nav-current{order:-1; width:100%}
-}
-
-/* ===== Calendar card ===== */
-.card{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius: var(--r);
-  padding: 12px;
-}
-main{padding: 12px 0 calc(140px + var(--safeBottom));}
-
-.calendar-head{
-  display:grid;
-  grid-template-columns: 48px repeat(7, 1fr);
-  gap:6px;
-  margin-bottom: 8px;
-  align-items:center;
-}
-.calendar-head div{
-  text-align:center;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:900;
-}
+.day.out{opacity:.35}
+.day.selected{outline:2px solid var(--primary)}
 
 .grid{
   display:grid;
-  grid-template-columns: 48px repeat(7, 1fr);
+  grid-template-columns:50px repeat(7,1fr);
   gap:6px;
 }
 
 .weeknum{
   text-align:center;
   font-size:12px;
-  font-weight:900;
   color:var(--muted);
-  padding-top: 16px;
+  padding-top:14px;
 }
 
-.day{
-  height: 48px;
-  border-radius: 14px;
-  border:1px solid rgba(255,255,255,.06);
-  background: var(--panel2);
+header{
+  padding:10px;
+  border-bottom:1px solid var(--border);
   display:flex;
+  justify-content:space-between;
   align-items:center;
-  justify-content:center;
-  position:relative;
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  font-weight:900;
 }
-.day.out{opacity:.35}
-.day.selected{outline: 2px solid rgba(31,111,235,.55); outline-offset: 2px}
-.day.locked::after{
-  content:"🔒";
-  position:absolute;
-  top:4px; right:6px;
-  font-size:11px;
-  opacity:.9;
+button{
+  background:none;
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:8px 12px;
+  border-radius:12px;
+  font-weight:700;
 }
-.badge{
-  position:absolute;
-  bottom:5px; right:6px;
-  font-size:10px;
-  font-weight:950;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border:1px solid rgba(255,255,255,.08);
-  background: rgba(0,0,0,.18);
-  color: rgba(255,255,255,.85);
-}
-.dot{
-  position:absolute;
-  bottom:6px; left:6px;
-  width:6px; height:6px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.65);
-  opacity:.9;
-}
-
-/* Status colors */
-.day.jour{ background: rgba(250,204,21,.30); border-color: rgba(250,204,21,.22) }
-.day.nuit{ background: rgba(139,92,246,.30); border-color: rgba(139,92,246,.22) }
-.day.conges{ background: rgba(127,29,29,.42); border-color: rgba(127,29,29,.26) }
-.day.repos{ background: rgba(107,114,128,.28); border-color: rgba(107,114,128,.20) }
-.day.autre{ background: rgba(245,158,11,.28); border-color: rgba(245,158,11,.20) }
-
-/* ===== Bottom dock (mobile-first) ===== */
-.dock{
-  position:fixed; left:0; right:0; bottom:0;
-  z-index:60;
-  background: rgba(14,17,23,.95);
-  border-top:1px solid rgba(255,255,255,.06);
-  backdrop-filter: blur(12px);
-  padding: 10px 10px calc(10px + var(--safeBottom));
-}
-.dock .wrap{padding:0}
-.selbar{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  padding: 10px 12px;
-  border:1px solid rgba(255,255,255,.06);
-  border-radius: 16px;
-  background: rgba(255,255,255,.03);
-}
-.selbar .left{min-width:0}
-.selbar .date{font-weight:950; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.selbar .state{font-weight:900; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-
-.actions{
-  margin-top: 10px;
-  display:grid;
-  grid-template-columns: repeat(6, minmax(0,1fr));
-  gap:8px;
-}
-.actions button{padding:12px 10px; border-radius: 14px; font-size:13px}
-@media (min-width: 900px){
-  /* Desktop: keep dock but make it look integrated */
-  main{padding-bottom: 24px;}
-  .dock{
-    position:sticky;
-    bottom:0;
-    background: rgba(14,17,23,.88);
-  }
-}
-
-/* ===== Modal sheet (Other + Note) ===== */
-.backdrop{
-  position:fixed; inset:0; z-index:80;
-  background: rgba(0,0,0,.45);
-  backdrop-filter: blur(10px);
-  display:none;
-}
-.backdrop.show{display:block}
-.sheet{
-  position:fixed; left:0; right:0; bottom:0;
-  z-index:90;
-  background: rgba(21,26,35,.96);
-  border-top:1px solid rgba(255,255,255,.08);
-  border-radius: 20px 20px 0 0;
-  padding: 12px 12px calc(14px + var(--safeBottom));
-  transform: translateY(110%);
-  transition: transform .18s ease;
-}
-.sheet.show{transform: translateY(0)}
-.grab{width:44px; height:5px; border-radius:999px; background: rgba(255,255,255,.22); margin: 6px auto 12px}
-.sheet-head{
-  display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
-}
-.sheet-title{font-weight:950}
-.sheet-sub{font-weight:900; font-size:12px; color:var(--muted); margin-top:2px}
-.row{display:flex; gap:8px; margin-top:10px}
-.row > *{flex:1}
-.sheet-actions{display:flex; gap:8px; margin-top:10px}
-.sheet-actions button{flex:1}
-
-/* ===== Auth overlay ===== */
-.gate{
-  position:fixed; inset:0; z-index:100;
-  display:none;
-  padding: calc(14px + var(--safeTop)) 12px calc(14px + var(--safeBottom));
-  background: rgba(14,17,23,.94);
-  backdrop-filter: blur(12px);
-}
-.gate.show{display:block}
-.gate-card{
-  max-width: 420px;
-  margin: 0 auto;
-  background: rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius: 18px;
-  padding: 14px;
-}
-.tabs{
-  display:flex; gap:8px; margin-top:12px;
-}
-.tabs button{flex:1}
-.small{color:var(--muted); font-size:12px; font-weight:900; margin-top:8px; line-height:1.3}
-.toast{
-  position:fixed;
-  left:12px; right:12px;
-  bottom: calc(170px + var(--safeBottom));
-  z-index:120;
-  display:none;
-  max-width: 520px;
-  margin: 0 auto;
-  border-radius: 14px;
-  border:1px solid rgba(255,255,255,.08);
-  background: rgba(20,26,38,.92);
-  padding: 10px 12px;
-  font-weight:900;
-}
-.toast.show{display:block}
 </style>
 </head>
 
 <body>
-<div class="toast" id="toast"></div>
 
-<div class="appbar">
-  <div class="wrap">
-    <div class="bar">
-      <div class="brand">
-        <div class="t">Planning SNCF</div>
-        <div class="s" id="topSub">Non connecté</div>
-      </div>
-
-      <div class="nav">
-        <button class="icon" id="btnPrevYear" aria-label="Année -1">«</button>
-        <button class="icon" id="btnPrevMonth" aria-label="Mois -1">‹</button>
-
-        <div class="nav-current" aria-label="Mois en cours">
-          <div class="m" id="navMonth">—</div>
-          <div class="y" id="navYear">—</div>
-        </div>
-
-        <button class="icon" id="btnNextMonth" aria-label="Mois +1">›</button>
-        <button class="icon" id="btnNextYear" aria-label="Année +1">»</button>
-
-        <button id="btnToday" class="primary">Aujourd’hui SNCF</button>
-        <button id="btnExport">Export Excel</button>
-        <button id="btnLogout" class="danger">Déconnexion</button>
-      </div>
-    </div>
+<header>
+  <strong id="monthLabel"></strong>
+  <div>
+    <button id="prev">‹</button>
+    <button id="next">›</button>
   </div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div style="position:fixed;bottom:0;left:0;right:0;padding:10px;background:#0e1117">
+  <button data-set="jour">Jour</button>
+  <button data-set="nuit">Nuit</button>
+  <button data-set="repos">Repos</button>
+  <button data-set="conges">Congés</button>
 </div>
-
-<main>
-  <div class="wrap">
-    <div class="card">
-      <div class="calendar-head">
-        <div>Sem</div>
-        <div>Di/Lu</div>
-        <div>Lu/Ma</div>
-        <div>Ma/Me</div>
-        <div>Me/Je</div>
-        <div>Je/Ve</div>
-        <div>Ve/Sa</div>
-        <div>Sa/Dim</div>
-      </div>
-      <div class="grid" id="grid"></div>
-    </div>
-  </div>
-</main>
-
-<div class="dock">
-  <div class="wrap">
-    <div class="selbar">
-      <div class="left">
-        <div class="date" id="selDate">Sélectionne une date</div>
-        <div class="state" id="selState">État: —</div>
-      </div>
-      <button id="btnNote">📝 Note</button>
-    </div>
-
-    <div class="actions">
-      <button data-set="jour">Jour</button>
-      <button data-set="nuit">Nuit</button>
-      <button data-set="repos">Repos</button>
-      <button data-set="conges">Congés</button>
-      <button data-set="autre">Autre</button>
-      <button id="btnLock">🔒</button>
-    </div>
-  </div>
-</div>
-
-<!-- Sheet -->
-<div class="backdrop" id="backdrop"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true">
-  <div class="grab"></div>
-
-  <div class="sheet-head">
-    <div>
-      <div class="sheet-title" id="sheetTitle">—</div>
-      <div class="sheet-sub" id="sheetSub">—</div>
-    </div>
-    <button id="btnCloseSheet">Fermer</button>
-  </div>
-
-  <div id="sheetOther">
-    <div class="row">
-      <select id="otherSelect">
-        <option value="OCP">OCP</option>
-        <option value="Férié">Férié</option>
-        <option value="custom">Personnalisé</option>
-      </select>
-      <input id="otherCustom" placeholder="Libellé" style="display:none" />
-    </div>
-    <div class="sheet-actions">
-      <button class="primary" id="btnApplyOther">Appliquer</button>
-      <button id="btnCancelOther">Annuler</button>
-    </div>
-  </div>
-
-  <div id="sheetNote" style="display:none">
-    <textarea id="noteText" placeholder="Note (service, RHR, remplacement…)"></textarea>
-    <div class="sheet-actions">
-      <button class="primary" id="btnSaveNote">Enregistrer</button>
-      <button class="danger" id="btnClearNote">Vider</button>
-    </div>
-  </div>
-</div>
-
-<!-- Auth gate -->
-<div class="gate" id="gate">
-  <div class="gate-card">
-    <div style="font-weight:950; font-size:16px">Connexion</div>
-    <div class="small">Email + mot de passe. Création de compte possible.</div>
-
-    <div class="tabs">
-      <button id="tabLogin" class="primary">Connexion</button>
-      <button id="tabSignup">Créer</button>
-    </div>
-
-    <div id="paneLogin" style="margin-top:12px">
-      <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
-      <input id="loginPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
-      <div class="row">
-        <button class="primary" id="btnLogin">Se connecter</button>
-        <button id="btnReset">Reset</button>
-      </div>
-      <div class="small" id="loginHint"></div>
-    </div>
-
-    <div id="paneSignup" style="margin-top:12px; display:none">
-      <input id="signEmail" type="email" placeholder="Email" autocomplete="email">
-      <input id="signPass" type="password" placeholder="Mot de passe (min 6)" autocomplete="new-password">
-      <div class="row">
-        <button class="primary" id="btnSignup">Créer</button>
-        <button id="btnBackLogin">Retour</button>
-      </div>
-      <div class="small">Si la confirmation email est activée sur ton projet Supabase, tu devras valider l’email.</div>
-    </div>
-  </div>
-</div>
-
-<!-- SheetJS for real .xlsx export -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-/* =========================
-   SUPABASE CONFIG
-   ========================= */
-const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
-
-/* =========================
-   CONSTANTS
-   ========================= */
-const MIN_YEAR = 2023;
-const MAX_YEAR = 2035;
-const TABLE = "work_calendar_entries";
-
-const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
-
-const LABEL = {
-  jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre"
-};
+const supabase = createClient(
+  "https://dstmyvzjirgyuwuojwnk.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk"
+);
 
 const grid = document.getElementById("grid");
-const navMonth = document.getElementById("navMonth");
-const navYear = document.getElementById("navYear");
-const topSub = document.getElementById("topSub");
+const monthLabel = document.getElementById("monthLabel");
 
-const selDate = document.getElementById("selDate");
-const selState = document.getElementById("selState");
+const MONTHS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-const toastEl = document.getElementById("toast");
-
-/* Sheet */
-const backdrop = document.getElementById("backdrop");
-const sheet = document.getElementById("sheet");
-const sheetTitle = document.getElementById("sheetTitle");
-const sheetSub = document.getElementById("sheetSub");
-const sheetOther = document.getElementById("sheetOther");
-const sheetNote = document.getElementById("sheetNote");
-const otherSelect = document.getElementById("otherSelect");
-const otherCustom = document.getElementById("otherCustom");
-const noteText = document.getElementById("noteText");
-
-/* Auth */
-const gate = document.getElementById("gate");
-const tabLogin = document.getElementById("tabLogin");
-const tabSignup = document.getElementById("tabSignup");
-const paneLogin = document.getElementById("paneLogin");
-const paneSignup = document.getElementById("paneSignup");
-const loginEmail = document.getElementById("loginEmail");
-const loginPass = document.getElementById("loginPass");
-const signEmail = document.getElementById("signEmail");
-const signPass = document.getElementById("signPass");
-const loginHint = document.getElementById("loginHint");
-
-/* =========================
-   STATE
-   ========================= */
+let view = new Date();
 let user = null;
-let viewYear = 2026;
-let viewMonth = 0; // 0-11
-let selectedKey = null;
-
-// Map<YYYY-MM-DD, {status, custom_label, note, locked}>
+let selected = null;
 const entries = new Map();
 
-/* =========================
-   HELPERS
-   ========================= */
-const pad2 = (n) => String(n).padStart(2, "0");
-const keyFor = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-const parseKey = (k) => { const [y,m,d]=k.split("-").map(Number); return new Date(y, m-1, d); };
-
-function toast(msg){
-  toastEl.textContent = msg;
-  toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2400);
+function key(d){
+  return d.toISOString().slice(0,10);
 }
 
-function clampYear(y){ return Math.max(MIN_YEAR, Math.min(MAX_YEAR, y)); }
-
-function isoWeek(date){
-  const d = new Date(date);
-  d.setHours(0,0,0,0);
-  // Thursday in current week decides the year
-  d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
-  const week1 = new Date(d.getFullYear(), 0, 4);
-  return 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay()+6)%7)) / 7);
-}
-
-function fmtLong(d){
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
-}
-
-function openSheet(mode){
-  // mode: "other" | "note"
-  sheetOther.style.display = (mode === "other") ? "block" : "none";
-  sheetNote.style.display  = (mode === "note")  ? "block" : "none";
-  backdrop.classList.add("show");
-  sheet.classList.add("show");
-}
-function closeSheet(){
-  backdrop.classList.remove("show");
-  sheet.classList.remove("show");
-}
-backdrop.addEventListener("click", closeSheet);
-document.getElementById("btnCloseSheet").addEventListener("click", closeSheet);
-document.getElementById("btnCancelOther").addEventListener("click", closeSheet);
-
-otherSelect.addEventListener("change", ()=>{
-  otherCustom.style.display = (otherSelect.value === "custom") ? "block" : "none";
-});
-
-function setSelected(k){
-  selectedKey = k;
-  const d = parseKey(k);
-  const e = entries.get(k);
-  const state = e?.status ? LABEL[e.status] : "—";
-  const extra = e?.status === "autre" ? ` (${e.custom_label || ""})` : "";
-  const lock = e?.locked ? " 🔒" : "";
-
-  selDate.textContent = fmtLong(d);
-  selState.textContent = `État: ${state}${extra}${lock}`;
-
-  sheetTitle.textContent = fmtLong(d);
-  sheetSub.textContent = `État actuel: ${state}${extra}${lock}`;
-  noteText.value = e?.note || "";
-
-  // highlight selected
-  grid.querySelectorAll(".day").forEach(el => el.classList.remove("selected"));
-  const el = grid.querySelector(`.day[data-key="${k}"]`);
-  if (el) el.classList.add("selected");
-}
-
-/* =========================
-   SUPABASE DATA
-   ========================= */
-async function refreshUser(){
-  const { data } = await supabase.auth.getUser();
-  user = data.user || null;
-  if (!user){
-    topSub.textContent = "Non connecté";
-    gate.classList.add("show");
-  } else {
-    topSub.textContent = user.email || "Connecté";
-    gate.classList.remove("show");
-  }
-}
-
-function monthRange(year, month){
-  const from = new Date(year, month, 1);
-  const to = new Date(year, month+1, 0);
-  return { fromKey: keyFor(from), toKey: keyFor(to) };
+function isoWeek(d){
+  d=new Date(d);d.setHours(0,0,0,0);
+  d.setDate(d.getDate()+3-(d.getDay()+6)%7);
+  const w1=new Date(d.getFullYear(),0,4);
+  return 1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7);
 }
 
 async function loadMonth(){
-  if (!user) return;
-  const { fromKey, toKey } = monthRange(viewYear, viewMonth);
-
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("work_date,status,custom_label,note,locked")
-    .eq("user_id", user.id)
-    .gte("work_date", fromKey)
-    .lte("work_date", toKey);
-
-  if (error){
-    console.error(error);
-    toast("Erreur chargement Supabase.");
-    return;
-  }
-
   entries.clear();
-  (data || []).forEach(r => {
-    entries.set(r.work_date, {
-      status: r.status,
-      custom_label: r.custom_label || "",
-      note: r.note || "",
-      locked: !!r.locked
-    });
+
+  if(!user) return; // ⛔ CORRECTION CLÉ
+
+  const y=view.getFullYear(), m=view.getMonth();
+  const from=`${y}-${String(m+1).padStart(2,"0")}-01`;
+  const to=`${y}-${String(m+1).padStart(2,"0")}-31`;
+
+  const {data,error}=await supabase
+    .from("work_calendar_entries")
+    .select("work_date,status")
+    .eq("user_id",user.id)
+    .gte("work_date",from)
+    .lte("work_date",to);
+
+  if(error){
+    console.warn("Supabase load ignoré:", error.message);
+    return;
+  }
+
+  data.forEach(r=>{
+    entries.set(r.work_date,r.status);
   });
 }
 
-async function upsertDay(dateKey, patch){
-  if (!user) return;
-  // Respect lock
-  const cur = entries.get(dateKey);
-  if (cur?.locked){
-    toast("Jour verrouillé.");
-    return;
-  }
+function render(){
+  grid.innerHTML="";
+  monthLabel.textContent = MONTHS[view.getMonth()]+" "+view.getFullYear();
 
-  const next = { status: cur?.status || "jour", custom_label: cur?.custom_label || "", note: cur?.note || "", locked: cur?.locked || false, ...patch };
+  const first=new Date(view.getFullYear(),view.getMonth(),1);
+  const start=new Date(first);
+  start.setDate(1-first.getDay());
 
-  const { error } = await supabase
-    .from(TABLE)
-    .upsert({
-      user_id: user.id,
-      work_date: dateKey,
-      status: next.status,
-      custom_label: next.custom_label || null,
-      note: next.note || null,
-      locked: !!next.locked
-    }, { onConflict: "user_id,work_date" });
-
-  if (error){
-    console.error(error);
-    toast("Erreur sauvegarde.");
-    return;
-  }
-
-  entries.set(dateKey, next);
-  renderMonth();
-  setSelected(dateKey);
-}
-
-async function toggleLock(dateKey){
-  const cur = entries.get(dateKey);
-  const nextLocked = !(cur?.locked);
-  // Allow locking even if already locked (unlock)
-  const { error } = await supabase
-    .from(TABLE)
-    .upsert({
-      user_id: user.id,
-      work_date: dateKey,
-      status: cur?.status || "jour",
-      custom_label: cur?.custom_label || null,
-      note: cur?.note || null,
-      locked: nextLocked
-    }, { onConflict: "user_id,work_date" });
-
-  if (error){
-    console.error(error);
-    toast("Erreur verrouillage.");
-    return;
-  }
-
-  entries.set(dateKey, {
-    status: cur?.status || "jour",
-    custom_label: cur?.custom_label || "",
-    note: cur?.note || "",
-    locked: nextLocked
-  });
-
-  renderMonth();
-  setSelected(dateKey);
-}
-
-/* =========================
-   RENDER — MONTHLY VIEW
-   ========================= */
-function renderMonth(){
-  grid.innerHTML = "";
-
-  navMonth.textContent = MONTHS[viewMonth];
-  navYear.textContent = String(viewYear);
-
-  const first = new Date(viewYear, viewMonth, 1);
-  const offset = first.getDay(); // sunday-first
-  const start = new Date(viewYear, viewMonth, 1 - offset);
-
-  for (let week = 0; week < 6; week++){
-    const weekStart = new Date(start);
-    weekStart.setDate(start.getDate() + week*7);
-
-    const wn = document.createElement("div");
-    wn.className = "weeknum";
-    wn.textContent = String(isoWeek(weekStart)).padStart(2,"0");
+  for(let w=0;w<6;w++){
+    const d=new Date(start);d.setDate(start.getDate()+w*7);
+    const wn=document.createElement("div");
+    wn.className="weeknum";
+    wn.textContent=isoWeek(d);
     grid.appendChild(wn);
 
-    for (let i=0;i<7;i++){
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate() + i);
-      const k = keyFor(d);
-
-      const cell = document.createElement("div");
-      cell.className = "day";
-      cell.dataset.key = k;
-      if (d.getMonth() !== viewMonth) cell.classList.add("out");
-
-      const e = entries.get(k);
-      if (e?.status) cell.classList.add(e.status);
-      if (e?.locked) cell.classList.add("locked");
-
-      cell.textContent = String(d.getDate());
-
-      // small markers: note + "autre" label
-      if (e?.note) {
-        const dot = document.createElement("div");
-        dot.className = "dot";
-        cell.appendChild(dot);
-      }
-      if (e?.status === "autre" && e.custom_label){
-        const b = document.createElement("div");
-        b.className = "badge";
-        b.textContent = e.custom_label.slice(0,6);
-        cell.appendChild(b);
-      }
-
-      cell.addEventListener("click", ()=>{
-        setSelected(k);
-      }, { passive:true });
-
-      grid.appendChild(cell);
+    for(let i=0;i<7;i++){
+      const day=new Date(d);day.setDate(d.getDate()+i);
+      const k=key(day);
+      const div=document.createElement("div");
+      div.className="day";
+      if(day.getMonth()!==view.getMonth())div.classList.add("out");
+      if(entries.has(k))div.classList.add(entries.get(k));
+      if(k===selected)div.classList.add("selected");
+      div.textContent=day.getDate();
+      div.onclick=()=>{selected=k;render();}
+      grid.appendChild(div);
     }
   }
-
-  // keep selection highlighted
-  if (selectedKey){
-    const el = grid.querySelector(`.day[data-key="${selectedKey}"]`);
-    if (el) el.classList.add("selected");
-  }
 }
 
-/* =========================
-   SNCF "TODAY" LOGIC
-   ========================= */
-function getSncfNow(){
-  const d = new Date();
-  // Heuristic: after 22:00, SNCF "day" belongs to next day
-  if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
-  return d;
-}
-
-function goToDate(d){
-  viewYear = clampYear(d.getFullYear());
-  viewMonth = d.getMonth();
-}
-
-/* =========================
-   BUTTONS — FIXED
-   ========================= */
-function ensureSelected(){
-  if (!selectedKey){
-    const d = getSncfNow();
-    const k = keyFor(d);
-    goToDate(d);
-    return k;
-  }
-  return selectedKey;
-}
-
-document.querySelectorAll('[data-set]').forEach(btn=>{
-  btn.addEventListener("click", async ()=>{
-    const k = ensureSelected();
-    if (!k) return;
-
-    const type = btn.dataset.set;
-
-    if (type === "autre"){
-      // open selector sheet
-      const e = entries.get(k);
-      if (e?.locked) { toast("Jour verrouillé."); return; }
-
-      // Pre-fill
-      otherSelect.value = "OCP";
-      otherCustom.value = "";
-      otherCustom.style.display = "none";
-      if (e?.status === "autre" && e.custom_label){
-        if (e.custom_label === "OCP" || e.custom_label === "Férié"){
-          otherSelect.value = e.custom_label;
-          otherCustom.style.display = "none";
-        } else {
-          otherSelect.value = "custom";
-          otherCustom.style.display = "block";
-          otherCustom.value = e.custom_label;
-        }
-      }
-
-      openSheet("other");
-      return;
-    }
-
-    await upsertDay(k, { status: type, custom_label: "" });
-    toast(`${LABEL[type]} appliqué`);
-  });
-});
-
-document.getElementById("btnNote").addEventListener("click", ()=>{
-  const k = ensureSelected();
-  const e = entries.get(k);
-  if (e?.locked){ toast("Jour verrouillé."); return; }
-  openSheet("note");
-});
-
-document.getElementById("btnLock").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  await toggleLock(k);
-});
-
-document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  const e = entries.get(k);
-  if (e?.locked){ toast("Jour verrouillé."); return; }
-
-  let label = otherSelect.value;
-  if (label === "custom"){
-    label = (otherCustom.value || "").trim();
-    if (!label){
-      toast("Entre un libellé.");
-      return;
-    }
-  }
-  await upsertDay(k, { status: "autre", custom_label: label });
-  toast(`Autre (${label}) appliqué`);
-  closeSheet();
-});
-
-document.getElementById("btnSaveNote").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  const e = entries.get(k);
-  if (e?.locked){ toast("Jour verrouillé."); return; }
-
-  const note = (noteText.value || "").trim();
-  await upsertDay(k, { note });
-  toast("Note enregistrée");
-  closeSheet();
-});
-
-document.getElementById("btnClearNote").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  const e = entries.get(k);
-  if (e?.locked){ toast("Jour verrouillé."); return; }
-
-  noteText.value = "";
-  await upsertDay(k, { note: "" });
-  toast("Note vidée");
-  closeSheet();
-});
-
-/* =========================
-   NAVIGATION MONTH/YEAR
-   ========================= */
-async function changeMonth(delta){
-  let y = viewYear;
-  let m = viewMonth + delta;
-  if (m < 0){ m = 11; y -= 1; }
-  if (m > 11){ m = 0; y += 1; }
-  y = clampYear(y);
-  // If clamped, ensure month consistent within bounds
-  viewYear = y;
-  viewMonth = m;
-
-  await loadMonth();
-  renderMonth();
-
-  // auto-select first day of month if selection is outside view
-  const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
-  setSelected(k);
-}
-
-async function changeYear(delta){
-  viewYear = clampYear(viewYear + delta);
-  await loadMonth();
-  renderMonth();
-  const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
-  setSelected(k);
-}
-
-document.getElementById("btnPrevMonth").addEventListener("click", ()=>changeMonth(-1));
-document.getElementById("btnNextMonth").addEventListener("click", ()=>changeMonth(1));
-document.getElementById("btnPrevYear").addEventListener("click", ()=>changeYear(-1));
-document.getElementById("btnNextYear").addEventListener("click", ()=>changeYear(1));
-
-document.getElementById("btnToday").addEventListener("click", async ()=>{
-  const d = getSncfNow();
-  goToDate(d);
-  await loadMonth();
-  renderMonth();
-  setSelected(keyFor(d));
-  toast("Aujourd’hui SNCF");
-});
-
-/* =========================
-   EXPORT EXCEL (.xlsx)
-   ========================= */
-document.getElementById("btnExport").addEventListener("click", ()=>{
-  // Build rows for all loaded entries in current month
-  const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note","Verrouillé"]];
-  let cJour=0, cNuit=0, cRepos=0, cConges=0, cAutre=0;
-
-  const keys = Array.from(entries.keys()).sort();
-  for (const k of keys){
-    const e = entries.get(k);
-    const d = new Date(k);
-    const type = e.status || "";
-    if (type === "jour") cJour++;
-    if (type === "nuit") cNuit++;
-    if (type === "repos") cRepos++;
-    if (type === "conges") cConges++;
-    if (type === "autre") cAutre++;
-
-    rows.push([
-      k,
-      d.getFullYear(),
-      MONTHS[d.getMonth()],
-      String(isoWeek(d)).padStart(2,"0"),
-      LABEL[type] || "",
-      e.custom_label || "",
-      e.note || "",
-      e.locked ? "Oui" : ""
-    ]);
-  }
-
-  const summary = [
-    ["Type","Total"],
-    ["Jour", cJour],
-    ["Nuit", cNuit],
-    ["Repos", cRepos],
-    ["Congés", cConges],
-    ["Autre", cAutre],
-  ];
-
-  const wb = XLSX.utils.book_new();
-  const ws1 = XLSX.utils.aoa_to_sheet(rows);
-  const ws2 = XLSX.utils.aoa_to_sheet(summary);
-  XLSX.utils.book_append_sheet(wb, ws1, "Calendrier");
-  XLSX.utils.book_append_sheet(wb, ws2, "Résumé");
-  XLSX.writeFile(wb, `planning_${viewYear}-${pad2(viewMonth+1)}.xlsx`);
-});
-
-/* =========================
-   AUTH UI
-   ========================= */
-function showPane(which){
-  if (which === "login"){
-    paneLogin.style.display = "block";
-    paneSignup.style.display = "none";
-    tabLogin.classList.add("primary");
-    tabSignup.classList.remove("primary");
-  } else {
-    paneLogin.style.display = "none";
-    paneSignup.style.display = "block";
-    tabSignup.classList.add("primary");
-    tabLogin.classList.remove("primary");
-  }
-}
-
-tabLogin.addEventListener("click", ()=>showPane("login"));
-tabSignup.addEventListener("click", ()=>showPane("signup"));
-document.getElementById("btnBackLogin").addEventListener?.("click", ()=>showPane("login"));
-
-document.getElementById("btnLogin").addEventListener("click", async ()=>{
-  loginHint.textContent = "";
-  const email = (loginEmail.value || "").trim();
-  const pass = loginPass.value || "";
-  if (!email || !pass){ loginHint.textContent = "Email + mot de passe requis."; return; }
-
-  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-  if (error){
-    console.error(error);
-    loginHint.textContent = error.message || "Erreur connexion.";
-    return;
-  }
-});
-
-document.getElementById("btnSignup").addEventListener("click", async ()=>{
-  const email = (signEmail.value || "").trim();
-  const pass = signPass.value || "";
-  if (!email || !pass){ toast("Email + mot de passe requis."); return; }
-  if (pass.length < 6){ toast("Mot de passe: 6 caractères minimum."); return; }
-
-  const { error } = await supabase.auth.signUp({ email, password: pass });
-  if (error){
-    console.error(error);
-    toast(error.message || "Erreur création compte.");
-    return;
-  }
-  toast("Compte créé. Connecte-toi.");
-  showPane("login");
-  loginEmail.value = email;
-  loginPass.value = "";
-});
-
-document.getElementById("btnReset").addEventListener("click", async ()=>{
-  const email = (loginEmail.value || "").trim();
-  if (!email){ loginHint.textContent = "Entre ton email puis reset."; return; }
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + window.location.pathname
-  });
-  if (error){
-    console.error(error);
-    loginHint.textContent = error.message || "Erreur reset.";
-    return;
-  }
-  loginHint.textContent = "Email de réinitialisation envoyé.";
-});
-
-document.getElementById("btnLogout").addEventListener("click", async ()=>{
-  await supabase.auth.signOut();
-  entries.clear();
-  selectedKey = null;
-  renderMonth();
-  selDate.textContent = "Sélectionne une date";
-  selState.textContent = "État: —";
-});
-
-/* =========================
-   INIT
-   ========================= */
 async function init(){
-  // Initial view: SNCF today
-  const now = getSncfNow();
-  viewYear = clampYear(now.getFullYear());
-  viewMonth = now.getMonth();
-
-  await refreshUser();
-  if (user){
-    await loadMonth();
-    renderMonth();
-    setSelected(keyFor(now));
-  } else {
-    // Render empty month grid even if not connected
-    renderMonth();
-    selectedKey = keyFor(now);
-    setSelected(selectedKey);
-  }
-
-  supabase.auth.onAuthStateChange(async () => {
-    await refreshUser();
-    if (user){
-      await loadMonth();
-      renderMonth();
-      // keep selection if in view
-      const d = selectedKey ? parseKey(selectedKey) : getSncfNow();
-      goToDate(d);
-      await loadMonth();
-      renderMonth();
-      setSelected(keyFor(d));
-      toast("Connecté.");
-    }
-  });
+  const {data}=await supabase.auth.getUser();
+  user=data.user||null;
+  await loadMonth();
+  render();
 }
+
+document.querySelectorAll("[data-set]").forEach(b=>{
+  b.onclick=async()=>{
+    if(!selected||!user)return;
+    const status=b.dataset.set;
+    await supabase.from("work_calendar_entries").upsert({
+      user_id:user.id,
+      work_date:selected,
+      status
+    });
+    entries.set(selected,status);
+    render();
+  };
+});
+
+document.getElementById("prev").onclick=async()=>{
+  view.setMonth(view.getMonth()-1);
+  await loadMonth();
+  render();
+};
+document.getElementById("next").onclick=async()=>{
+  view.setMonth(view.getMonth()+1);
+  await loadMonth();
+  render();
+};
 
 init();
 </script>
