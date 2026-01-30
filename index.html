@@ -360,13 +360,38 @@ async function save(state,label=null){
 
 document.querySelectorAll("[data-s]").forEach(b=>{
   b.onclick=()=>{
-    if(b.dataset.s==="autre"){
-      document.getElementById("autreBox").style.display="block";
-      const sel=document.getElementById("autreSelect");
-      const custom=document.getElementById("autreCustom");
-      if(sel.value==="custom")custom.style.display="block";
-      save("autre",sel.value==="custom"?custom.value:sel.value);
-    }else{
+    if (b.dataset.s === "autre") {
+
+  // MOBILE
+  if (window.innerWidth < 900) {
+    const choice = prompt(
+      "Type de jour (OCP, Férié ou texte personnalisé) :",
+      "OCP"
+    );
+
+    if (choice === null) return; // annulation
+
+    const label = choice.trim();
+    if (!label) return;
+
+    save("autre", label);
+    info.textContent = `${selected} — Autre (${label})`;
+    return;
+  }
+
+  // DESKTOP (sidebar existante)
+  document.getElementById("autreBox").style.display = "block";
+  const sel = document.getElementById("autreSelect");
+  const custom = document.getElementById("autreCustom");
+
+  if (sel.value === "custom") {
+    custom.style.display = "block";
+    save("autre", custom.value);
+  } else {
+    custom.style.display = "none";
+    save("autre", sel.value);
+  }
+}else{
       save(b.dataset.s);
     }
   };
