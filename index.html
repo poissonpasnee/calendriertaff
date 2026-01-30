@@ -12,7 +12,6 @@
   --muted:#9aa4b2;
   --primary:#1f6feb;
 
-  /* Couleurs */
   --jour:#facc15;
   --nuit:#8b5cf6;
   --conges:#7f1d1d;
@@ -27,9 +26,10 @@ html,body{height:100%}
 body{
   margin:0;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-  background: radial-gradient(1100px 520px at 50% -10%, rgba(31,111,235,.16), transparent 55%),
-              radial-gradient(900px 520px at 20% 10%, rgba(139,92,246,.12), transparent 55%),
-              var(--bg);
+  background:
+    radial-gradient(1100px 520px at 50% -10%, rgba(31,111,235,.16), transparent 55%),
+    radial-gradient(900px 520px at 20% 10%, rgba(139,92,246,.12), transparent 55%),
+    var(--bg);
   color:var(--text);
   overflow-x:hidden;
 }
@@ -63,8 +63,8 @@ textarea{min-height:96px;resize:vertical}
 
 .appbar{
   position:sticky;top:0;z-index:50;
-  padding-top:calc(12px + var(--safeTop));
-  padding-bottom:12px;
+  padding-top:calc(10px + var(--safeTop));
+  padding-bottom:10px;
   background:rgba(14,17,23,.92);
   backdrop-filter:blur(14px);
   border-bottom:1px solid rgba(255,255,255,.06);
@@ -93,10 +93,10 @@ textarea{min-height:96px;resize:vertical}
 .controls2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(min-width:900px){
   .controls{grid-template-columns:1fr 360px}
-  .controls2{grid-template-columns:1fr 1fr 1fr 1fr}
+  .controls2{grid-template-columns:1fr 1fr}
 }
 
-main{padding:14px 0 calc(164px + var(--safeBottom))}
+main{padding:14px 0 calc(138px + var(--safeBottom))}
 .card{
   background:rgba(21,26,35,.72);
   border:1px solid rgba(255,255,255,.08);
@@ -130,7 +130,6 @@ main{padding:14px 0 calc(164px + var(--safeBottom))}
 }
 .day.out{opacity:.35}
 .day.selected{outline:2px solid rgba(31,111,235,.70);outline-offset:2px}
-.day.locked::after{content:"🔒";position:absolute;top:6px;right:8px;font-size:12px;opacity:.95}
 .dot{position:absolute;bottom:8px;left:10px;width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.85)}
 .badge{position:absolute;bottom:6px;right:8px;font-size:10px;font-weight:950;padding:2px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18)}
 
@@ -142,29 +141,41 @@ main{padding:14px 0 calc(164px + var(--safeBottom))}
 
 .totals{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
 .pillchip{display:inline-flex;gap:8px;align-items:center;padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-weight:950}
-.warn{color:#ffb86b;border-color:rgba(255,184,107,.25)}
 
 .dock{
   position:fixed;left:0;right:0;bottom:0;z-index:60;
   background:rgba(14,17,23,.94);
   border-top:1px solid rgba(255,255,255,.06);
   backdrop-filter:blur(14px);
-  padding:12px 12px calc(12px + var(--safeBottom));
+  padding:10px 12px calc(10px + var(--safeBottom));
 }
 .selbar{
   background:rgba(255,255,255,.03);
   border:1px solid rgba(255,255,255,.08);
   border-radius:18px;
-  padding:12px;
+  padding:10px 12px;
   display:flex;align-items:center;justify-content:space-between;gap:10px;
 }
 .selbar .left{min-width:0}
 .selbar .date{font-weight:950;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .selbar .state{font-weight:900;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.actions{margin-top:12px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-.actions button{padding:14px 10px;border-radius:18px;font-size:14px}
-@media(min-width:900px){main{padding-bottom:26px}.dock{position:sticky;bottom:0}}
+.actions{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+  gap:10px;
+}
+.actions button{
+  padding:14px 8px;
+  border-radius:18px;
+  font-size:14px;
+}
+
+@media(min-width:900px){
+  main{padding-bottom:26px}
+  .dock{position:sticky;bottom:0}
+}
 
 .backdrop{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);display:none}
 .backdrop.show{display:block}
@@ -208,7 +219,7 @@ main{padding:14px 0 calc(164px + var(--safeBottom))}
 
 .toast{
   position:fixed;left:12px;right:12px;
-  bottom:calc(190px + var(--safeBottom));
+  bottom:calc(160px + var(--safeBottom));
   z-index:120;display:none;
   max-width:520px;margin:0 auto;
   border-radius:16px;border:1px solid rgba(255,255,255,.08);
@@ -249,8 +260,6 @@ main{padding:14px 0 calc(164px + var(--safeBottom))}
 
       <div class="controls2">
         <button id="btnExportXLSX" class="pill">Export Excel</button>
-        <button id="btnExportICS" class="pill">Export ICS</button>
-        <button id="btnLockMonth" class="pill">Verrouiller mois</button>
         <button id="btnLogout" class="pill danger">Déconnexion</button>
       </div>
     </div>
@@ -287,7 +296,6 @@ main{padding:14px 0 calc(164px + var(--safeBottom))}
       <button data-set="repos">Repos</button>
       <button data-set="conges">Congés</button>
       <button data-set="autre">Autre</button>
-      <button id="btnLockDay" class="icon">🔒</button>
     </div>
   </div>
 </div>
@@ -365,7 +373,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 /* ===== Supabase ===== */
 const SUPABASE_URL  = "https://dstmyvzjirgyuwuojwnk.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+const SUPABASE_ANON = "REPLACE_WITH_YOUR_ANON_KEY";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
@@ -377,7 +385,7 @@ const MAX_YEAR = 2035;
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 const LABEL = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
-const LS_KEY = "sncf_planning_state_v2";
+const LS_KEY = "sncf_planning_state_nolock_v1";
 
 /* ===== DOM ===== */
 const grid = document.getElementById("grid");
@@ -416,7 +424,6 @@ let viewYear = 2026;
 let viewMonth = 0;
 let selectedKey = null;
 const entries = new Map();
-let monthLocked = false;
 
 /* ===== Helpers ===== */
 const pad2 = (n) => String(n).padStart(2,"0");
@@ -427,7 +434,7 @@ const clampYear = (y)=> Math.max(MIN_YEAR, Math.min(MAX_YEAR, y));
 function toast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2600);
+  setTimeout(()=>toastEl.classList.remove("show"), 2500);
 }
 function fmtLong(d){
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
@@ -503,7 +510,7 @@ tabLogin.addEventListener("click", ()=>showPane("login"));
 tabSignup.addEventListener("click", ()=>showPane("signup"));
 document.getElementById("btnBackLogin").addEventListener("click", ()=>showPane("login"));
 
-/* ===== Auth actions ===== */
+/* Auth actions */
 document.getElementById("btnLogin").addEventListener("click", async ()=>{
   loginHint.textContent="";
   const email = (loginEmail.value||"").trim();
@@ -514,7 +521,7 @@ document.getElementById("btnLogin").addEventListener("click", async ()=>{
 });
 document.getElementById("btnSignup").addEventListener("click", async ()=>{
   const email = (signEmail.value||"").trim();
-  const pass  = signPass.value||"";
+  const pass  = (signPass.value||"");
   if(!email || !pass){ toast("Email + mot de passe requis."); return; }
   if(pass.length < 6){ toast("Mot de passe: 6 caractères minimum."); return; }
   const { error } = await supabase.auth.signUp({ email, password: pass });
@@ -532,13 +539,13 @@ document.getElementById("btnReset").addEventListener("click", async ()=>{
 });
 document.getElementById("btnLogout").addEventListener("click", async ()=>{
   await supabase.auth.signOut();
-  entries.clear(); monthLocked=false; user=null;
+  entries.clear(); user=null;
   topSub.textContent="Non connecté";
   gate.classList.add("show");
   renderMonth(); renderTotals();
 });
 
-/* ===== Critical: wait for session, then load ===== */
+/* Wait session */
 async function refreshSessionUser(){
   const { data, error } = await supabase.auth.getSession();
   if(error){ console.error(error); user=null; }
@@ -554,37 +561,16 @@ async function refreshSessionUser(){
   }
 }
 
-/* ===== Data load/save ===== */
-async function loadMonthLocks(){
-  monthLocked=false;
-  if(!user) return;
-  const { data, error } = await supabase
-    .from("work_calendar_month_locks")
-    .select("locked")
-    .eq("year", viewYear)
-    .eq("month", viewMonth+1)
-    .maybeSingle();
-
-  if(error && error.code!=="PGRST116"){
-    console.error(error);
-    toast("Erreur lock mois: " + (error.message || error.code || ""));
-    return;
-  }
-  monthLocked = !!(data && data.locked);
-  document.getElementById("btnLockMonth").textContent = monthLocked ? "Déverrouiller mois" : "Verrouiller mois";
-}
-
+/* Load entries for visible range */
 async function loadGridEntries(){
   entries.clear();
   if(!user) return;
 
   const { fromKey, toKey } = gridRangeForMonth(viewYear, viewMonth);
 
-  // IMPORTANT: ne PAS filtrer par user_id ici, RLS s'en charge.
-  // (si tu as un mismatch d'user, ça te montrera immédiatement 0 ligne, et le UID est visible en haut)
   const { data, error } = await supabase
     .from("work_calendar_entries")
-    .select("work_date,status,custom_label,note,locked")
+    .select("work_date,status,custom_label,note")
     .gte("work_date", fromKey)
     .lte("work_date", toKey);
 
@@ -598,47 +584,38 @@ async function loadGridEntries(){
     entries.set(r.work_date, {
       status: r.status,
       custom_label: r.custom_label || "",
-      note: r.note || "",
-      locked: !!r.locked
+      note: r.note || ""
     });
   });
 
   toast(`Chargé: ${(data||[]).length} jour(s)`);
 }
 
-function isLocked(dateKey){
-  const e = entries.get(dateKey);
-  return monthLocked || !!e?.locked;
-}
-
+/* Save immediately */
 async function upsertDay(dateKey, patch){
   if(!user){ toast("Connecte-toi."); return; }
-  if(isLocked(dateKey)){ toast("Verrouillé."); return; }
 
-  const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"", locked:false };
+  const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"" };
   const next = { ...cur, ...patch };
 
-  // Optimistic update (affichage instantané)
+  // Optimistic UI
   entries.set(dateKey, next);
   renderMonth(); renderTotals(); setSelected(dateKey);
 
   const { error } = await supabase
     .from("work_calendar_entries")
     .upsert({
-      // user_id est ajouté automatiquement par RLS? Non.
-      // On l’envoie explicitement pour être sûr.
       user_id: user.id,
       work_date: dateKey,
       status: next.status,
       custom_label: next.custom_label || null,
-      note: next.note || null,
-      locked: !!next.locked
+      note: next.note || null
     }, { onConflict: "user_id,work_date" });
 
   if(error){
     console.error(error);
     // revert
-    if(cur.status || cur.note || cur.custom_label || cur.locked) entries.set(dateKey, cur);
+    if(cur.status || cur.note || cur.custom_label) entries.set(dateKey, cur);
     else entries.delete(dateKey);
     renderMonth(); renderTotals(); setSelected(dateKey);
     toast("Erreur sauvegarde: " + (error.message || error.code || ""));
@@ -647,36 +624,7 @@ async function upsertDay(dateKey, patch){
   saveViewState();
 }
 
-async function toggleLockDay(dateKey){
-  const cur = entries.get(dateKey) || { status:"jour", custom_label:"", note:"", locked:false };
-  await upsertDay(dateKey, { ...cur, locked: !cur.locked, status: cur.status || "jour" });
-}
-
-async function toggleLockMonth(){
-  if(!user){ toast("Connecte-toi."); return; }
-  const next = !monthLocked;
-
-  const { error } = await supabase
-    .from("work_calendar_month_locks")
-    .upsert({
-      user_id: user.id,
-      year: viewYear,
-      month: viewMonth+1,
-      locked: next
-    }, { onConflict: "user_id,year,month" });
-
-  if(error){
-    console.error(error);
-    toast("Erreur verrouillage mois: " + (error.message || error.code || ""));
-    return;
-  }
-  monthLocked = next;
-  document.getElementById("btnLockMonth").textContent = monthLocked ? "Déverrouiller mois" : "Verrouiller mois";
-  renderMonth(); renderTotals();
-  saveViewState();
-}
-
-/* ===== Render ===== */
+/* Render */
 function renderMonth(){
   grid.innerHTML="";
   navMonth.textContent = MONTHS[viewMonth];
@@ -706,7 +654,6 @@ function renderMonth(){
 
       const e = entries.get(k);
       if(e?.status) cell.classList.add(e.status);
-      if(isLocked(k)) cell.classList.add("locked");
       if(k === selectedKey) cell.classList.add("selected");
 
       cell.textContent = String(d.getDate());
@@ -731,8 +678,6 @@ function renderMonth(){
       grid.appendChild(cell);
     }
   }
-
-  document.getElementById("btnLockMonth").textContent = monthLocked ? "Déverrouiller mois" : "Verrouiller mois";
 }
 
 function setSelected(k){
@@ -741,12 +686,11 @@ function setSelected(k){
   const e = entries.get(k);
   const state = e?.status ? LABEL[e.status] : "—";
   const extra = (e?.status==="autre" && e.custom_label) ? ` (${e.custom_label})` : "";
-  const lock = isLocked(k) ? " 🔒" : "";
 
   selDate.textContent = fmtLong(d);
-  selState.textContent = `État: ${state}${extra}${lock}`;
+  selState.textContent = `État: ${state}${extra}`;
   sheetTitle.textContent = fmtLong(d);
-  sheetSub.textContent = `État actuel: ${state}${extra}${lock}`;
+  sheetSub.textContent = `État actuel: ${state}${extra}`;
   noteText.value = e?.note || "";
 
   grid.querySelectorAll(".day").forEach(el=>el.classList.remove("selected"));
@@ -767,9 +711,9 @@ function renderTotals(){
     if(e.status==="autre") cA++;
   }
   totalsEl.innerHTML="";
-  const chip=(t,cls="")=>{
+  const chip=(t)=>{
     const d=document.createElement("div");
-    d.className="pillchip"+(cls?(" "+cls):"");
+    d.className="pillchip";
     d.textContent=t;
     return d;
   };
@@ -778,10 +722,9 @@ function renderTotals(){
   totalsEl.appendChild(chip(`Repos: ${cR}`));
   totalsEl.appendChild(chip(`Congés: ${cC}`));
   totalsEl.appendChild(chip(`Autres: ${cA}`));
-  if(monthLocked) totalsEl.appendChild(chip("🔒 Mois verrouillé","warn"));
 }
 
-/* ===== Buttons ===== */
+/* Buttons */
 function ensureSelected(){
   if(!selectedKey){
     const d = getSncfNow();
@@ -797,7 +740,6 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
     const k = ensureSelected();
     const dSel = parseKey(k);
 
-    // bascule au bon mois si besoin
     if(dSel.getFullYear()!==viewYear || dSel.getMonth()!==viewMonth){
       viewYear = clampYear(dSel.getFullYear());
       viewMonth = dSel.getMonth();
@@ -807,7 +749,6 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
     const type = btn.dataset.set;
 
     if(type==="autre"){
-      if(isLocked(k)){ toast("Verrouillé."); return; }
       const e = entries.get(k);
       otherSelect.value="OCP"; otherCustom.value=""; otherCustom.style.display="none";
       if(e?.status==="autre" && e.custom_label){
@@ -824,19 +765,11 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
 
 document.getElementById("btnNote").addEventListener("click", ()=>{
   const k = ensureSelected();
-  if(isLocked(k)){ toast("Verrouillé."); return; }
   openSheet("note");
-});
-
-document.getElementById("btnLockDay").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  await toggleLockDay(k);
 });
 
 document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
   const k = ensureSelected();
-  if(isLocked(k)){ toast("Verrouillé."); return; }
-
   let label = otherSelect.value;
   if(label==="custom"){
     label = (otherCustom.value||"").trim();
@@ -848,19 +781,15 @@ document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
 
 document.getElementById("btnSaveNote").addEventListener("click", async ()=>{
   const k = ensureSelected();
-  if(isLocked(k)){ toast("Verrouillé."); return; }
   await upsertDay(k, { note:(noteText.value||"").trim() });
   closeSheet();
 });
 document.getElementById("btnClearNote").addEventListener("click", async ()=>{
   const k = ensureSelected();
-  if(isLocked(k)){ toast("Verrouillé."); return; }
   noteText.value="";
   await upsertDay(k, { note:"" });
   closeSheet();
 });
-
-document.getElementById("btnLockMonth").addEventListener("click", toggleLockMonth);
 
 async function changeMonth(delta){
   let y=viewYear, m=viewMonth+delta;
@@ -890,23 +819,36 @@ document.getElementById("btnToday").addEventListener("click", async ()=>{
   saveViewState();
 });
 
-/* ===== Reload sequence ===== */
+/* Export Excel (sur données chargées) */
+document.getElementById("btnExportXLSX").addEventListener("click", ()=>{
+  const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note"]];
+  const keys = Array.from(entries.keys()).sort();
+  for(const k of keys){
+    const e = entries.get(k);
+    if(!e?.status) continue;
+    const d = new Date(k);
+    rows.push([k, d.getFullYear(), MONTHS[d.getMonth()], String(isoWeek(d)).padStart(2,"0"),
+      LABEL[e.status]||"", e.custom_label||"", e.note||"" ]);
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Planning");
+  XLSX.writeFile(wb, `planning_${viewYear}-${pad2(viewMonth+1)}.xlsx`);
+});
+
+/* Reload */
 async function reloadView(keepSelection){
-  await loadMonthLocks();
-  await loadGridEntries();     // <-- charge tes jours marqués
+  await loadGridEntries();
   renderMonth();
   renderTotals();
-
-  if(keepSelection && selectedKey){
-    setSelected(selectedKey);
-  }else{
+  if(keepSelection && selectedKey) setSelected(selectedKey);
+  else{
     const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
-    setSelected(k);
     selectedKey = k;
+    setSelected(k);
   }
 }
 
-/* ===== Init ===== */
+/* Init */
 async function init(){
   const restored = restoreViewState();
   if(!restored){
@@ -916,29 +858,13 @@ async function init(){
     selectedKey = keyFor(now);
   }
 
-  // Affiche instantanément (même sans data)
   renderMonth();
   renderTotals();
   if(selectedKey) setSelected(selectedKey);
 
-  // 1) ATTEND session
   await refreshSessionUser();
+  if(user) await reloadView(true);
 
-  // 2) Si connecté -> charge data
-  if(user){
-    await reloadView(true);
-  }
-
-  // 3) Au cas où la session arrive juste après (Safari parfois), on refait une passe 600ms plus tard
-  setTimeout(async ()=>{
-    const before = user?.id || "";
-    await refreshSessionUser();
-    if(user && user.id !== before){
-      await reloadView(true);
-    }
-  }, 600);
-
-  // 4) Sur changement auth
   supabase.auth.onAuthStateChange(async ()=>{
     await refreshSessionUser();
     if(user) await reloadView(true);
