@@ -16,6 +16,9 @@ const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 const LABEL = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 const LS_KEY = "sncf_planning_state_nolock_v1";
 
+/* Theme */
+const THEME_KEY = "sncf_theme_pref"; // "light" | "dark" | "auto"
+
 /* ===== DOM ===== */
 const grid = document.getElementById("grid");
 const totalsEl = document.getElementById("totals");
@@ -32,6 +35,8 @@ const sheetTitle = document.getElementById("sheetTitle");
 const sheetSub = document.getElementById("sheetSub");
 const sheetOther = document.getElementById("sheetOther");
 const sheetNote = document.getElementById("sheetNote");
+const sheetSettings = document.getElementById("sheetSettings");
+
 const otherSelect = document.getElementById("otherSelect");
 const otherCustom = document.getElementById("otherCustom");
 const noteText = document.getElementById("noteText");
@@ -46,6 +51,13 @@ const loginPass = document.getElementById("loginPass");
 const signEmail = document.getElementById("signEmail");
 const signPass = document.getElementById("signPass");
 const loginHint = document.getElementById("loginHint");
+
+/* Settings DOM */
+const btnSettings = document.getElementById("btnSettings");
+const themeToggle = document.getElementById("themeToggle");
+const themeLabel = document.getElementById("themeLabel");
+const btnThemeAuto = document.getElementById("btnThemeAuto");
+const btnCloseSettings = document.getElementById("btnCloseSettings");
 
 /* ===== State ===== */
 let user = null;
@@ -63,7 +75,7 @@ const clampYear = (y)=> Math.max(MIN_YEAR, Math.min(MAX_YEAR, y));
 function toast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2500);
+  setTimeout(()=>toastEl.classList.remove("show"), 2200);
 }
 function fmtLong(d){
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
@@ -79,6 +91,34 @@ function getSncfNow(){
   const d = new Date();
   if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
   return d;
+}
+
+/* ===== Theme ===== */
+function setTheme(mode){
+  // mode: "light" | "dark" | "auto"
+  try{ localStorage.setItem(THEME_KEY, mode); }catch{}
+  applyTheme(mode);
+}
+function getTheme(){
+  try{
+    const v = localStorage.getItem(THEME_KEY);
+    if(v==="light" || v==="dark" || v==="auto") return v;
+  }catch{}
+  return "auto";
+}
+function applyTheme(mode){
+  // CSS: :root[data-theme="dark"] forces dark; absence = auto
+  if(mode === "auto"){
+    document.documentElement.removeAttribute("data-theme");
+    themeLabel.textContent = "Auto";
+    // toggle reflects "dark?" based on system
+    const sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    themeToggle.checked = sysDark;
+    return;
+  }
+  document.documentElement.setAttribute("data-theme", mode === "dark" ? "dark" : "light");
+  themeLabel.textContent = mode === "dark" ? "Nuit" : "Jour";
+  themeToggle.checked = (mode === "dark");
 }
 
 /* Persist view */
@@ -107,12 +147,19 @@ function gridRangeForMonth(year, month){
   return { start, end, fromKey:keyFor(start), toKey:keyFor(end) };
 }
 
-/* Sheet */
+/* ===== Sheet ===== */
 function openSheet(mode){
   sheetOther.style.display = (mode==="other") ? "block" : "none";
   sheetNote.style.display  = (mode==="note")  ? "block" : "none";
+  sheetSettings.style.display = (mode==="settings") ? "block" : "none";
+
   backdrop.classList.add("show");
   sheet.classList.add("show");
+
+  if(mode==="settings"){
+    sheetTitle.textContent = "Réglages";
+    sheetSub.textContent = "Mode jour / nuit";
+  }
 }
 function closeSheet(){
   backdrop.classList.remove("show");
@@ -121,9 +168,27 @@ function closeSheet(){
 backdrop.addEventListener("click", closeSheet);
 document.getElementById("btnCloseSheet").addEventListener("click", closeSheet);
 document.getElementById("btnCancelOther").addEventListener("click", closeSheet);
+
 otherSelect.addEventListener("change", ()=>{
   otherCustom.style.display = (otherSelect.value==="custom") ? "block" : "none";
 });
+
+/* ===== Settings events ===== */
+btnSettings.addEventListener("click", ()=>{
+  openSheet("settings");
+});
+
+themeToggle.addEventListener("change", ()=>{
+  // si l’utilisateur touche le toggle, on force light/dark
+  setTheme(themeToggle.checked ? "dark" : "light");
+});
+
+btnThemeAuto.addEventListener("click", ()=>{
+  setTheme("auto");
+  toast("Mode: Auto");
+});
+
+btnCloseSettings.addEventListener("click", closeSheet);
 
 /* Auth tabs */
 function showPane(which){
@@ -148,6 +213,7 @@ document.getElementById("btnLogin").addEventListener("click", async ()=>{
   const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
   if(error){ console.error(error); loginHint.textContent = error.message || "Erreur connexion."; }
 });
+
 document.getElementById("btnSignup").addEventListener("click", async ()=>{
   const email = (signEmail.value||"").trim();
   const pass  = (signPass.value||"");
@@ -159,6 +225,7 @@ document.getElementById("btnSignup").addEventListener("click", async ()=>{
   showPane("login");
   loginEmail.value=email; loginPass.value="";
 });
+
 document.getElementById("btnReset").addEventListener("click", async ()=>{
   const email = (loginEmail.value||"").trim();
   if(!email){ loginHint.textContent="Entre ton email puis reset."; return; }
@@ -166,6 +233,7 @@ document.getElementById("btnReset").addEventListener("click", async ()=>{
   if(error){ console.error(error); loginHint.textContent = error.message || "Erreur reset."; return; }
   loginHint.textContent="Email de réinitialisation envoyé.";
 });
+
 document.getElementById("btnLogout").addEventListener("click", async ()=>{
   await supabase.auth.signOut();
   entries.clear(); user=null;
@@ -216,8 +284,6 @@ async function loadGridEntries(){
       note: r.note || ""
     });
   });
-
-  toast(`Chargé: ${(data||[]).length} jour(s)`);
 }
 
 /* Save immediately */
@@ -227,7 +293,6 @@ async function upsertDay(dateKey, patch){
   const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"" };
   const next = { ...cur, ...patch };
 
-  // Optimistic UI
   entries.set(dateKey, next);
   renderMonth(); renderTotals(); setSelected(dateKey);
 
@@ -243,7 +308,6 @@ async function upsertDay(dateKey, patch){
 
   if(error){
     console.error(error);
-    // revert
     if(cur.status || cur.note || cur.custom_label) entries.set(dateKey, cur);
     else entries.delete(dateKey);
     renderMonth(); renderTotals(); setSelected(dateKey);
@@ -393,7 +457,7 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
 });
 
 document.getElementById("btnNote").addEventListener("click", ()=>{
-  const k = ensureSelected();
+  ensureSelected();
   openSheet("note");
 });
 
@@ -448,7 +512,7 @@ document.getElementById("btnToday").addEventListener("click", async ()=>{
   saveViewState();
 });
 
-/* Export Excel (sur données chargées) */
+/* Export Excel */
 document.getElementById("btnExportXLSX").addEventListener("click", ()=>{
   const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note"]];
   const keys = Array.from(entries.keys()).sort();
@@ -479,6 +543,16 @@ async function reloadView(keepSelection){
 
 /* Init */
 async function init(){
+  // Theme first
+  applyTheme(getTheme());
+
+  // if system theme changes while in auto, update toggle state
+  if(window.matchMedia){
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{
+      if(getTheme()==="auto") applyTheme("auto");
+    });
+  }
+
   const restored = restoreViewState();
   if(!restored){
     const now = getSncfNow();
