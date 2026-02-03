@@ -20,30 +20,55 @@
             <div class="s" id="topSub">Non connecté</div>
           </div>
 
-          <!-- Réglages en haut à droite -->
-          <button id="btnSettings" class="icon" aria-label="Réglages">⚙️</button>
-        </div>
+          <!-- Réglages (haut droite) -->
+          <div class="settings">
+            <button class="icon" id="btnSettings" aria-label="Réglages">⚙️</button>
 
-        <div class="monthpill">
-          <div class="m" id="navMonth">—</div>
-          <div class="y" id="navYear">—</div>
-        </div>
+            <div class="settings-pop" id="settingsPop" role="dialog" aria-label="Réglages">
+              <div class="settings-title">Réglages</div>
 
-        <!-- Ligne 1 : navigation mois/année -->
-        <div class="controls">
-          <div class="arrows">
-            <button class="icon" id="btnPrevYear" aria-label="Année précédente">«</button>
-            <button class="icon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
-            <button class="icon" id="btnNextMonth" aria-label="Mois suivant">›</button>
-            <button class="icon" id="btnNextYear" aria-label="Année suivante">»</button>
+              <div class="setting-row">
+                <div class="setting-label">Thème</div>
+                <div class="seg" role="group" aria-label="Mode jour/nuit">
+                  <button id="themeLight" class="segbtn" type="button">Jour</button>
+                  <button id="themeDark" class="segbtn" type="button">Nuit</button>
+                </div>
+              </div>
+
+              <div class="settings-hint">Le choix est mémorisé sur cet appareil.</div>
+            </div>
           </div>
         </div>
 
-        <!-- Ligne 2 : 3 boutons sur une seule ligne -->
-        <div class="quickbar">
-          <button id="btnToday" class="primary pill smallbtn">Aujourd’hui</button>
-          <button id="btnExportXLSX" class="pill smallbtn">Export</button>
-          <button id="btnLogout" class="pill danger smallbtn">Déco</button>
+        <!-- ✅ NOUVEAU : navigation mois/année plus compacte + mobile-friendly -->
+        <div class="monthnav" aria-label="Navigation calendrier">
+          <div class="monthnav-arrows">
+            <button class="navicon" id="btnPrevYear" aria-label="Année précédente">«</button>
+            <button class="navicon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
+          </div>
+
+          <div class="monthchip" role="button" aria-label="Mois en cours">
+            <div class="monthchip-m" id="navMonth">—</div>
+            <div class="monthchip-y" id="navYear">—</div>
+          </div>
+
+          <div class="monthnav-arrows">
+            <button class="navicon" id="btnNextMonth" aria-label="Mois suivant">›</button>
+            <button class="navicon" id="btnNextYear" aria-label="Année suivante">»</button>
+          </div>
+        </div>
+
+        <!-- ✅ On garde tes boutons tels quels -->
+        <div class="controls">
+          <div class="arrows">
+            <!-- (on laisse vide volontairement : IDs déjà utilisés au-dessus) -->
+          </div>
+          <button id="btnToday" class="primary pill smallbtn">Aujourd’hui SNCF</button>
+        </div>
+
+        <div class="controls2">
+          <button id="btnExportXLSX" class="pill smallbtn">Export Excel</button>
+          <button id="btnLogout" class="pill danger smallbtn">Déconnexion</button>
         </div>
 
       </div>
@@ -58,8 +83,8 @@
           <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
           <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
         </div>
-        <div class="grid" id="grid"></div>
 
+        <div class="grid" id="grid"></div>
         <div class="totals" id="totals"></div>
       </section>
     </div>
@@ -87,7 +112,7 @@
 
   <div class="backdrop" id="backdrop"></div>
 
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Panneau">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Édition du jour">
     <div class="grab"></div>
 
     <div class="sheet-head">
@@ -120,31 +145,6 @@
         <button class="danger" id="btnClearNote">Vider</button>
       </div>
     </div>
-
-    <!-- NOUVEAU : Réglages -->
-    <div id="sheetSettings" style="display:none">
-      <div class="settingsRow">
-        <div>
-          <div class="settingsTitle">Mode</div>
-          <div class="settingsHint" id="themeLabel">Auto</div>
-        </div>
-
-        <label class="switch" aria-label="Basculer Jour/Nuit">
-          <input type="checkbox" id="themeToggle">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="small" style="margin-top:10px">
-        Jour/Nuit force l’apparence du site (ne dépend pas du système).
-      </div>
-
-      <div class="sheet-actions" style="margin-top:12px">
-        <button id="btnThemeAuto" class="pill">Auto</button>
-        <button id="btnCloseSettings" class="primary pill">OK</button>
-      </div>
-    </div>
-
   </div>
 
   <div class="gate" id="gate" aria-label="Connexion">
