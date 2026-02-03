@@ -1,20 +1,27 @@
 /* =========================================================
    Planning SNCF — UI moderne (Apple/Google-like)
-   Objectif: calendrier centré sur mobile + layout net
+   - Grille 7 colonnes SANS scroll (toujours visible)
+   - Couleurs + layout revus
+   - Aucune modification JS/Supabase/IDs
    ========================================================= */
 
 /* Tokens */
 :root{
-  --bg:#f5f6f8;
+  /* Light (Google/Apple) */
+  --bg:#f3f5f8;
+  --text:rgba(17,24,39,.92);
+  --muted:rgba(17,24,39,.58);
+  --stroke:rgba(17,24,39,.12);
+
   --surface:rgba(255,255,255,.78);
   --surface-strong:rgba(255,255,255,.92);
-  --text:rgba(0,0,0,.88);
-  --muted:rgba(0,0,0,.56);
-  --stroke:rgba(0,0,0,.10);
 
-  --primary:#0a84ff;         /* Apple blue */
+  /* Accent: moderne (Apple blue + une touche mint) */
+  --primary:#0a84ff;
+  --accent:#22c55e;
   --danger:#ff3b30;
-  --shadow:0 14px 44px rgba(0,0,0,.12);
+
+  --shadow:0 14px 46px rgba(0,0,0,.12);
   --shadow2:0 6px 18px rgba(0,0,0,.10);
 
   --r-lg:22px;
@@ -24,52 +31,63 @@
   --safeTop: env(safe-area-inset-top);
   --safeBottom: env(safe-area-inset-bottom);
 
-  /* Status colors */
-  --jour:#fbbf24;
-  --nuit:#8b5cf6;
-  --conges:#ef4444;
-  --repos:#9ca3af;
-  --autre:#f59e0b;
+  /* Status colors (plus propres) */
+  --jour:#f59e0b;    /* amber */
+  --nuit:#6366f1;    /* indigo */
+  --conges:#ef4444;  /* red */
+  --repos:#9ca3af;   /* gray */
+  --autre:#10b981;   /* emerald */
 }
 
+/* Dark mode auto */
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#0b0c0f;
-    --surface:rgba(255,255,255,.06);
-    --surface-strong:rgba(255,255,255,.09);
+    --bg:#0b0c10;
     --text:rgba(255,255,255,.92);
     --muted:rgba(255,255,255,.62);
     --stroke:rgba(255,255,255,.12);
-    --shadow:0 18px 68px rgba(0,0,0,.45);
-    --shadow2:0 10px 26px rgba(0,0,0,.35);
+
+    --surface:rgba(255,255,255,.06);
+    --surface-strong:rgba(255,255,255,.09);
+
     --primary:#7c5cff;
+    --accent:#4dd7ff;
+
+    --shadow:0 18px 70px rgba(0,0,0,.48);
+    --shadow2:0 10px 26px rgba(0,0,0,.35);
+
+    --jour:#fbbf24;
+    --nuit:#8b5cf6;
+    --conges:#ff4d6d;
+    --repos:#a1a1aa;
+    --autre:#34d399;
   }
 }
 
 *{box-sizing:border-box}
 html,body{height:100%}
 
+/* Base */
 body{
   margin:0;
   font-family:system-ui,-apple-system,"SF Pro Text","SF Pro Display",Segoe UI,Roboto,Helvetica,Arial,sans-serif;
   color:var(--text);
   background:
-    radial-gradient(1200px 600px at 15% -10%, rgba(10,132,255,.14), transparent 55%),
-    radial-gradient(900px 520px at 90% 10%, rgba(31,111,235,.10), transparent 55%),
+    radial-gradient(1200px 650px at 10% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 60%),
+    radial-gradient(900px 520px at 95% 10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
     var(--bg);
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
   overflow-x:hidden;
 }
 
-/* container */
+/* Layout container */
 .wrap{
   max-width:1100px;
   margin:0 auto;
   padding:0 14px;
 }
 
-/* controls base */
 button,input,select,textarea{font:inherit;color:inherit}
 
 /* Buttons */
@@ -89,20 +107,17 @@ button:hover{box-shadow:var(--shadow2)}
 button:active{transform:scale(.98); box-shadow:none}
 
 button.primary{
-  background:linear-gradient(135deg, rgba(10,132,255,.95), rgba(31,111,235,.85));
-  border-color:rgba(10,132,255,.30);
+  background:linear-gradient(135deg,
+    color-mix(in srgb, var(--primary) 92%, white),
+    color-mix(in srgb, var(--primary) 72%, black)
+  );
+  border-color:color-mix(in srgb, var(--primary) 40%, transparent);
   color:rgba(255,255,255,.96);
-}
-@media (prefers-color-scheme: dark){
-  button.primary{
-    background:linear-gradient(135deg, rgba(124,92,255,.55), rgba(10,132,255,.20));
-    border-color:rgba(124,92,255,.35);
-  }
 }
 
 button.danger{
   color:var(--danger);
-  border-color:rgba(255,59,48,.30);
+  border-color:color-mix(in srgb, var(--danger) 35%, transparent);
   background:color-mix(in srgb, var(--surface-strong) 86%, rgba(255,59,48,.10));
 }
 
@@ -122,10 +137,10 @@ input,select,textarea{
   outline:none;
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
-textarea{min-height:96px; resize:vertical}
+textarea{min-height:96px;resize:vertical}
 
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
-  outline:3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline:3px solid color-mix(in srgb, var(--primary) 30%, transparent);
   outline-offset:2px;
 }
 
@@ -134,19 +149,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   position:sticky; top:0; z-index:50;
   padding-top:calc(10px + var(--safeTop));
   padding-bottom:12px;
-
   background:color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter:blur(16px);
   -webkit-backdrop-filter:blur(16px);
   border-bottom:1px solid var(--stroke);
 }
 
-.bar{display:flex; flex-direction:column; gap:12px}
-.topline{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
+.bar{display:flex;flex-direction:column;gap:12px}
+.topline{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 
-.brand{display:flex; flex-direction:column; gap:3px; min-width:0}
-.brand .t{font-size:16px; font-weight:900; letter-spacing:.2px}
-.brand .s{font-size:12px; color:var(--muted); font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.brand{display:flex;flex-direction:column;gap:3px;min-width:0}
+.brand .t{font-size:16px;font-weight:900;letter-spacing:.2px}
+.brand .s{font-size:12px;color:var(--muted);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Month pill */
 .monthpill{
@@ -155,19 +169,22 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   border:1px solid var(--stroke);
   border-radius:var(--r-lg);
   padding:12px 14px;
-  display:flex; align-items:baseline; justify-content:center; gap:10px;
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:10px;
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
-.monthpill .m{font-size:18px; font-weight:900}
-.monthpill .y{font-size:13px; font-weight:700; color:var(--muted)}
+.monthpill .m{font-size:18px;font-weight:900}
+.monthpill .y{font-size:13px;font-weight:700;color:var(--muted)}
 
-/* Controls layout: mieux centré sur mobile */
+/* Controls */
 .controls{
   display:grid;
   grid-template-columns:1fr;
   gap:10px;
 }
-.controls .arrows{display:flex; gap:10px}
+.controls .arrows{display:flex;gap:10px}
 .controls .arrows button{flex:1}
 
 .controls2{
@@ -181,9 +198,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 /* Main */
-main{
-  padding:14px 0 calc(148px + var(--safeBottom));
-}
+main{padding:14px 0 calc(148px + var(--safeBottom))}
 
 .card{
   background:var(--surface);
@@ -196,69 +211,51 @@ main{
 }
 
 /* =========================================================
-   Calendar centering: IMPORTANT
-   - cal-scroll: scroll horizontal si besoin
-   - cal-inner: inline block centré (même si la grille dépasse)
+   GRILLE SANS SCROLL
+   - 7 colonnes toujours visibles
+   - Cases adaptatives + taille mini garantie
    ========================================================= */
-.cal-scroll{
-  width:100%;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  display:flex;
-  justify-content:center;
-  padding: 2px 6px 8px;
-  scroll-snap-type:x mandatory;
-}
-.cal-scroll::-webkit-scrollbar{height:10px}
-.cal-scroll::-webkit-scrollbar-thumb{
-  background:color-mix(in srgb, var(--muted) 20%, transparent);
-  border-radius:999px;
-}
-.cal-inner{
-  display:inline-block;
-  scroll-snap-align:center;
-}
 
-/* Calendar header + grid: taille contenu */
 .calendar-head{
   display:grid;
-  grid-template-columns:52px repeat(7, 74px);
-  gap:10px;
+  grid-template-columns:42px repeat(7, minmax(0, 1fr));
+  gap:8px;
   margin-bottom:10px;
   align-items:center;
   color:var(--muted);
-  font-size:12px;
+  font-size:11px;
   font-weight:750;
   letter-spacing:.2px;
 }
 .calendar-head div{text-align:center}
 
-/* Grille: largeur fixe sur mobile = lisible + centrée, sur PC = responsive */
+/* IMPORTANT: plus de width fixe, donc pas de scroll */
 .grid{
   display:grid;
-  grid-template-columns:52px repeat(7, 74px);
-  gap:10px;
+  grid-template-columns:42px repeat(7, minmax(0, 1fr));
+  gap:8px;
 }
 
-/* Sur écrans larges, on repasse en colonnes flexibles */
-@media(min-width:700px){
-  .calendar-head{grid-template-columns:52px repeat(7, 1fr)}
-  .grid{grid-template-columns:52px repeat(7, 1fr)}
+/* Ajustements mobiles: on réduit les gaps et on optimise la lisibilité */
+@media (max-width: 420px){
+  .wrap{padding:0 10px}
+  .calendar-head{gap:6px; font-size:10px}
+  .grid{gap:6px}
 }
 
 /* Week number */
 .weeknum{
   text-align:center;
-  font-size:12px;
+  font-size:11px;
   font-weight:850;
   color:var(--muted);
-  padding-top:16px;
+  padding-top:14px;
 }
 
-/* Day cell */
+/* Day cell: adaptatif (cases restent jolies même petites) */
 .day{
-  height:52px;
-  border-radius:18px;
+  height:50px;
+  border-radius:16px;
   border:1px solid var(--stroke);
   background:var(--surface-strong);
   display:flex;
@@ -269,7 +266,7 @@ main{
   user-select:none;
   -webkit-tap-highlight-color:transparent;
   font-weight:900;
-  font-size:18px;
+  font-size:16px;
   box-shadow:0 1px 0 rgba(0,0,0,.04);
   transition:transform .06s ease, box-shadow .15s ease, border-color .15s ease;
 }
@@ -277,21 +274,27 @@ main{
 .day:active{transform:scale(.985); box-shadow:none}
 .day.out{opacity:.38}
 .day.selected{
-  outline:3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  outline:3px solid color-mix(in srgb, var(--primary) 30%, transparent);
   outline-offset:2px;
+}
+
+/* Sur très petits écrans: font + hauteur un peu réduits */
+@media (max-width: 360px){
+  .day{height:46px; font-size:15px; border-radius:14px}
 }
 
 /* Note dot + badge */
 .dot{
   position:absolute;
-  bottom:8px; left:10px;
-  width:7px; height:7px; border-radius:999px;
+  bottom:7px; left:8px;
+  width:6px; height:6px;
+  border-radius:999px;
   background:color-mix(in srgb, var(--primary) 55%, rgba(255,255,255,.85));
 }
 .badge{
   position:absolute;
-  bottom:6px; right:8px;
-  font-size:10px;
+  bottom:6px; right:6px;
+  font-size:9px;
   font-weight:850;
   padding:2px 6px;
   border-radius:999px;
@@ -300,14 +303,14 @@ main{
   color:var(--muted);
 }
 
-/* Status styles */
+/* Status styles (plus modernes, plus “soft”) */
 .day.jour{
-  background:color-mix(in srgb, var(--jour) 22%, var(--surface-strong));
-  border-color:color-mix(in srgb, var(--jour) 30%, var(--stroke));
+  background:color-mix(in srgb, var(--jour) 20%, var(--surface-strong));
+  border-color:color-mix(in srgb, var(--jour) 28%, var(--stroke));
 }
 .day.nuit{
   background:color-mix(in srgb, var(--nuit) 18%, var(--surface-strong));
-  border-color:color-mix(in srgb, var(--nuit) 28%, var(--stroke));
+  border-color:color-mix(in srgb, var(--nuit) 26%, var(--stroke));
 }
 .day.conges{
   background:color-mix(in srgb, var(--conges) 14%, var(--surface-strong));
@@ -322,14 +325,14 @@ main{
   border-color:color-mix(in srgb, var(--autre) 22%, var(--stroke));
 }
 
-/* Totals chips */
+/* Totals */
 .totals{
-  margin-top:10px;
+  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   align-items:center;
-  justify-content:center; /* centre sur mobile */
+  justify-content:center; /* plus clean sur mobile */
 }
 .pillchip{
   display:inline-flex;
@@ -365,10 +368,23 @@ main{
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
 .selbar .left{min-width:0}
-.selbar .date{font-weight:900; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.selbar .state{font-weight:650; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.selbar .date{
+  font-weight:900;
+  font-size:15px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.selbar .state{
+  font-weight:650;
+  font-size:12px;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
-/* Actions: 5 boutons, centrés, propres */
+/* Actions: look plus Apple/Google */
 .actions{
   margin-top:10px;
   display:grid;
@@ -376,12 +392,21 @@ main{
   gap:10px;
 }
 .actions button{
-  padding:14px 8px;
+  padding:14px 6px;
   border-radius:18px;
-  font-size:14px;
+  font-size:13px;
+  font-weight:800;
 }
 
-/* Desktop: dock sticky */
+/* Mobile: si ça serre trop, on passe en 3 + 2 (toujours sans scroll) */
+@media (max-width: 380px){
+  .actions{
+    grid-template-columns:repeat(3, minmax(0,1fr));
+  }
+  /* 2e ligne naturellement */
+}
+
+/* Desktop */
 @media(min-width:900px){
   main{padding-bottom:26px}
   .dock{position:sticky; bottom:0}
@@ -409,16 +434,16 @@ main{
 }
 .sheet.show{transform:translateY(0)}
 .grab{
-  width:44px; height:5px; border-radius:999px;
+  width:44px;height:5px;border-radius:999px;
   background:color-mix(in srgb, var(--muted) 35%, transparent);
   margin:6px auto 12px;
 }
-.sheet-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .sheet-title{font-weight:900}
-.sheet-sub{font-weight:650; font-size:12px; color:var(--muted); margin-top:2px}
-.row{display:flex; gap:10px; margin-top:12px}
+.sheet-sub{font-weight:650;font-size:12px;color:var(--muted);margin-top:2px}
+.row{display:flex;gap:10px;margin-top:12px}
 .row>*{flex:1}
-.sheet-actions{display:flex; gap:10px; margin-top:12px}
+.sheet-actions{display:flex;gap:10px;margin-top:12px}
 .sheet-actions button{flex:1}
 
 /* Gate (login) */
@@ -439,15 +464,14 @@ main{
   padding:14px;
   box-shadow:var(--shadow);
 }
-.gate-title{font-weight:900; font-size:16px}
-.tabs{display:flex; gap:10px; margin-top:12px}
+.gate-title{font-weight:900;font-size:16px}
+.tabs{display:flex;gap:10px;margin-top:12px}
 .tabs button{flex:1}
-.small{color:var(--muted); font-size:12px; font-weight:650; margin-top:8px; line-height:1.3}
+.small{color:var(--muted);font-size:12px;font-weight:650;margin-top:8px;line-height:1.3}
 
 /* Toast */
 .toast{
-  position:fixed;
-  left:12px; right:12px;
+  position:fixed; left:12px; right:12px;
   bottom:calc(160px + var(--safeBottom));
   z-index:120;
   display:none;
@@ -457,7 +481,7 @@ main{
   border:1px solid var(--stroke);
   background:var(--surface-strong);
   padding:12px 14px;
-  font-weight:800;
+  font-weight:850;
   box-shadow:var(--shadow2);
 }
 .toast.show{display:block}
