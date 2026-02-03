@@ -28,10 +28,10 @@
 
         <div class="controls">
           <div class="arrows">
-            <button class="icon" id="btnPrevYear">«</button>
-            <button class="icon" id="btnPrevMonth">‹</button>
-            <button class="icon" id="btnNextMonth">›</button>
-            <button class="icon" id="btnNextYear">»</button>
+            <button class="icon" id="btnPrevYear" aria-label="Année précédente">«</button>
+            <button class="icon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
+            <button class="icon" id="btnNextMonth" aria-label="Mois suivant">›</button>
+            <button class="icon" id="btnNextYear" aria-label="Année suivante">»</button>
           </div>
           <button id="btnToday" class="primary pill">Aujourd’hui SNCF</button>
         </div>
@@ -52,6 +52,7 @@
           <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
           <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
         </div>
+
         <div class="grid" id="grid"></div>
         <div class="totals" id="totals"></div>
       </div>
@@ -79,8 +80,10 @@
   </div>
 
   <div class="backdrop" id="backdrop"></div>
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Édition du jour">
     <div class="grab"></div>
+
     <div class="sheet-head">
       <div>
         <div class="sheet-title" id="sheetTitle">—</div>
@@ -91,7 +94,7 @@
 
     <div id="sheetOther">
       <div class="row">
-        <select id="otherSelect">
+        <select id="otherSelect" aria-label="Type Autre">
           <option value="OCP">OCP</option>
           <option value="Férié">Férié</option>
           <option value="custom">Personnalisé</option>
@@ -113,7 +116,7 @@
     </div>
   </div>
 
-  <div class="gate" id="gate">
+  <div class="gate" id="gate" aria-label="Connexion">
     <div class="gate-card">
       <div class="gate-title">Connexion</div>
       <div class="small">Email + mot de passe (création + reset).</div>
@@ -145,10 +148,7 @@
     </div>
   </div>
 
-  <!-- XLSX export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- App -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
