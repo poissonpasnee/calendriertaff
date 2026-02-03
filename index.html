@@ -4,14 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Planning SNCF</title>
-
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 
 <body>
   <div class="toast" id="toast"></div>
 
-  <div class="appbar">
+  <header class="appbar">
     <div class="wrap">
       <div class="bar">
         <div class="topline">
@@ -42,20 +41,26 @@
         </div>
       </div>
     </div>
-  </div>
+  </header>
 
   <main>
     <div class="wrap">
-      <div class="card">
-        <div class="calendar-head">
-          <div>Sem</div>
-          <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
-          <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
+      <section class="card">
+        <!-- WRAPPER IMPORTANT : centre la grille sur mobile -->
+        <div class="cal-scroll" aria-label="Calendrier">
+          <div class="cal-inner">
+            <div class="calendar-head">
+              <div>Sem</div>
+              <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
+              <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
+            </div>
+
+            <div class="grid" id="grid"></div>
+          </div>
         </div>
 
-        <div class="grid" id="grid"></div>
         <div class="totals" id="totals"></div>
-      </div>
+      </section>
     </div>
   </main>
 
