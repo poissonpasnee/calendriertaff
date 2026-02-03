@@ -1,5 +1,37 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
+/* ===== Theme (Jour/Nuit) ===== */
+const LS_THEME_KEY = "sncf_theme_mode_v1"; // "light" | "dark"
+
+function applyTheme(mode){
+  const root = document.documentElement;
+  if(mode === "dark"){
+    root.setAttribute("data-theme","dark");
+  }else if(mode === "light"){
+    root.setAttribute("data-theme","light");
+  }else{
+    root.removeAttribute("data-theme");
+  }
+}
+
+function setTheme(mode){
+  try{ localStorage.setItem(LS_THEME_KEY, mode); }catch{}
+  applyTheme(mode);
+  updateThemeUI(mode);
+}
+
+function getSavedTheme(){
+  try{ return localStorage.getItem(LS_THEME_KEY); }catch{ return null; }
+}
+
+function updateThemeUI(mode){
+  const bL = document.getElementById("themeLight");
+  const bD = document.getElementById("themeDark");
+  if(!bL || !bD) return;
+  bL.classList.toggle("active", mode === "light");
+  bD.classList.toggle("active", mode === "dark");
+}
+
 /* ===== Supabase ===== */
 const SUPABASE_URL  = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
@@ -15,9 +47,6 @@ const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aoû
 const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 const LABEL = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 const LS_KEY = "sncf_planning_state_nolock_v1";
-
-/* Theme */
-const THEME_KEY = "sncf_theme_pref"; // "light" | "dark" | "auto"
 
 /* ===== DOM ===== */
 const grid = document.getElementById("grid");
@@ -35,8 +64,6 @@ const sheetTitle = document.getElementById("sheetTitle");
 const sheetSub = document.getElementById("sheetSub");
 const sheetOther = document.getElementById("sheetOther");
 const sheetNote = document.getElementById("sheetNote");
-const sheetSettings = document.getElementById("sheetSettings");
-
 const otherSelect = document.getElementById("otherSelect");
 const otherCustom = document.getElementById("otherCustom");
 const noteText = document.getElementById("noteText");
@@ -52,12 +79,11 @@ const signEmail = document.getElementById("signEmail");
 const signPass = document.getElementById("signPass");
 const loginHint = document.getElementById("loginHint");
 
-/* Settings DOM */
+/* Settings popover DOM */
 const btnSettings = document.getElementById("btnSettings");
-const themeToggle = document.getElementById("themeToggle");
-const themeLabel = document.getElementById("themeLabel");
-const btnThemeAuto = document.getElementById("btnThemeAuto");
-const btnCloseSettings = document.getElementById("btnCloseSettings");
+const settingsPop = document.getElementById("settingsPop");
+const themeLightBtn = document.getElementById("themeLight");
+const themeDarkBtn = document.getElementById("themeDark");
 
 /* ===== State ===== */
 let user = null;
@@ -75,7 +101,7 @@ const clampYear = (y)=> Math.max(MIN_YEAR, Math.min(MAX_YEAR, y));
 function toast(msg){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2200);
+  setTimeout(()=>toastEl.classList.remove("show"), 2500);
 }
 function fmtLong(d){
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
@@ -91,34 +117,6 @@ function getSncfNow(){
   const d = new Date();
   if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
   return d;
-}
-
-/* ===== Theme ===== */
-function setTheme(mode){
-  // mode: "light" | "dark" | "auto"
-  try{ localStorage.setItem(THEME_KEY, mode); }catch{}
-  applyTheme(mode);
-}
-function getTheme(){
-  try{
-    const v = localStorage.getItem(THEME_KEY);
-    if(v==="light" || v==="dark" || v==="auto") return v;
-  }catch{}
-  return "auto";
-}
-function applyTheme(mode){
-  // CSS: :root[data-theme="dark"] forces dark; absence = auto
-  if(mode === "auto"){
-    document.documentElement.removeAttribute("data-theme");
-    themeLabel.textContent = "Auto";
-    // toggle reflects "dark?" based on system
-    const sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    themeToggle.checked = sysDark;
-    return;
-  }
-  document.documentElement.setAttribute("data-theme", mode === "dark" ? "dark" : "light");
-  themeLabel.textContent = mode === "dark" ? "Nuit" : "Jour";
-  themeToggle.checked = (mode === "dark");
 }
 
 /* Persist view */
@@ -147,19 +145,12 @@ function gridRangeForMonth(year, month){
   return { start, end, fromKey:keyFor(start), toKey:keyFor(end) };
 }
 
-/* ===== Sheet ===== */
+/* Sheet */
 function openSheet(mode){
   sheetOther.style.display = (mode==="other") ? "block" : "none";
   sheetNote.style.display  = (mode==="note")  ? "block" : "none";
-  sheetSettings.style.display = (mode==="settings") ? "block" : "none";
-
   backdrop.classList.add("show");
   sheet.classList.add("show");
-
-  if(mode==="settings"){
-    sheetTitle.textContent = "Réglages";
-    sheetSub.textContent = "Mode jour / nuit";
-  }
 }
 function closeSheet(){
   backdrop.classList.remove("show");
@@ -168,27 +159,9 @@ function closeSheet(){
 backdrop.addEventListener("click", closeSheet);
 document.getElementById("btnCloseSheet").addEventListener("click", closeSheet);
 document.getElementById("btnCancelOther").addEventListener("click", closeSheet);
-
 otherSelect.addEventListener("change", ()=>{
   otherCustom.style.display = (otherSelect.value==="custom") ? "block" : "none";
 });
-
-/* ===== Settings events ===== */
-btnSettings.addEventListener("click", ()=>{
-  openSheet("settings");
-});
-
-themeToggle.addEventListener("change", ()=>{
-  // si l’utilisateur touche le toggle, on force light/dark
-  setTheme(themeToggle.checked ? "dark" : "light");
-});
-
-btnThemeAuto.addEventListener("click", ()=>{
-  setTheme("auto");
-  toast("Mode: Auto");
-});
-
-btnCloseSettings.addEventListener("click", closeSheet);
 
 /* Auth tabs */
 function showPane(which){
@@ -213,7 +186,6 @@ document.getElementById("btnLogin").addEventListener("click", async ()=>{
   const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
   if(error){ console.error(error); loginHint.textContent = error.message || "Erreur connexion."; }
 });
-
 document.getElementById("btnSignup").addEventListener("click", async ()=>{
   const email = (signEmail.value||"").trim();
   const pass  = (signPass.value||"");
@@ -225,7 +197,6 @@ document.getElementById("btnSignup").addEventListener("click", async ()=>{
   showPane("login");
   loginEmail.value=email; loginPass.value="";
 });
-
 document.getElementById("btnReset").addEventListener("click", async ()=>{
   const email = (loginEmail.value||"").trim();
   if(!email){ loginHint.textContent="Entre ton email puis reset."; return; }
@@ -233,7 +204,6 @@ document.getElementById("btnReset").addEventListener("click", async ()=>{
   if(error){ console.error(error); loginHint.textContent = error.message || "Erreur reset."; return; }
   loginHint.textContent="Email de réinitialisation envoyé.";
 });
-
 document.getElementById("btnLogout").addEventListener("click", async ()=>{
   await supabase.auth.signOut();
   entries.clear(); user=null;
@@ -284,6 +254,8 @@ async function loadGridEntries(){
       note: r.note || ""
     });
   });
+
+  toast(`Chargé: ${(data||[]).length} jour(s)`);
 }
 
 /* Save immediately */
@@ -541,17 +513,33 @@ async function reloadView(keepSelection){
   }
 }
 
+/* Settings behavior */
+function initSettings(){
+  if(!btnSettings || !settingsPop) return;
+
+  const saved = getSavedTheme();
+  const mode = (saved === "dark" || saved === "light") ? saved : "light";
+  applyTheme(mode);
+  updateThemeUI(mode);
+
+  btnSettings.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    settingsPop.classList.toggle("show");
+  });
+
+  document.addEventListener("click", ()=>{
+    settingsPop.classList.remove("show");
+  });
+
+  settingsPop.addEventListener("click", (e)=>e.stopPropagation());
+
+  themeLightBtn?.addEventListener("click", ()=>setTheme("light"));
+  themeDarkBtn?.addEventListener("click", ()=>setTheme("dark"));
+}
+
 /* Init */
 async function init(){
-  // Theme first
-  applyTheme(getTheme());
-
-  // if system theme changes while in auto, update toggle state
-  if(window.matchMedia){
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{
-      if(getTheme()==="auto") applyTheme("auto");
-    });
-  }
+  initSettings();
 
   const restored = restoreViewState();
   if(!restored){
