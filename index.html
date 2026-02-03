@@ -13,11 +13,15 @@
   <header class="appbar">
     <div class="wrap">
       <div class="bar">
+
         <div class="topline">
           <div class="brand">
             <div class="t">Planning SNCF</div>
             <div class="s" id="topSub">Non connecté</div>
           </div>
+
+          <!-- Réglages en haut à droite -->
+          <button id="btnSettings" class="icon" aria-label="Réglages">⚙️</button>
         </div>
 
         <div class="monthpill">
@@ -25,6 +29,7 @@
           <div class="y" id="navYear">—</div>
         </div>
 
+        <!-- Ligne 1 : navigation mois/année -->
         <div class="controls">
           <div class="arrows">
             <button class="icon" id="btnPrevYear" aria-label="Année précédente">«</button>
@@ -32,13 +37,15 @@
             <button class="icon" id="btnNextMonth" aria-label="Mois suivant">›</button>
             <button class="icon" id="btnNextYear" aria-label="Année suivante">»</button>
           </div>
-          <button id="btnToday" class="primary pill">Aujourd’hui SNCF</button>
         </div>
 
-        <div class="controls2">
-          <button id="btnExportXLSX" class="pill">Export Excel</button>
-          <button id="btnLogout" class="pill danger">Déconnexion</button>
+        <!-- Ligne 2 : 3 boutons sur une seule ligne -->
+        <div class="quickbar">
+          <button id="btnToday" class="primary pill smallbtn">Aujourd’hui</button>
+          <button id="btnExportXLSX" class="pill smallbtn">Export</button>
+          <button id="btnLogout" class="pill danger smallbtn">Déco</button>
         </div>
+
       </div>
     </div>
   </header>
@@ -46,18 +53,12 @@
   <main>
     <div class="wrap">
       <section class="card">
-        <!-- WRAPPER IMPORTANT : centre la grille sur mobile -->
-        <div class="cal-scroll" aria-label="Calendrier">
-          <div class="cal-inner">
-            <div class="calendar-head">
-              <div>Sem</div>
-              <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
-              <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
-            </div>
-
-            <div class="grid" id="grid"></div>
-          </div>
+        <div class="calendar-head">
+          <div>Sem</div>
+          <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
+          <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
         </div>
+        <div class="grid" id="grid"></div>
 
         <div class="totals" id="totals"></div>
       </section>
@@ -86,7 +87,7 @@
 
   <div class="backdrop" id="backdrop"></div>
 
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Édition du jour">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Panneau">
     <div class="grab"></div>
 
     <div class="sheet-head">
@@ -119,6 +120,31 @@
         <button class="danger" id="btnClearNote">Vider</button>
       </div>
     </div>
+
+    <!-- NOUVEAU : Réglages -->
+    <div id="sheetSettings" style="display:none">
+      <div class="settingsRow">
+        <div>
+          <div class="settingsTitle">Mode</div>
+          <div class="settingsHint" id="themeLabel">Auto</div>
+        </div>
+
+        <label class="switch" aria-label="Basculer Jour/Nuit">
+          <input type="checkbox" id="themeToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="small" style="margin-top:10px">
+        Jour/Nuit force l’apparence du site (ne dépend pas du système).
+      </div>
+
+      <div class="sheet-actions" style="margin-top:12px">
+        <button id="btnThemeAuto" class="pill">Auto</button>
+        <button id="btnCloseSettings" class="primary pill">OK</button>
+      </div>
+    </div>
+
   </div>
 
   <div class="gate" id="gate" aria-label="Connexion">
