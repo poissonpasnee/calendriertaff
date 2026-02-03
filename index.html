@@ -40,29 +40,23 @@
           </div>
         </div>
 
-        <!-- ✅ NOUVEAU : navigation mois/année plus compacte + mobile-friendly -->
-        <div class="monthnav" aria-label="Navigation calendrier">
-          <div class="monthnav-arrows">
-            <button class="navicon" id="btnPrevYear" aria-label="Année précédente">«</button>
-            <button class="navicon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
-          </div>
+        <!-- NOUVEAU : Nav compacte (mois + flèches intégrées) -->
+        <div class="navpanel" aria-label="Navigation calendrier">
+          <button class="navicon" id="btnPrevYear" aria-label="Année précédente">«</button>
+          <button class="navicon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
 
-          <div class="monthchip" role="button" aria-label="Mois en cours">
-            <div class="monthchip-m" id="navMonth">—</div>
-            <div class="monthchip-y" id="navYear">—</div>
-          </div>
+          <button class="navpill" type="button" aria-label="Mois en cours">
+            <span class="navpill-month" id="navMonth">—</span>
+            <span class="navpill-year" id="navYear">—</span>
+          </button>
 
-          <div class="monthnav-arrows">
-            <button class="navicon" id="btnNextMonth" aria-label="Mois suivant">›</button>
-            <button class="navicon" id="btnNextYear" aria-label="Année suivante">»</button>
-          </div>
+          <button class="navicon" id="btnNextMonth" aria-label="Mois suivant">›</button>
+          <button class="navicon" id="btnNextYear" aria-label="Année suivante">»</button>
         </div>
 
-        <!-- ✅ On garde tes boutons tels quels -->
+        <!-- Identique : boutons existants (taille réduite) -->
         <div class="controls">
-          <div class="arrows">
-            <!-- (on laisse vide volontairement : IDs déjà utilisés au-dessus) -->
-          </div>
+          <div></div>
           <button id="btnToday" class="primary pill smallbtn">Aujourd’hui SNCF</button>
         </div>
 
