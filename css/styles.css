@@ -1,7 +1,6 @@
 /* =========================================================
    Planning SNCF — UI moderne + grille fixe (sans scroll)
    + Réglages thème Jour/Nuit (forcé)
-   + NAV mois/année compact (mobile)
    ========================================================= */
 
 /* ---------------- THEME TOKENS (LIGHT par défaut) ---------------- */
@@ -28,6 +27,7 @@
   --safeTop: env(safe-area-inset-top);
   --safeBottom: env(safe-area-inset-bottom);
 
+  /* Status colors (modern) */
   --jour:#f59e0b;
   --nuit:#6366f1;
   --conges:#ef4444;
@@ -35,6 +35,7 @@
   --autre:#10b981;
 }
 
+/* DARK forcé via data-theme */
 :root[data-theme="dark"]{
   --bg:#0b0c10;
   --text:rgba(255,255,255,.92);
@@ -55,6 +56,11 @@
   --conges:#ff4d6d;
   --repos:#a1a1aa;
   --autre:#34d399;
+}
+
+/* LIGHT forcé via data-theme */
+:root[data-theme="light"]{
+  /* rien: c’est le thème par défaut */
 }
 
 *{box-sizing:border-box}
@@ -210,77 +216,62 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
 
-/* =========================================================
-   ✅ NOUVEAU : NAV mois/année compact (mobile-first)
-   - chip central + 2 flèches de chaque côté
-   - visuellement intégré, plus petit, ergonomique
-   ========================================================= */
-.monthnav{
+/* ----------------- NOUVEAU : nav compacte mois + flèches ----------------- */
+.navpanel{
+  width:100%;
   display:grid;
-  grid-template-columns: auto 1fr auto;
-  align-items:center;
-  gap:10px;
-
-  background:var(--surface);
-  border:1px solid var(--stroke);
-  border-radius:18px;
-  padding:8px 10px;
-  box-shadow:0 1px 0 rgba(0,0,0,.04);
-}
-
-.monthnav-arrows{
-  display:flex;
+  grid-template-columns: 44px 44px 1fr 44px 44px;
   gap:8px;
+  align-items:center;
 }
 
 .navicon{
-  width:38px;
-  height:38px;
+  width:44px;
+  height:44px;
   padding:0;
   border-radius:14px;
-  font-weight:900;
-  background:var(--surface-strong);
-  border:1px solid var(--stroke);
-  box-shadow:0 1px 0 rgba(0,0,0,.04);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:950;
 }
 
-.monthchip{
+.navpill{
+  width:100%;
+  height:44px;
+  border-radius:14px;
+  border:1px solid var(--stroke);
+  background:var(--surface-strong);
   display:flex;
-  align-items:baseline;
+  align-items:center;
   justify-content:center;
   gap:10px;
-
-  background:transparent;
-  border:0;
-  padding:4px 0;
-  border-radius:14px;
-  user-select:none;
+  padding:0 12px;
+  box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
-
-.monthchip-m{
-  font-size:16px;
+.navpill-month{
   font-weight:950;
+  font-size:14px;
   letter-spacing:.2px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:58vw; /* mobile */
 }
-
-.monthchip-y{
+.navpill-year{
+  font-weight:850;
   font-size:12px;
-  font-weight:800;
   color:var(--muted);
-  white-space:nowrap;
 }
 
+/* Très petit mobile: réduire encore un peu */
 @media (max-width: 360px){
-  .monthnav{gap:8px; padding:8px}
-  .navicon{width:36px;height:36px;border-radius:13px}
-  .monthchip-m{font-size:15px; max-width:54vw}
+  .navpanel{grid-template-columns: 42px 42px 1fr 42px 42px; gap:6px}
+  .navicon{width:42px;height:42px;border-radius:13px}
+  .navpill{height:42px;border-radius:13px}
+  .navpill-month{font-size:13px}
+  .navpill-year{font-size:11px}
+  .smallbtn{padding:8px 8px;font-size:11px}
+  button.icon{width:42px;height:42px}
 }
 
-/* Controls (on garde l’existant pour Aujourd’hui) */
+/* Controls (on garde le reste intact) */
 .controls{
   display:grid;
   grid-template-columns: 1fr auto;
@@ -288,20 +279,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   align-items:center;
 }
 
-/* IMPORTANT : la zone .arrows est gardée mais devient neutre (pour ne pas toucher au reste) */
-.controls .arrows{display:none}
-
-/* Export / Déco sur une ligne */
 .controls2{
   display:flex;
   gap:8px;
   flex-wrap:nowrap;
 }
-.controls2 button{flex:1; min-width:0; text-overflow:ellipsis; overflow:hidden}
+.controls2 button{
+  flex:1;
+  min-width:0;
+  text-overflow:ellipsis;
+  overflow:hidden;
+}
 
-@media (max-width: 360px){
-  .smallbtn{padding:8px 8px;font-size:11px}
-  button.icon{width:42px;height:42px}
+@media(min-width:900px){
+  .controls{grid-template-columns:1fr 360px}
 }
 
 /* Main */
@@ -317,7 +308,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   -webkit-backdrop-filter:blur(14px);
 }
 
-/* Grille fixe (sans scroll) */
+/* --------- GRILLE FIXE (sans scroll) + calendrier agrandi --------- */
 .calendar-head{
   display:grid;
   grid-template-columns:44px repeat(7, minmax(0, 1fr));
@@ -343,6 +334,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   .grid{gap:8px}
 }
 
+/* Week number */
 .weeknum{
   text-align:center;
   font-size:11px;
@@ -351,6 +343,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   padding-top:16px;
 }
 
+/* Day cell bigger */
 .day{
   height:58px;
   border-radius:18px;
@@ -380,6 +373,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   .day{height:54px;font-size:17px;border-radius:16px}
 }
 
+/* Note dot + badge */
 .dot{
   position:absolute;
   bottom:8px; left:10px;
@@ -399,6 +393,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   color:var(--muted);
 }
 
+/* Status styles */
 .day.jour{
   background:color-mix(in srgb, var(--jour) 20%, var(--surface-strong));
   border-color:color-mix(in srgb, var(--jour) 28%, var(--stroke));
@@ -420,6 +415,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   border-color:color-mix(in srgb, var(--autre) 22%, var(--stroke));
 }
 
+/* Totals */
 .totals{
   margin-top:12px;
   display:flex;
@@ -440,6 +436,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
 
+/* Dock bottom */
 .dock{
   position:fixed; left:0; right:0; bottom:0; z-index:60;
   background:color-mix(in srgb, var(--surface) 92%, transparent);
@@ -476,6 +473,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   font-size:13px;
   font-weight:900;
 }
+
 @media (max-width: 380px){
   .actions{grid-template-columns:repeat(3, minmax(0,1fr))}
 }
@@ -486,6 +484,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
   .totals{justify-content:space-between}
 }
 
+/* Backdrop + sheet */
 .backdrop{
   position:fixed; inset:0; z-index:80;
   background:rgba(0,0,0,.35);
@@ -518,6 +517,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
 .sheet-actions{display:flex;gap:10px;margin-top:12px}
 .sheet-actions button{flex:1}
 
+/* Gate */
 .gate{
   position:fixed; inset:0; z-index:100;
   padding:calc(14px + var(--safeTop)) 12px calc(14px + var(--safeBottom));
@@ -540,6 +540,7 @@ main{padding:14px 0 calc(150px + var(--safeBottom))}
 .tabs button{flex:1}
 .small{color:var(--muted);font-size:12px;font-weight:650;margin-top:8px;line-height:1.3}
 
+/* Toast */
 .toast{
   position:fixed; left:12px; right:12px;
   bottom:calc(160px + var(--safeBottom));
