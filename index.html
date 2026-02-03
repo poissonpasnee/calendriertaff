@@ -1,877 +1,154 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Planning SNCF</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Planning SNCF</title>
 
-<style>
-:root{
-  --bg:#0e1117;
-  --text:#e6e8ee;
-  --muted:#9aa4b2;
-  --primary:#1f6feb;
-
-  --jour:#facc15;
-  --nuit:#8b5cf6;
-  --conges:#7f1d1d;
-  --repos:#6b7280;
-  --autre:#f59e0b;
-
-  --safeTop: env(safe-area-inset-top);
-  --safeBottom: env(safe-area-inset-bottom);
-}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-  background:
-    radial-gradient(1100px 520px at 50% -10%, rgba(31,111,235,.16), transparent 55%),
-    radial-gradient(900px 520px at 20% 10%, rgba(139,92,246,.12), transparent 55%),
-    var(--bg);
-  color:var(--text);
-  overflow-x:hidden;
-}
-.wrap{max-width:1100px;margin:0 auto;padding:0 12px}
-button,input,select,textarea{font:inherit}
-button{
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
-  color:var(--text);
-  border-radius:16px;
-  padding:12px 14px;
-  font-weight:950;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-button:active{transform:scale(.98)}
-button.primary{background:var(--primary);border-color:rgba(31,111,235,.6)}
-button.danger{border-color:rgba(255,107,107,.35);color:#ff7d7d}
-button.icon{width:46px;height:46px;padding:0;border-radius:16px;display:inline-flex;align-items:center;justify-content:center}
-button.pill{border-radius:999px}
-input,select,textarea{
-  width:100%;
-  background:rgba(15,20,32,.9);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:16px;
-  padding:12px 12px;
-  color:var(--text);
-  outline:none;
-}
-textarea{min-height:96px;resize:vertical}
-
-.appbar{
-  position:sticky;top:0;z-index:50;
-  padding-top:calc(10px + var(--safeTop));
-  padding-bottom:10px;
-  background:rgba(14,17,23,.92);
-  backdrop-filter:blur(14px);
-  border-bottom:1px solid rgba(255,255,255,.06);
-}
-.bar{display:flex;flex-direction:column;gap:10px}
-.topline{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
-.brand .t{font-size:18px;font-weight:950}
-.brand .s{font-size:13px;color:var(--muted);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-.monthpill{
-  width:100%;
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:18px;
-  padding:10px 12px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  line-height:1.05;
-}
-.monthpill .m{font-size:18px;font-weight:950}
-.monthpill .y{font-size:14px;font-weight:900;color:var(--muted);margin-top:2px}
-
-.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.controls .arrows{display:flex;gap:10px}
-.controls .arrows button{flex:1}
-.controls2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(min-width:900px){
-  .controls{grid-template-columns:1fr 360px}
-  .controls2{grid-template-columns:1fr 1fr}
-}
-
-main{padding:14px 0 calc(138px + var(--safeBottom))}
-.card{
-  background:rgba(21,26,35,.72);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:22px;
-  padding:14px;
-  box-shadow:0 20px 60px rgba(0,0,0,.35);
-}
-
-.calendar-head{
-  display:grid;
-  grid-template-columns:52px repeat(7,1fr);
-  gap:10px;
-  margin-bottom:10px;
-  align-items:center;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:950;
-}
-.calendar-head div{text-align:center}
-.grid{display:grid;grid-template-columns:52px repeat(7,1fr);gap:10px}
-.weeknum{text-align:center;font-size:13px;font-weight:950;color:var(--muted);padding-top:16px}
-
-.day{
-  height:52px;border-radius:18px;
-  border:1px solid rgba(255,255,255,.07);
-  background:rgba(15,20,32,.75);
-  display:flex;align-items:center;justify-content:center;
-  position:relative;cursor:pointer;user-select:none;
-  -webkit-tap-highlight-color:transparent;
-  font-weight:950;font-size:18px;
-}
-.day.out{opacity:.35}
-.day.selected{outline:2px solid rgba(31,111,235,.70);outline-offset:2px}
-.dot{position:absolute;bottom:8px;left:10px;width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.85)}
-.badge{position:absolute;bottom:6px;right:8px;font-size:10px;font-weight:950;padding:2px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18)}
-
-.day.jour{background:rgba(250,204,21,.30);border-color:rgba(250,204,21,.18)}
-.day.nuit{background:rgba(139,92,246,.30);border-color:rgba(139,92,246,.18)}
-.day.conges{background:rgba(127,29,29,.42);border-color:rgba(127,29,29,.24)}
-.day.repos{background:rgba(107,114,128,.28);border-color:rgba(107,114,128,.18)}
-.day.autre{background:rgba(245,158,11,.28);border-color:rgba(245,158,11,.18)}
-
-.totals{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-.pillchip{display:inline-flex;gap:8px;align-items:center;padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-weight:950}
-
-.dock{
-  position:fixed;left:0;right:0;bottom:0;z-index:60;
-  background:rgba(14,17,23,.94);
-  border-top:1px solid rgba(255,255,255,.06);
-  backdrop-filter:blur(14px);
-  padding:10px 12px calc(10px + var(--safeBottom));
-}
-.selbar{
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:18px;
-  padding:10px 12px;
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-}
-.selbar .left{min-width:0}
-.selbar .date{font-weight:950;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.selbar .state{font-weight:900;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-.actions{
-  margin-top:10px;
-  display:grid;
-  grid-template-columns: repeat(5, minmax(0,1fr));
-  gap:10px;
-}
-.actions button{
-  padding:14px 8px;
-  border-radius:18px;
-  font-size:14px;
-}
-
-@media(min-width:900px){
-  main{padding-bottom:26px}
-  .dock{position:sticky;bottom:0}
-}
-
-.backdrop{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);display:none}
-.backdrop.show{display:block}
-.sheet{
-  position:fixed;left:0;right:0;bottom:0;z-index:90;
-  background:rgba(21,26,35,.96);
-  border-top:1px solid rgba(255,255,255,.08);
-  border-radius:22px 22px 0 0;
-  padding:12px 12px calc(14px + var(--safeBottom));
-  transform:translateY(110%);
-  transition:transform .18s ease;
-}
-.sheet.show{transform:translateY(0)}
-.grab{width:44px;height:5px;border-radius:999px;background:rgba(255,255,255,.22);margin:6px auto 12px}
-.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.sheet-title{font-weight:950}
-.sheet-sub{font-weight:900;font-size:12px;color:var(--muted);margin-top:2px}
-.row{display:flex;gap:10px;margin-top:12px}
-.row>*{flex:1}
-.sheet-actions{display:flex;gap:10px;margin-top:12px}
-.sheet-actions button{flex:1}
-
-.gate{
-  position:fixed;inset:0;z-index:100;
-  padding:calc(14px + var(--safeTop)) 12px calc(14px + var(--safeBottom));
-  background:rgba(14,17,23,.94);
-  backdrop-filter:blur(14px);
-  display:none;
-}
-.gate.show{display:block}
-.gate-card{
-  max-width:420px;margin:0 auto;
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:20px;
-  padding:14px;
-}
-.tabs{display:flex;gap:10px;margin-top:12px}
-.tabs button{flex:1}
-.small{color:var(--muted);font-size:12px;font-weight:900;margin-top:8px;line-height:1.3}
-
-.toast{
-  position:fixed;left:12px;right:12px;
-  bottom:calc(160px + var(--safeBottom));
-  z-index:120;display:none;
-  max-width:520px;margin:0 auto;
-  border-radius:16px;border:1px solid rgba(255,255,255,.08);
-  background:rgba(20,26,38,.92);
-  padding:12px 14px;font-weight:950;
-}
-.toast.show{display:block}
-</style>
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 
 <body>
-<div class="toast" id="toast"></div>
+  <div class="toast" id="toast"></div>
 
-<div class="appbar">
-  <div class="wrap">
-    <div class="bar">
-      <div class="topline">
-        <div class="brand">
-          <div class="t">Planning SNCF</div>
-          <div class="s" id="topSub">Non connecté</div>
+  <div class="appbar">
+    <div class="wrap">
+      <div class="bar">
+        <div class="topline">
+          <div class="brand">
+            <div class="t">Planning SNCF</div>
+            <div class="s" id="topSub">Non connecté</div>
+          </div>
+        </div>
+
+        <div class="monthpill">
+          <div class="m" id="navMonth">—</div>
+          <div class="y" id="navYear">—</div>
+        </div>
+
+        <div class="controls">
+          <div class="arrows">
+            <button class="icon" id="btnPrevYear">«</button>
+            <button class="icon" id="btnPrevMonth">‹</button>
+            <button class="icon" id="btnNextMonth">›</button>
+            <button class="icon" id="btnNextYear">»</button>
+          </div>
+          <button id="btnToday" class="primary pill">Aujourd’hui SNCF</button>
+        </div>
+
+        <div class="controls2">
+          <button id="btnExportXLSX" class="pill">Export Excel</button>
+          <button id="btnLogout" class="pill danger">Déconnexion</button>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="monthpill">
-        <div class="m" id="navMonth">—</div>
-        <div class="y" id="navYear">—</div>
-      </div>
-
-      <div class="controls">
-        <div class="arrows">
-          <button class="icon" id="btnPrevYear">«</button>
-          <button class="icon" id="btnPrevMonth">‹</button>
-          <button class="icon" id="btnNextMonth">›</button>
-          <button class="icon" id="btnNextYear">»</button>
+  <main>
+    <div class="wrap">
+      <div class="card">
+        <div class="calendar-head">
+          <div>Sem</div>
+          <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
+          <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
         </div>
-        <button id="btnToday" class="primary pill">Aujourd’hui SNCF</button>
-      </div>
-
-      <div class="controls2">
-        <button id="btnExportXLSX" class="pill">Export Excel</button>
-        <button id="btnLogout" class="pill danger">Déconnexion</button>
+        <div class="grid" id="grid"></div>
+        <div class="totals" id="totals"></div>
       </div>
     </div>
-  </div>
-</div>
+  </main>
 
-<main>
-  <div class="wrap">
-    <div class="card">
-      <div class="calendar-head">
-        <div>Sem</div>
-        <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
-        <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
+  <div class="dock">
+    <div class="wrap">
+      <div class="selbar">
+        <div class="left">
+          <div class="date" id="selDate">Sélectionne une date</div>
+          <div class="state" id="selState">État: —</div>
+        </div>
+        <button id="btnNote" class="pill">📝 Note</button>
       </div>
-      <div class="grid" id="grid"></div>
-      <div class="totals" id="totals"></div>
-    </div>
-  </div>
-</main>
 
-<div class="dock">
-  <div class="wrap">
-    <div class="selbar">
-      <div class="left">
-        <div class="date" id="selDate">Sélectionne une date</div>
-        <div class="state" id="selState">État: —</div>
+      <div class="actions">
+        <button data-set="jour">Jour</button>
+        <button data-set="nuit">Nuit</button>
+        <button data-set="repos">Repos</button>
+        <button data-set="conges">Congés</button>
+        <button data-set="autre">Autre</button>
       </div>
-      <button id="btnNote" class="pill">📝 Note</button>
-    </div>
-
-    <div class="actions">
-      <button data-set="jour">Jour</button>
-      <button data-set="nuit">Nuit</button>
-      <button data-set="repos">Repos</button>
-      <button data-set="conges">Congés</button>
-      <button data-set="autre">Autre</button>
-    </div>
-  </div>
-</div>
-
-<div class="backdrop" id="backdrop"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true">
-  <div class="grab"></div>
-  <div class="sheet-head">
-    <div>
-      <div class="sheet-title" id="sheetTitle">—</div>
-      <div class="sheet-sub" id="sheetSub">—</div>
-    </div>
-    <button id="btnCloseSheet" class="pill">Fermer</button>
-  </div>
-
-  <div id="sheetOther">
-    <div class="row">
-      <select id="otherSelect">
-        <option value="OCP">OCP</option>
-        <option value="Férié">Férié</option>
-        <option value="custom">Personnalisé</option>
-      </select>
-      <input id="otherCustom" placeholder="Libellé" style="display:none" />
-    </div>
-    <div class="sheet-actions">
-      <button class="primary" id="btnApplyOther">Appliquer</button>
-      <button id="btnCancelOther">Annuler</button>
     </div>
   </div>
 
-  <div id="sheetNote" style="display:none">
-    <textarea id="noteText" placeholder="Note (service, RHR, remplacement…)"></textarea>
-    <div class="sheet-actions">
-      <button class="primary" id="btnSaveNote">Enregistrer</button>
-      <button class="danger" id="btnClearNote">Vider</button>
-    </div>
-  </div>
-</div>
-
-<div class="gate" id="gate">
-  <div class="gate-card">
-    <div style="font-weight:950; font-size:16px">Connexion</div>
-    <div class="small">Email + mot de passe (création + reset).</div>
-    <div class="tabs">
-      <button id="tabLogin" class="primary">Connexion</button>
-      <button id="tabSignup">Créer</button>
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <div>
+        <div class="sheet-title" id="sheetTitle">—</div>
+        <div class="sheet-sub" id="sheetSub">—</div>
+      </div>
+      <button id="btnCloseSheet" class="pill">Fermer</button>
     </div>
 
-    <div id="paneLogin" style="margin-top:12px">
-      <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
-      <input id="loginPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
+    <div id="sheetOther">
       <div class="row">
-        <button class="primary" id="btnLogin">Se connecter</button>
-        <button id="btnReset">Reset</button>
+        <select id="otherSelect">
+          <option value="OCP">OCP</option>
+          <option value="Férié">Férié</option>
+          <option value="custom">Personnalisé</option>
+        </select>
+        <input id="otherCustom" placeholder="Libellé" style="display:none" />
       </div>
-      <div class="small" id="loginHint"></div>
+      <div class="sheet-actions">
+        <button class="primary" id="btnApplyOther">Appliquer</button>
+        <button id="btnCancelOther">Annuler</button>
+      </div>
     </div>
 
-    <div id="paneSignup" style="margin-top:12px; display:none">
-      <input id="signEmail" type="email" placeholder="Email" autocomplete="email">
-      <input id="signPass" type="password" placeholder="Mot de passe (min 6)" autocomplete="new-password">
-      <div class="row">
-        <button class="primary" id="btnSignup">Créer</button>
-        <button id="btnBackLogin">Retour</button>
+    <div id="sheetNote" style="display:none">
+      <textarea id="noteText" placeholder="Note (service, RHR, remplacement…)"></textarea>
+      <div class="sheet-actions">
+        <button class="primary" id="btnSaveNote">Enregistrer</button>
+        <button class="danger" id="btnClearNote">Vider</button>
       </div>
-      <div class="small">Si la confirmation email est activée sur Supabase, tu devras valider l’email.</div>
     </div>
   </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <div class="gate-title">Connexion</div>
+      <div class="small">Email + mot de passe (création + reset).</div>
 
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+      <div class="tabs">
+        <button id="tabLogin" class="primary">Connexion</button>
+        <button id="tabSignup">Créer</button>
+      </div>
 
-/* ===== Supabase ===== */
-const SUPABASE_URL  = "https://dstmyvzjirgyuwuojwnk.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+      <div id="paneLogin" style="margin-top:12px">
+        <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
+        <input id="loginPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
+        <div class="row">
+          <button class="primary" id="btnLogin">Se connecter</button>
+          <button id="btnReset">Reset</button>
+        </div>
+        <div class="small" id="loginHint"></div>
+      </div>
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
-});
+      <div id="paneSignup" style="margin-top:12px; display:none">
+        <input id="signEmail" type="email" placeholder="Email" autocomplete="email">
+        <input id="signPass" type="password" placeholder="Mot de passe (min 6)" autocomplete="new-password">
+        <div class="row">
+          <button class="primary" id="btnSignup">Créer</button>
+          <button id="btnBackLogin">Retour</button>
+        </div>
+        <div class="small">Si la confirmation email est activée sur Supabase, tu devras valider l’email.</div>
+      </div>
+    </div>
+  </div>
 
-/* ===== Constants ===== */
-const MIN_YEAR = 2023;
-const MAX_YEAR = 2035;
-const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
-const LABEL = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
-const LS_KEY = "sncf_planning_state_nolock_v1";
+  <!-- XLSX export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-/* ===== DOM ===== */
-const grid = document.getElementById("grid");
-const totalsEl = document.getElementById("totals");
-const navMonth = document.getElementById("navMonth");
-const navYear = document.getElementById("navYear");
-const topSub = document.getElementById("topSub");
-const selDate = document.getElementById("selDate");
-const selState = document.getElementById("selState");
-const toastEl = document.getElementById("toast");
-
-const backdrop = document.getElementById("backdrop");
-const sheet = document.getElementById("sheet");
-const sheetTitle = document.getElementById("sheetTitle");
-const sheetSub = document.getElementById("sheetSub");
-const sheetOther = document.getElementById("sheetOther");
-const sheetNote = document.getElementById("sheetNote");
-const otherSelect = document.getElementById("otherSelect");
-const otherCustom = document.getElementById("otherCustom");
-const noteText = document.getElementById("noteText");
-
-const gate = document.getElementById("gate");
-const tabLogin = document.getElementById("tabLogin");
-const tabSignup = document.getElementById("tabSignup");
-const paneLogin = document.getElementById("paneLogin");
-const paneSignup = document.getElementById("paneSignup");
-const loginEmail = document.getElementById("loginEmail");
-const loginPass = document.getElementById("loginPass");
-const signEmail = document.getElementById("signEmail");
-const signPass = document.getElementById("signPass");
-const loginHint = document.getElementById("loginHint");
-
-/* ===== State ===== */
-let user = null;
-let viewYear = 2026;
-let viewMonth = 0;
-let selectedKey = null;
-const entries = new Map();
-
-/* ===== Helpers ===== */
-const pad2 = (n) => String(n).padStart(2,"0");
-const keyFor = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-const parseKey = (k) => { const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); };
-const clampYear = (y)=> Math.max(MIN_YEAR, Math.min(MAX_YEAR, y));
-
-function toast(msg){
-  toastEl.textContent = msg;
-  toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2500);
-}
-function fmtLong(d){
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
-}
-function isoWeek(date){
-  const d = new Date(date);
-  d.setHours(0,0,0,0);
-  d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
-  const week1 = new Date(d.getFullYear(),0,4);
-  return 1 + Math.round(((d-week1)/86400000 - 3 + ((week1.getDay()+6)%7))/7);
-}
-function getSncfNow(){
-  const d = new Date();
-  if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
-  return d;
-}
-
-/* Persist view */
-function saveViewState(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify({viewYear, viewMonth, selectedKey})); }catch{}
-}
-function restoreViewState(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return false;
-    const st = JSON.parse(raw);
-    if(!st) return false;
-    viewYear = clampYear(st.viewYear ?? viewYear);
-    viewMonth = Math.max(0, Math.min(11, st.viewMonth ?? viewMonth));
-    selectedKey = (typeof st.selectedKey==="string") ? st.selectedKey : null;
-    return true;
-  }catch{return false;}
-}
-
-/* Range (42 days displayed) */
-function gridRangeForMonth(year, month){
-  const first = new Date(year, month, 1);
-  const start = new Date(year, month, 1 - first.getDay());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 41);
-  return { start, end, fromKey:keyFor(start), toKey:keyFor(end) };
-}
-
-/* Sheet */
-function openSheet(mode){
-  sheetOther.style.display = (mode==="other") ? "block" : "none";
-  sheetNote.style.display  = (mode==="note")  ? "block" : "none";
-  backdrop.classList.add("show");
-  sheet.classList.add("show");
-}
-function closeSheet(){
-  backdrop.classList.remove("show");
-  sheet.classList.remove("show");
-}
-backdrop.addEventListener("click", closeSheet);
-document.getElementById("btnCloseSheet").addEventListener("click", closeSheet);
-document.getElementById("btnCancelOther").addEventListener("click", closeSheet);
-otherSelect.addEventListener("change", ()=>{
-  otherCustom.style.display = (otherSelect.value==="custom") ? "block" : "none";
-});
-
-/* Auth tabs */
-function showPane(which){
-  if(which==="login"){
-    paneLogin.style.display="block"; paneSignup.style.display="none";
-    tabLogin.classList.add("primary"); tabSignup.classList.remove("primary");
-  }else{
-    paneLogin.style.display="none"; paneSignup.style.display="block";
-    tabSignup.classList.add("primary"); tabLogin.classList.remove("primary");
-  }
-}
-tabLogin.addEventListener("click", ()=>showPane("login"));
-tabSignup.addEventListener("click", ()=>showPane("signup"));
-document.getElementById("btnBackLogin").addEventListener("click", ()=>showPane("login"));
-
-/* Auth actions */
-document.getElementById("btnLogin").addEventListener("click", async ()=>{
-  loginHint.textContent="";
-  const email = (loginEmail.value||"").trim();
-  const pass  = loginPass.value||"";
-  if(!email || !pass){ loginHint.textContent="Email + mot de passe requis."; return; }
-  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-  if(error){ console.error(error); loginHint.textContent = error.message || "Erreur connexion."; }
-});
-document.getElementById("btnSignup").addEventListener("click", async ()=>{
-  const email = (signEmail.value||"").trim();
-  const pass  = (signPass.value||"");
-  if(!email || !pass){ toast("Email + mot de passe requis."); return; }
-  if(pass.length < 6){ toast("Mot de passe: 6 caractères minimum."); return; }
-  const { error } = await supabase.auth.signUp({ email, password: pass });
-  if(error){ console.error(error); toast(error.message || "Erreur création compte."); return; }
-  toast("Compte créé. Connecte-toi.");
-  showPane("login");
-  loginEmail.value=email; loginPass.value="";
-});
-document.getElementById("btnReset").addEventListener("click", async ()=>{
-  const email = (loginEmail.value||"").trim();
-  if(!email){ loginHint.textContent="Entre ton email puis reset."; return; }
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  if(error){ console.error(error); loginHint.textContent = error.message || "Erreur reset."; return; }
-  loginHint.textContent="Email de réinitialisation envoyé.";
-});
-document.getElementById("btnLogout").addEventListener("click", async ()=>{
-  await supabase.auth.signOut();
-  entries.clear(); user=null;
-  topSub.textContent="Non connecté";
-  gate.classList.add("show");
-  renderMonth(); renderTotals();
-});
-
-/* Wait session */
-async function refreshSessionUser(){
-  const { data, error } = await supabase.auth.getSession();
-  if(error){ console.error(error); user=null; }
-  user = data?.session?.user || null;
-
-  if(!user){
-    topSub.textContent="Non connecté";
-    gate.classList.add("show");
-  }else{
-    const uidShort = String(user.id||"").slice(0,8);
-    topSub.textContent = `${user.email || "Connecté"} · uid:${uidShort}`;
-    gate.classList.remove("show");
-  }
-}
-
-/* Load entries for visible range */
-async function loadGridEntries(){
-  entries.clear();
-  if(!user) return;
-
-  const { fromKey, toKey } = gridRangeForMonth(viewYear, viewMonth);
-
-  const { data, error } = await supabase
-    .from("work_calendar_entries")
-    .select("work_date,status,custom_label,note")
-    .gte("work_date", fromKey)
-    .lte("work_date", toKey);
-
-  if(error){
-    console.error(error);
-    toast("Erreur Supabase: " + (error.message || error.code || ""));
-    return;
-  }
-
-  (data||[]).forEach(r=>{
-    entries.set(r.work_date, {
-      status: r.status,
-      custom_label: r.custom_label || "",
-      note: r.note || ""
-    });
-  });
-
-  toast(`Chargé: ${(data||[]).length} jour(s)`);
-}
-
-/* Save immediately */
-async function upsertDay(dateKey, patch){
-  if(!user){ toast("Connecte-toi."); return; }
-
-  const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"" };
-  const next = { ...cur, ...patch };
-
-  // Optimistic UI
-  entries.set(dateKey, next);
-  renderMonth(); renderTotals(); setSelected(dateKey);
-
-  const { error } = await supabase
-    .from("work_calendar_entries")
-    .upsert({
-      user_id: user.id,
-      work_date: dateKey,
-      status: next.status,
-      custom_label: next.custom_label || null,
-      note: next.note || null
-    }, { onConflict: "user_id,work_date" });
-
-  if(error){
-    console.error(error);
-    // revert
-    if(cur.status || cur.note || cur.custom_label) entries.set(dateKey, cur);
-    else entries.delete(dateKey);
-    renderMonth(); renderTotals(); setSelected(dateKey);
-    toast("Erreur sauvegarde: " + (error.message || error.code || ""));
-    return;
-  }
-  saveViewState();
-}
-
-/* Render */
-function renderMonth(){
-  grid.innerHTML="";
-  navMonth.textContent = MONTHS[viewMonth];
-  navYear.textContent  = String(viewYear);
-
-  const { start } = gridRangeForMonth(viewYear, viewMonth);
-
-  for(let week=0; week<6; week++){
-    const weekStart = new Date(start);
-    weekStart.setDate(start.getDate() + week*7);
-
-    const wn = document.createElement("div");
-    wn.className="weeknum";
-    wn.textContent = String(isoWeek(weekStart)).padStart(2,"0");
-    grid.appendChild(wn);
-
-    for(let i=0;i<7;i++){
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate()+i);
-      const k = keyFor(d);
-
-      const cell = document.createElement("div");
-      cell.className="day";
-      cell.dataset.key=k;
-
-      if(d.getMonth() !== viewMonth) cell.classList.add("out");
-
-      const e = entries.get(k);
-      if(e?.status) cell.classList.add(e.status);
-      if(k === selectedKey) cell.classList.add("selected");
-
-      cell.textContent = String(d.getDate());
-
-      if(e?.note){
-        const dot = document.createElement("div");
-        dot.className="dot";
-        cell.appendChild(dot);
-      }
-      if(e?.status==="autre" && e.custom_label){
-        const b = document.createElement("div");
-        b.className="badge";
-        b.textContent = e.custom_label.slice(0,6);
-        cell.appendChild(b);
-      }
-
-      cell.addEventListener("click", ()=>{
-        setSelected(k);
-        saveViewState();
-      }, {passive:true});
-
-      grid.appendChild(cell);
-    }
-  }
-}
-
-function setSelected(k){
-  selectedKey = k;
-  const d = parseKey(k);
-  const e = entries.get(k);
-  const state = e?.status ? LABEL[e.status] : "—";
-  const extra = (e?.status==="autre" && e.custom_label) ? ` (${e.custom_label})` : "";
-
-  selDate.textContent = fmtLong(d);
-  selState.textContent = `État: ${state}${extra}`;
-  sheetTitle.textContent = fmtLong(d);
-  sheetSub.textContent = `État actuel: ${state}${extra}`;
-  noteText.value = e?.note || "";
-
-  grid.querySelectorAll(".day").forEach(el=>el.classList.remove("selected"));
-  const el = grid.querySelector(`.day[data-key="${k}"]`);
-  if(el) el.classList.add("selected");
-}
-
-function renderTotals(){
-  let cJ=0,cN=0,cR=0,cC=0,cA=0;
-  const keys = Array.from(entries.keys()).sort();
-  for(const k of keys){
-    const e = entries.get(k);
-    if(!e?.status) continue;
-    if(e.status==="jour") cJ++;
-    if(e.status==="nuit") cN++;
-    if(e.status==="repos") cR++;
-    if(e.status==="conges") cC++;
-    if(e.status==="autre") cA++;
-  }
-  totalsEl.innerHTML="";
-  const chip=(t)=>{
-    const d=document.createElement("div");
-    d.className="pillchip";
-    d.textContent=t;
-    return d;
-  };
-  totalsEl.appendChild(chip(`Jours: ${cJ}`));
-  totalsEl.appendChild(chip(`Nuits: ${cN}`));
-  totalsEl.appendChild(chip(`Repos: ${cR}`));
-  totalsEl.appendChild(chip(`Congés: ${cC}`));
-  totalsEl.appendChild(chip(`Autres: ${cA}`));
-}
-
-/* Buttons */
-function ensureSelected(){
-  if(!selectedKey){
-    const d = getSncfNow();
-    viewYear = clampYear(d.getFullYear());
-    viewMonth = d.getMonth();
-    selectedKey = keyFor(d);
-  }
-  return selectedKey;
-}
-
-document.querySelectorAll("[data-set]").forEach(btn=>{
-  btn.addEventListener("click", async ()=>{
-    const k = ensureSelected();
-    const dSel = parseKey(k);
-
-    if(dSel.getFullYear()!==viewYear || dSel.getMonth()!==viewMonth){
-      viewYear = clampYear(dSel.getFullYear());
-      viewMonth = dSel.getMonth();
-      await reloadView(true);
-    }
-
-    const type = btn.dataset.set;
-
-    if(type==="autre"){
-      const e = entries.get(k);
-      otherSelect.value="OCP"; otherCustom.value=""; otherCustom.style.display="none";
-      if(e?.status==="autre" && e.custom_label){
-        if(e.custom_label==="OCP" || e.custom_label==="Férié") otherSelect.value=e.custom_label;
-        else { otherSelect.value="custom"; otherCustom.style.display="block"; otherCustom.value=e.custom_label; }
-      }
-      openSheet("other");
-      return;
-    }
-
-    await upsertDay(k, { status:type, custom_label:"" });
-  });
-});
-
-document.getElementById("btnNote").addEventListener("click", ()=>{
-  const k = ensureSelected();
-  openSheet("note");
-});
-
-document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  let label = otherSelect.value;
-  if(label==="custom"){
-    label = (otherCustom.value||"").trim();
-    if(!label){ toast("Entre un libellé."); return; }
-  }
-  await upsertDay(k, { status:"autre", custom_label:label });
-  closeSheet();
-});
-
-document.getElementById("btnSaveNote").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  await upsertDay(k, { note:(noteText.value||"").trim() });
-  closeSheet();
-});
-document.getElementById("btnClearNote").addEventListener("click", async ()=>{
-  const k = ensureSelected();
-  noteText.value="";
-  await upsertDay(k, { note:"" });
-  closeSheet();
-});
-
-async function changeMonth(delta){
-  let y=viewYear, m=viewMonth+delta;
-  if(m<0){m=11;y--}
-  if(m>11){m=0;y++}
-  viewYear = clampYear(y);
-  viewMonth = m;
-  await reloadView(false);
-  saveViewState();
-}
-async function changeYear(delta){
-  viewYear = clampYear(viewYear + delta);
-  await reloadView(false);
-  saveViewState();
-}
-document.getElementById("btnPrevMonth").addEventListener("click", ()=>changeMonth(-1));
-document.getElementById("btnNextMonth").addEventListener("click", ()=>changeMonth(1));
-document.getElementById("btnPrevYear").addEventListener("click", ()=>changeYear(-1));
-document.getElementById("btnNextYear").addEventListener("click", ()=>changeYear(1));
-
-document.getElementById("btnToday").addEventListener("click", async ()=>{
-  const d = getSncfNow();
-  viewYear = clampYear(d.getFullYear());
-  viewMonth = d.getMonth();
-  selectedKey = keyFor(d);
-  await reloadView(true);
-  saveViewState();
-});
-
-/* Export Excel (sur données chargées) */
-document.getElementById("btnExportXLSX").addEventListener("click", ()=>{
-  const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note"]];
-  const keys = Array.from(entries.keys()).sort();
-  for(const k of keys){
-    const e = entries.get(k);
-    if(!e?.status) continue;
-    const d = new Date(k);
-    rows.push([k, d.getFullYear(), MONTHS[d.getMonth()], String(isoWeek(d)).padStart(2,"0"),
-      LABEL[e.status]||"", e.custom_label||"", e.note||"" ]);
-  }
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Planning");
-  XLSX.writeFile(wb, `planning_${viewYear}-${pad2(viewMonth+1)}.xlsx`);
-});
-
-/* Reload */
-async function reloadView(keepSelection){
-  await loadGridEntries();
-  renderMonth();
-  renderTotals();
-  if(keepSelection && selectedKey) setSelected(selectedKey);
-  else{
-    const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
-    selectedKey = k;
-    setSelected(k);
-  }
-}
-
-/* Init */
-async function init(){
-  const restored = restoreViewState();
-  if(!restored){
-    const now = getSncfNow();
-    viewYear = clampYear(now.getFullYear());
-    viewMonth = now.getMonth();
-    selectedKey = keyFor(now);
-  }
-
-  renderMonth();
-  renderTotals();
-  if(selectedKey) setSelected(selectedKey);
-
-  await refreshSessionUser();
-  if(user) await reloadView(true);
-
-  supabase.auth.onAuthStateChange(async ()=>{
-    await refreshSessionUser();
-    if(user) await reloadView(true);
-  });
-}
-
-init();
-</script>
+  <!-- App -->
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
