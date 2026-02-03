@@ -1,13 +1,10 @@
 /* =========================================================
-   Planning SNCF — UI moderne (Apple/Google-like)
-   - Grille 7 colonnes SANS scroll (toujours visible)
-   - Couleurs + layout revus
-   - Aucune modification JS/Supabase/IDs
+   Planning SNCF — UI moderne + grille fixe (sans scroll)
+   + Réglages thème Jour/Nuit (forcé)
    ========================================================= */
 
-/* Tokens */
+/* ---------------- THEME TOKENS (LIGHT par défaut) ---------------- */
 :root{
-  /* Light (Google/Apple) */
   --bg:#f3f5f8;
   --text:rgba(17,24,39,.92);
   --muted:rgba(17,24,39,.58);
@@ -16,7 +13,6 @@
   --surface:rgba(255,255,255,.78);
   --surface-strong:rgba(255,255,255,.92);
 
-  /* Accent: moderne (Apple blue + une touche mint) */
   --primary:#0a84ff;
   --accent:#22c55e;
   --danger:#ff3b30;
@@ -31,62 +27,59 @@
   --safeTop: env(safe-area-inset-top);
   --safeBottom: env(safe-area-inset-bottom);
 
-  /* Status colors (plus propres) */
-  --jour:#f59e0b;    /* amber */
-  --nuit:#6366f1;    /* indigo */
-  --conges:#ef4444;  /* red */
-  --repos:#9ca3af;   /* gray */
-  --autre:#10b981;   /* emerald */
+  /* Status colors (modern) */
+  --jour:#f59e0b;
+  --nuit:#6366f1;
+  --conges:#ef4444;
+  --repos:#9ca3af;
+  --autre:#10b981;
 }
 
-/* Dark mode auto */
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0b0c10;
-    --text:rgba(255,255,255,.92);
-    --muted:rgba(255,255,255,.62);
-    --stroke:rgba(255,255,255,.12);
+/* DARK forcé via data-theme */
+:root[data-theme="dark"]{
+  --bg:#0b0c10;
+  --text:rgba(255,255,255,.92);
+  --muted:rgba(255,255,255,.62);
+  --stroke:rgba(255,255,255,.12);
 
-    --surface:rgba(255,255,255,.06);
-    --surface-strong:rgba(255,255,255,.09);
+  --surface:rgba(255,255,255,.06);
+  --surface-strong:rgba(255,255,255,.09);
 
-    --primary:#7c5cff;
-    --accent:#4dd7ff;
+  --primary:#7c5cff;
+  --accent:#4dd7ff;
 
-    --shadow:0 18px 70px rgba(0,0,0,.48);
-    --shadow2:0 10px 26px rgba(0,0,0,.35);
+  --shadow:0 18px 70px rgba(0,0,0,.48);
+  --shadow2:0 10px 26px rgba(0,0,0,.35);
 
-    --jour:#fbbf24;
-    --nuit:#8b5cf6;
-    --conges:#ff4d6d;
-    --repos:#a1a1aa;
-    --autre:#34d399;
-  }
+  --jour:#fbbf24;
+  --nuit:#8b5cf6;
+  --conges:#ff4d6d;
+  --repos:#a1a1aa;
+  --autre:#34d399;
+}
+
+/* LIGHT forcé via data-theme */
+:root[data-theme="light"]{
+  /* rien: c’est le thème par défaut */
 }
 
 *{box-sizing:border-box}
 html,body{height:100%}
 
-/* Base */
 body{
   margin:0;
   font-family:system-ui,-apple-system,"SF Pro Text","SF Pro Display",Segoe UI,Roboto,Helvetica,Arial,sans-serif;
   color:var(--text);
   background:
     radial-gradient(1200px 650px at 10% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 60%),
-    radial-gradient(900px 520px at 95% 10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+    radial-gradient(900px 520px at 95% 10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
     var(--bg);
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
   overflow-x:hidden;
 }
 
-/* Layout container */
-.wrap{
-  max-width:1100px;
-  margin:0 auto;
-  padding:0 14px;
-}
+.wrap{max-width:1100px;margin:0 auto;padding:0 14px}
 
 button,input,select,textarea{font:inherit;color:inherit}
 
@@ -122,10 +115,19 @@ button.danger{
 }
 
 button.icon{
-  width:46px;height:46px;padding:0;border-radius:16px;
+  width:44px;height:44px;padding:0;border-radius:14px;
   display:inline-flex;align-items:center;justify-content:center;
 }
 button.pill{border-radius:999px}
+
+/* Small buttons (Aujourd’hui / Export / Déconnexion) */
+.smallbtn{
+  padding:9px 10px;
+  font-size:12px;
+  font-weight:850;
+  line-height:1;
+  white-space:nowrap;
+}
 
 /* Inputs */
 input,select,textarea{
@@ -155,12 +157,64 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   border-bottom:1px solid var(--stroke);
 }
 
-.bar{display:flex;flex-direction:column;gap:12px}
-.topline{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.bar{display:flex;flex-direction:column;gap:10px}
+
+.topline{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
 
 .brand{display:flex;flex-direction:column;gap:3px;min-width:0}
 .brand .t{font-size:16px;font-weight:900;letter-spacing:.2px}
 .brand .s{font-size:12px;color:var(--muted);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Settings (popover) */
+.settings{position:relative;display:flex;align-items:center;gap:10px}
+.settings-pop{
+  position:absolute;
+  top:52px;
+  right:0;
+  width:min(320px, calc(100vw - 28px));
+  background:color-mix(in srgb, var(--surface-strong) 92%, transparent);
+  border:1px solid var(--stroke);
+  border-radius:18px;
+  padding:12px;
+  box-shadow:var(--shadow);
+  display:none;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.settings-pop.show{display:block}
+.settings-title{font-weight:900;margin-bottom:10px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.setting-label{font-weight:750;color:var(--muted);font-size:12px}
+.settings-hint{margin-top:10px;font-size:12px;color:var(--muted);font-weight:650;line-height:1.3}
+
+/* Segmented control */
+.seg{
+  display:flex;
+  background:color-mix(in srgb, var(--surface) 70%, transparent);
+  border:1px solid var(--stroke);
+  border-radius:999px;
+  padding:3px;
+  gap:3px;
+}
+.segbtn{
+  padding:8px 10px;
+  font-size:12px;
+  font-weight:850;
+  border-radius:999px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+.segbtn.active{
+  background:var(--surface-strong);
+  border:1px solid var(--stroke);
+  box-shadow:0 1px 0 rgba(0,0,0,.04);
+}
 
 /* Month pill */
 .monthpill{
@@ -168,7 +222,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background:var(--surface-strong);
   border:1px solid var(--stroke);
   border-radius:var(--r-lg);
-  padding:12px 14px;
+  padding:10px 12px;
   display:flex;
   align-items:baseline;
   justify-content:center;
@@ -181,24 +235,33 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Controls */
 .controls{
   display:grid;
-  grid-template-columns:1fr;
+  grid-template-columns: 1fr auto;
   gap:10px;
+  align-items:center;
 }
-.controls .arrows{display:flex;gap:10px}
+.controls .arrows{display:flex;gap:8px}
 .controls .arrows button{flex:1}
 
 .controls2{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
+  display:flex;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+.controls2 button{flex:1; min-width:0; text-overflow:ellipsis; overflow:hidden}
+
+/* Sur très petit écran: on réduit encore un peu les paddings */
+@media (max-width: 360px){
+  .smallbtn{padding:8px 8px;font-size:11px}
+  button.icon{width:42px;height:42px}
 }
 
 @media(min-width:900px){
-  .controls{grid-template-columns:1fr 360px; align-items:center}
+  .controls{grid-template-columns:1fr 360px}
+  .controls .arrows{gap:10px}
 }
 
 /* Main */
-main{padding:14px 0 calc(148px + var(--safeBottom))}
+main{padding:14px 0 calc(150px + var(--safeBottom))}
 
 .card{
   background:var(--surface);
@@ -210,52 +273,46 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   -webkit-backdrop-filter:blur(14px);
 }
 
-/* =========================================================
-   GRILLE SANS SCROLL
-   - 7 colonnes toujours visibles
-   - Cases adaptatives + taille mini garantie
-   ========================================================= */
-
+/* --------- GRILLE FIXE (sans scroll) + calendrier agrandi --------- */
 .calendar-head{
   display:grid;
-  grid-template-columns:42px repeat(7, minmax(0, 1fr));
-  gap:8px;
+  grid-template-columns:44px repeat(7, minmax(0, 1fr));
+  gap:10px;
   margin-bottom:10px;
   align-items:center;
   color:var(--muted);
   font-size:11px;
-  font-weight:750;
+  font-weight:800;
   letter-spacing:.2px;
 }
 .calendar-head div{text-align:center}
 
-/* IMPORTANT: plus de width fixe, donc pas de scroll */
 .grid{
   display:grid;
-  grid-template-columns:42px repeat(7, minmax(0, 1fr));
-  gap:8px;
+  grid-template-columns:44px repeat(7, minmax(0, 1fr));
+  gap:10px;
 }
 
-/* Ajustements mobiles: on réduit les gaps et on optimise la lisibilité */
+/* Mobile: garde 7 colonnes, mais ajuste gaps/typo */
 @media (max-width: 420px){
   .wrap{padding:0 10px}
-  .calendar-head{gap:6px; font-size:10px}
-  .grid{gap:6px}
+  .calendar-head{gap:8px;font-size:10px}
+  .grid{gap:8px}
 }
 
 /* Week number */
 .weeknum{
   text-align:center;
   font-size:11px;
-  font-weight:850;
+  font-weight:900;
   color:var(--muted);
-  padding-top:14px;
+  padding-top:16px;
 }
 
-/* Day cell: adaptatif (cases restent jolies même petites) */
+/* Day cell bigger (calendrier agrandi) */
 .day{
-  height:50px;
-  border-radius:16px;
+  height:58px;                 /* plus grand */
+  border-radius:18px;
   border:1px solid var(--stroke);
   background:var(--surface-strong);
   display:flex;
@@ -265,8 +322,8 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   cursor:pointer;
   user-select:none;
   -webkit-tap-highlight-color:transparent;
-  font-weight:900;
-  font-size:16px;
+  font-weight:950;
+  font-size:18px;              /* plus grand */
   box-shadow:0 1px 0 rgba(0,0,0,.04);
   transition:transform .06s ease, box-shadow .15s ease, border-color .15s ease;
 }
@@ -278,24 +335,24 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   outline-offset:2px;
 }
 
-/* Sur très petits écrans: font + hauteur un peu réduits */
+/* Très petit écran : on garde grand mais un peu réduit */
 @media (max-width: 360px){
-  .day{height:46px; font-size:15px; border-radius:14px}
+  .day{height:54px;font-size:17px;border-radius:16px}
 }
 
 /* Note dot + badge */
 .dot{
   position:absolute;
-  bottom:7px; left:8px;
-  width:6px; height:6px;
+  bottom:8px; left:10px;
+  width:7px; height:7px;
   border-radius:999px;
   background:color-mix(in srgb, var(--primary) 55%, rgba(255,255,255,.85));
 }
 .badge{
   position:absolute;
-  bottom:6px; right:6px;
+  bottom:7px; right:8px;
   font-size:9px;
-  font-weight:850;
+  font-weight:900;
   padding:2px 6px;
   border-radius:999px;
   border:1px solid var(--stroke);
@@ -303,7 +360,7 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   color:var(--muted);
 }
 
-/* Status styles (plus modernes, plus “soft”) */
+/* Status styles (soft modern) */
 .day.jour{
   background:color-mix(in srgb, var(--jour) 20%, var(--surface-strong));
   border-color:color-mix(in srgb, var(--jour) 28%, var(--stroke));
@@ -332,7 +389,7 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   gap:10px;
   flex-wrap:wrap;
   align-items:center;
-  justify-content:center; /* plus clean sur mobile */
+  justify-content:center;
 }
 .pillchip{
   display:inline-flex;
@@ -342,7 +399,7 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   border-radius:999px;
   border:1px solid var(--stroke);
   background:var(--surface-strong);
-  font-weight:800;
+  font-weight:850;
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
 
@@ -368,23 +425,9 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
 .selbar .left{min-width:0}
-.selbar .date{
-  font-weight:900;
-  font-size:15px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.selbar .state{
-  font-weight:650;
-  font-size:12px;
-  color:var(--muted);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
+.selbar .date{font-weight:950;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selbar .state{font-weight:650;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* Actions: look plus Apple/Google */
 .actions{
   margin-top:10px;
   display:grid;
@@ -395,18 +438,14 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   padding:14px 6px;
   border-radius:18px;
   font-size:13px;
-  font-weight:800;
+  font-weight:900;
 }
 
-/* Mobile: si ça serre trop, on passe en 3 + 2 (toujours sans scroll) */
+/* Petit écran: 3 + 2 lignes (toujours sans scroll) */
 @media (max-width: 380px){
-  .actions{
-    grid-template-columns:repeat(3, minmax(0,1fr));
-  }
-  /* 2e ligne naturellement */
+  .actions{grid-template-columns:repeat(3, minmax(0,1fr))}
 }
 
-/* Desktop */
 @media(min-width:900px){
   main{padding-bottom:26px}
   .dock{position:sticky; bottom:0}
@@ -439,14 +478,14 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   margin:6px auto 12px;
 }
 .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.sheet-title{font-weight:900}
+.sheet-title{font-weight:950}
 .sheet-sub{font-weight:650;font-size:12px;color:var(--muted);margin-top:2px}
 .row{display:flex;gap:10px;margin-top:12px}
 .row>*{flex:1}
 .sheet-actions{display:flex;gap:10px;margin-top:12px}
 .sheet-actions button{flex:1}
 
-/* Gate (login) */
+/* Gate */
 .gate{
   position:fixed; inset:0; z-index:100;
   padding:calc(14px + var(--safeTop)) 12px calc(14px + var(--safeBottom));
@@ -464,7 +503,7 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   padding:14px;
   box-shadow:var(--shadow);
 }
-.gate-title{font-weight:900;font-size:16px}
+.gate-title{font-weight:950;font-size:16px}
 .tabs{display:flex;gap:10px;margin-top:12px}
 .tabs button{flex:1}
 .small{color:var(--muted);font-size:12px;font-weight:650;margin-top:8px;line-height:1.3}
@@ -481,7 +520,7 @@ main{padding:14px 0 calc(148px + var(--safeBottom))}
   border:1px solid var(--stroke);
   background:var(--surface-strong);
   padding:12px 14px;
-  font-weight:850;
+  font-weight:900;
   box-shadow:var(--shadow2);
 }
 .toast.show{display:block}
