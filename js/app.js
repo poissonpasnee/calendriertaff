@@ -1,61 +1,168 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 /* =========================
-   Perf helpers (tap rapide)
+   Fast tap (instant)
    ========================= */
 function fastTap(el, handler){
   if(!el) return;
-
   let last = 0;
+
+  const ignore = (e) => {
+    const t = e?.target;
+    if(!t) return false;
+    const tag = (t.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || tag === "option";
+  };
+
   const run = (e) => {
+    if(ignore(e)) return;
     const now = performance.now();
-    if(now - last < 250) return; // anti double tap/click
+    if(now - last < 220) return;
     last = now;
 
-    // Évite "ghost click" après touchend
-    if(e && typeof e.preventDefault === "function") e.preventDefault();
+    // no ghost click on pointer
+    if(e && e.pointerType) e.preventDefault();
     handler(e);
   };
 
-  // Pointer (moderne)
   el.addEventListener("pointerup", run, { passive:false });
-
-  // Fallback click
-  el.addEventListener("click", (e)=>{
-    // si pointerup a déjà fait le job, anti double
-    run(e);
-  }, { passive:false });
+  el.addEventListener("click", (e)=>run(e), { passive:false });
 }
 
-/* ===== Theme (Jour/Nuit) ===== */
-const LS_THEME_KEY = "sncf_theme_mode_v1"; // "light" | "dark"
+/* =========================
+   Settings (local)
+   ========================= */
+const LS_THEME_KEY = "sncf_theme_mode_v1";    // light/dark
+const LS_PREFS_KEY = "sncf_prefs_v1";
+
+const defaultPrefs = {
+  weekStart: "sun",      // sun|mon (display only)
+  weekNumber: "iso",     // iso|simple
+  cellSize: "comfort",   // compact|comfort|large
+  fastApply: true,       // tap on grid applies selection only (recommended)
+  confirmLogout: true,
+  hideOtherTotal: false,
+  autoToday: true
+};
+
+let prefs = { ...defaultPrefs };
+
+function loadPrefs(){
+  try{
+    const raw = localStorage.getItem(LS_PREFS_KEY);
+    if(!raw) return;
+    const p = JSON.parse(raw);
+    if(!p) return;
+    prefs = { ...defaultPrefs, ...p };
+  }catch{}
+}
+function savePrefs(){
+  try{ localStorage.setItem(LS_PREFS_KEY, JSON.stringify(prefs)); }catch{}
+}
 
 function applyTheme(mode){
   const root = document.documentElement;
   if(mode === "dark") root.setAttribute("data-theme","dark");
-  else if(mode === "light") root.setAttribute("data-theme","light");
-  else root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme","light");
 }
-
+function getTheme(){
+  try{
+    const v = localStorage.getItem(LS_THEME_KEY);
+    return (v === "dark" || v === "light") ? v : "light";
+  }catch{ return "light"; }
+}
 function setTheme(mode){
   try{ localStorage.setItem(LS_THEME_KEY, mode); }catch{}
   applyTheme(mode);
-  updateThemeUI(mode);
+  updateSettingsUI();
 }
 
-function getSavedTheme(){
-  try{ return localStorage.getItem(LS_THEME_KEY); }catch{ return null; }
+function applyCellSize(){
+  document.documentElement.setAttribute("data-size", prefs.cellSize);
 }
 
-function updateThemeUI(mode){
+const HEAD_SUN = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+const HEAD_MON = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+
+function updateHeadLabels(){
+  const arr = (prefs.weekStart === "mon") ? HEAD_MON : HEAD_SUN;
+  for(let i=0;i<7;i++){
+    const el = document.getElementById(`h${i}`);
+    if(el) el.textContent = arr[i];
+  }
+}
+
+/* week number functions */
+function isoWeek(date){
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
+  const week1 = new Date(d.getFullYear(),0,4);
+  return 1 + Math.round(((d-week1)/86400000 - 3 + ((week1.getDay()+6)%7))/7);
+}
+function simpleWeekSunday(date){
+  // Week number starting Sunday, week 1 contains Jan 1
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const yearStart = new Date(d.getFullYear(),0,1);
+  const day = Math.floor((d - yearStart)/86400000);
+  // adjust so Sunday is first day
+  const adj = (yearStart.getDay()); // 0..6 (Sun..Sat)
+  return 1 + Math.floor((day + adj) / 7);
+}
+
+function applySettingsToUI(){
+  applyCellSize();
+  updateHeadLabels();
+}
+
+/* Update segmented + toggles */
+function setSegActive(idA, idB, active){
+  const a = document.getElementById(idA);
+  const b = document.getElementById(idB);
+  if(a) a.classList.toggle("active", active === "a");
+  if(b) b.classList.toggle("active", active === "b");
+}
+function setSeg3(aId,bId,cId, which){
+  const a=document.getElementById(aId), b=document.getElementById(bId), c=document.getElementById(cId);
+  if(a) a.classList.toggle("active", which==="a");
+  if(b) b.classList.toggle("active", which==="b");
+  if(c) c.classList.toggle("active", which==="c");
+}
+function updateSettingsUI(){
+  const theme = getTheme();
   const bL = document.getElementById("themeLight");
   const bD = document.getElementById("themeDark");
-  if(!bL || !bD) return;
-  bL.classList.toggle("active", mode === "light");
-  bD.classList.toggle("active", mode === "dark");
+  if(bL) bL.classList.toggle("active", theme === "light");
+  if(bD) bD.classList.toggle("active", theme === "dark");
+
+  const wsS = document.getElementById("weekStartSun");
+  const wsM = document.getElementById("weekStartMon");
+  if(wsS) wsS.classList.toggle("active", prefs.weekStart === "sun");
+  if(wsM) wsM.classList.toggle("active", prefs.weekStart === "mon");
+
+  const wIso = document.getElementById("weekIso");
+  const wSim = document.getElementById("weekSimple");
+  if(wIso) wIso.classList.toggle("active", prefs.weekNumber === "iso");
+  if(wSim) wSim.classList.toggle("active", prefs.weekNumber === "simple");
+
+  setSeg3("cellCompact","cellComfort","cellLarge",
+    prefs.cellSize==="compact" ? "a" : prefs.cellSize==="comfort" ? "b" : "c"
+  );
+
+  const t1=document.getElementById("togFastApply");
+  const t2=document.getElementById("togAutoToday");
+  const t3=document.getElementById("togConfirmLogout");
+  const t4=document.getElementById("togHideOtherTotal");
+  if(t1) t1.checked = !!prefs.fastApply;
+  if(t2) t2.checked = !!prefs.autoToday;
+  if(t3) t3.checked = !!prefs.confirmLogout;
+  if(t4) t4.checked = !!prefs.hideOtherTotal;
 }
 
-/* ===== Supabase ===== */
+/* =========================
+   Supabase (unchanged)
+   ========================= */
 const SUPABASE_URL  = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
 
@@ -102,13 +209,11 @@ const signEmail = document.getElementById("signEmail");
 const signPass = document.getElementById("signPass");
 const loginHint = document.getElementById("loginHint");
 
-/* Settings popover DOM */
+/* Settings DOM */
 const btnSettings = document.getElementById("btnSettings");
 const settingsPop = document.getElementById("settingsPop");
-const themeLightBtn = document.getElementById("themeLight");
-const themeDarkBtn = document.getElementById("themeDark");
 
-/* Nav buttons */
+/* Nav */
 const btnPrevMonth = document.getElementById("btnPrevMonth");
 const btnNextMonth = document.getElementById("btnNextMonth");
 const btnPrevYear  = document.getElementById("btnPrevYear");
@@ -126,33 +231,25 @@ let selectedKey = null;
 const entries = new Map();
 
 /* Perf caches */
-const cellByKey = new Map();   // key -> HTMLElement
-let selectedEl = null;         // HTMLElement selected
+const cellByKey = new Map();
+let selectedEl = null;
 
-/* ===== Helpers ===== */
+let toastTimer = null;
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove("show"), 1800);
+}
+
 const pad2 = (n) => String(n).padStart(2,"0");
 const keyFor = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const parseKey = (k) => { const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); };
 const clampYear = (y)=> Math.max(MIN_YEAR, Math.min(MAX_YEAR, y));
 
-function toast(msg){
-  toastEl.textContent = msg;
-  toastEl.classList.add("show");
-  setTimeout(()=>toastEl.classList.remove("show"), 2500);
-}
-
 function fmtLong(d){
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
 }
-
-function isoWeek(date){
-  const d = new Date(date);
-  d.setHours(0,0,0,0);
-  d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
-  const week1 = new Date(d.getFullYear(),0,4);
-  return 1 + Math.round(((d-week1)/86400000 - 3 + ((week1.getDay()+6)%7))/7);
-}
-
 function getSncfNow(){
   const d = new Date();
   if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
@@ -196,7 +293,6 @@ function closeSheet(){
   backdrop.classList.remove("show");
   sheet.classList.remove("show");
 }
-
 backdrop.addEventListener("click", closeSheet, { passive:true });
 fastTap(document.getElementById("btnCloseSheet"), closeSheet);
 fastTap(document.getElementById("btnCancelOther"), closeSheet);
@@ -249,18 +345,22 @@ fastTap(document.getElementById("btnReset"), async ()=>{
   loginHint.textContent="Email de réinitialisation envoyé.";
 });
 
+/* Logout with optional confirm */
 fastTap(btnLogout, async ()=>{
+  if(prefs.confirmLogout){
+    const ok = confirm("Déconnexion ?");
+    if(!ok) return;
+  }
   await supabase.auth.signOut();
   entries.clear();
   user=null;
   topSub.textContent="Non connecté";
   gate.classList.add("show");
-  // on garde l’UI cohérente
   renderMonth();
   renderTotals();
 });
 
-/* Wait session */
+/* Session */
 async function refreshSessionUser(){
   const { data, error } = await supabase.auth.getSession();
   if(error){ console.error(error); user=null; }
@@ -304,7 +404,7 @@ async function loadGridEntries(){
   });
 }
 
-/* ------- UI incremental update (no full re-render) ------- */
+/* ------- UI incremental update ------- */
 function clearCellVisual(cell){
   cell.classList.remove("jour","nuit","repos","conges","autre");
   const dot = cell.querySelector(".dot");
@@ -312,7 +412,6 @@ function clearCellVisual(cell){
   const badge = cell.querySelector(".badge");
   if(badge) badge.remove();
 }
-
 function applyEntryToCell(cell, entry){
   if(entry?.status) cell.classList.add(entry.status);
 
@@ -328,28 +427,26 @@ function applyEntryToCell(cell, entry){
     cell.appendChild(b);
   }
 }
-
 function updateCell(key){
   const cell = cellByKey.get(key);
   if(!cell) return;
-
   clearCellVisual(cell);
-  const e = entries.get(key);
-  applyEntryToCell(cell, e);
+  applyEntryToCell(cell, entries.get(key));
 }
 
-/* Save immediately (optimistic + patch cell only) */
+/* Save immediately */
 async function upsertDay(dateKey, patch){
   if(!user){ toast("Connecte-toi."); return; }
 
   const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"" };
   const next = { ...cur, ...patch };
 
-  // Optimistic: update state + UI instantly (cell only)
   entries.set(dateKey, next);
-  updateCell(dateKey);
-  renderTotals();
-  setSelected(dateKey, { onlySelectionUI:true });
+  requestAnimationFrame(()=>{
+    updateCell(dateKey);
+    renderTotals();
+    setSelected(dateKey);
+  });
 
   const { error } = await supabase
     .from("work_calendar_entries")
@@ -364,14 +461,14 @@ async function upsertDay(dateKey, patch){
   if(error){
     console.error(error);
 
-    // revert state
     if(cur.status || cur.note || cur.custom_label) entries.set(dateKey, cur);
     else entries.delete(dateKey);
 
-    // revert UI
-    updateCell(dateKey);
-    renderTotals();
-    setSelected(dateKey, { onlySelectionUI:true });
+    requestAnimationFrame(()=>{
+      updateCell(dateKey);
+      renderTotals();
+      setSelected(dateKey);
+    });
 
     toast("Erreur sauvegarde: " + (error.message || error.code || ""));
     return;
@@ -380,7 +477,23 @@ async function upsertDay(dateKey, patch){
   saveViewState();
 }
 
-/* Render month (build cells once) */
+/* Render month */
+function getWeekNum(d){
+  if(prefs.weekNumber === "iso") return isoWeek(d);
+  return simpleWeekSunday(d);
+}
+function rotatedStartDateForMonth(year, month){
+  // base start is Sunday grid start
+  const first = new Date(year, month, 1);
+  const baseStart = new Date(year, month, 1 - first.getDay()); // Sunday
+  if(prefs.weekStart === "sun") return baseStart;
+
+  // Monday start: shift grid start back 1 day (Monday)
+  const s = new Date(baseStart);
+  s.setDate(s.getDate() - 6); // from Sunday to previous Monday
+  // explanation: baseStart is Sunday; previous Monday is -6 days
+  return s;
+}
 function renderMonth(){
   grid.innerHTML="";
   cellByKey.clear();
@@ -389,7 +502,7 @@ function renderMonth(){
   navMonth.textContent = MONTHS[viewMonth];
   navYear.textContent  = String(viewYear);
 
-  const { start } = gridRangeForMonth(viewYear, viewMonth);
+  const start = rotatedStartDateForMonth(viewYear, viewMonth);
 
   for(let week=0; week<6; week++){
     const weekStart = new Date(start);
@@ -397,7 +510,7 @@ function renderMonth(){
 
     const wn = document.createElement("div");
     wn.className="weeknum";
-    wn.textContent = String(isoWeek(weekStart)).padStart(2,"0");
+    wn.textContent = String(getWeekNum(weekStart)).padStart(2,"0");
     grid.appendChild(wn);
 
     for(let i=0;i<7;i++){
@@ -408,28 +521,30 @@ function renderMonth(){
       const cell = document.createElement("div");
       cell.className="day";
       cell.dataset.key=k;
-      if(d.getMonth() !== viewMonth) cell.classList.add("out");
 
+      // out-of-month
+      if(d.getMonth() !== viewMonth) cell.classList.add("out");
       cell.textContent = String(d.getDate());
 
-      // Apply entry visuals if loaded
-      const e = entries.get(k);
-      applyEntryToCell(cell, e);
+      applyEntryToCell(cell, entries.get(k));
 
-      // Cache
       cellByKey.set(k, cell);
 
-      // Fast tap select
-      fastTap(cell, ()=>{
+      fastTap(cell, async ()=>{
         setSelected(k);
         saveViewState();
+
+        // If "Tap applique direct" is ON: tap = just select (fast) -> actions below remain
+        // If OFF: tap opens Note sheet quickly (useful like Calendar)
+        if(!prefs.fastApply){
+          openSheet("note");
+        }
       });
 
       grid.appendChild(cell);
     }
   }
 
-  // Ensure selection highlight
   if(selectedKey){
     const el = cellByKey.get(selectedKey);
     if(el){
@@ -439,10 +554,9 @@ function renderMonth(){
   }
 }
 
-function setSelected(k, opts={ onlySelectionUI:false }){
+function setSelected(k){
   selectedKey = k;
 
-  // Fast selection class toggle (no querySelectorAll)
   if(selectedEl) selectedEl.classList.remove("selected");
   const el = cellByKey.get(k);
   if(el){
@@ -462,14 +576,10 @@ function setSelected(k, opts={ onlySelectionUI:false }){
   sheetTitle.textContent = fmtLong(d);
   sheetSub.textContent = `État actuel: ${state}${extra}`;
   noteText.value = e?.note || "";
-
-  // opts.onlySelectionUI conservé pour compat (pas d’effet ici)
-  void opts;
 }
 
 function renderTotals(){
   let cJ=0,cN=0,cR=0,cC=0,cA=0;
-  // entries = uniquement 42 jours chargés -> très rapide
   for(const e of entries.values()){
     if(!e?.status) continue;
     if(e.status==="jour") cJ++;
@@ -490,7 +600,7 @@ function renderTotals(){
   totalsEl.appendChild(chip(`Nuits: ${cN}`));
   totalsEl.appendChild(chip(`Repos: ${cR}`));
   totalsEl.appendChild(chip(`Congés: ${cC}`));
-  totalsEl.appendChild(chip(`Autres: ${cA}`));
+  if(!prefs.hideOtherTotal) totalsEl.appendChild(chip(`Autres: ${cA}`));
 }
 
 /* Buttons */
@@ -504,13 +614,12 @@ function ensureSelected(){
   return selectedKey;
 }
 
-/* Actions buttons (fast tap) */
+/* Action buttons */
 document.querySelectorAll("[data-set]").forEach(btn=>{
   fastTap(btn, async ()=>{
     const k = ensureSelected();
     const dSel = parseKey(k);
 
-    // Si sélection hors mois affiché => on se repositionne puis reload
     if(dSel.getFullYear()!==viewYear || dSel.getMonth()!==viewMonth){
       viewYear = clampYear(dSel.getFullYear());
       viewMonth = dSel.getMonth();
@@ -563,7 +672,7 @@ fastTap(document.getElementById("btnClearNote"), async ()=>{
   closeSheet();
 });
 
-/* Month/year nav (fast tap) */
+/* Navigation */
 async function changeMonth(delta){
   let y=viewYear, m=viewMonth+delta;
   if(m<0){m=11;y--}
@@ -593,7 +702,7 @@ fastTap(btnToday, async ()=>{
   saveViewState();
 });
 
-/* Export Excel (sur données chargées) */
+/* Export Excel */
 fastTap(btnExportXLSX, ()=>{
   const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note"]];
   const keys = Array.from(entries.keys()).sort();
@@ -601,15 +710,22 @@ fastTap(btnExportXLSX, ()=>{
     const e = entries.get(k);
     if(!e?.status) continue;
     const d = new Date(k);
-    rows.push([k, d.getFullYear(), MONTHS[d.getMonth()], String(isoWeek(d)).padStart(2,"0"),
-      LABEL[e.status]||"", e.custom_label||"", e.note||"" ]);
+    rows.push([
+      k,
+      d.getFullYear(),
+      MONTHS[d.getMonth()],
+      String(getWeekNum(d)).padStart(2,"0"),
+      LABEL[e.status]||"",
+      e.custom_label||"",
+      e.note||""
+    ]);
   }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Planning");
   XLSX.writeFile(wb, `planning_${viewYear}-${pad2(viewMonth+1)}.xlsx`);
 });
 
-/* Reload view (full rebuild only when needed) */
+/* Reload view */
 async function reloadView(keepSelection){
   await loadGridEntries();
   renderMonth();
@@ -624,28 +740,92 @@ async function reloadView(keepSelection){
   }
 }
 
-/* Settings behavior */
+/* Settings popover wiring */
 function initSettings(){
-  if(!btnSettings || !settingsPop) return;
+  // load + apply
+  loadPrefs();
+  applyTheme(getTheme());
+  applySettingsToUI();
+  updateSettingsUI();
 
-  const saved = getSavedTheme();
-  const mode = (saved === "dark" || saved === "light") ? saved : "light";
-  applyTheme(mode);
-  updateThemeUI(mode);
-
+  // open/close
   fastTap(btnSettings, (e)=>{
     e?.stopPropagation?.();
     settingsPop.classList.toggle("show");
   });
-
-  document.addEventListener("click", ()=>{
-    settingsPop.classList.remove("show");
-  });
-
+  document.addEventListener("click", ()=>settingsPop.classList.remove("show"));
   settingsPop.addEventListener("click", (e)=>e.stopPropagation());
 
-  fastTap(themeLightBtn, ()=>setTheme("light"));
-  fastTap(themeDarkBtn, ()=>setTheme("dark"));
+  // theme
+  fastTap(document.getElementById("themeLight"), ()=>setTheme("light"));
+  fastTap(document.getElementById("themeDark"),  ()=>setTheme("dark"));
+
+  // week start
+  fastTap(document.getElementById("weekStartSun"), ()=>{
+    prefs.weekStart = "sun";
+    savePrefs(); applySettingsToUI(); updateSettingsUI();
+    renderMonth(); // reflow columns
+    renderTotals();
+  });
+  fastTap(document.getElementById("weekStartMon"), ()=>{
+    prefs.weekStart = "mon";
+    savePrefs(); applySettingsToUI(); updateSettingsUI();
+    renderMonth();
+    renderTotals();
+  });
+
+  // week number mode
+  fastTap(document.getElementById("weekIso"), ()=>{
+    prefs.weekNumber = "iso";
+    savePrefs(); updateSettingsUI();
+    renderMonth();
+  });
+  fastTap(document.getElementById("weekSimple"), ()=>{
+    prefs.weekNumber = "simple";
+    savePrefs(); updateSettingsUI();
+    renderMonth();
+  });
+
+  // cell size
+  fastTap(document.getElementById("cellCompact"), ()=>{
+    prefs.cellSize = "compact";
+    savePrefs(); applyCellSize(); updateSettingsUI();
+  });
+  fastTap(document.getElementById("cellComfort"), ()=>{
+    prefs.cellSize = "comfort";
+    savePrefs(); applyCellSize(); updateSettingsUI();
+  });
+  fastTap(document.getElementById("cellLarge"), ()=>{
+    prefs.cellSize = "large";
+    savePrefs(); applyCellSize(); updateSettingsUI();
+  });
+
+  // toggles
+  const tFast = document.getElementById("togFastApply");
+  const tToday= document.getElementById("togAutoToday");
+  const tConf = document.getElementById("togConfirmLogout");
+  const tHide = document.getElementById("togHideOtherTotal");
+
+  tFast?.addEventListener("change", ()=>{
+    prefs.fastApply = !!tFast.checked;
+    savePrefs();
+  }, { passive:true });
+
+  tToday?.addEventListener("change", ()=>{
+    prefs.autoToday = !!tToday.checked;
+    savePrefs();
+  }, { passive:true });
+
+  tConf?.addEventListener("change", ()=>{
+    prefs.confirmLogout = !!tConf.checked;
+    savePrefs();
+  }, { passive:true });
+
+  tHide?.addEventListener("change", ()=>{
+    prefs.hideOtherTotal = !!tHide.checked;
+    savePrefs();
+    renderTotals();
+  }, { passive:true });
 }
 
 /* Init */
@@ -653,23 +833,20 @@ async function init(){
   initSettings();
 
   const restored = restoreViewState();
-  if(!restored){
+
+  if(!restored || prefs.autoToday){
     const now = getSncfNow();
     viewYear = clampYear(now.getFullYear());
     viewMonth = now.getMonth();
     selectedKey = keyFor(now);
   }
 
-  // Build UI first (empty state), then load if logged
   renderMonth();
   renderTotals();
   if(selectedKey) setSelected(selectedKey);
 
   await refreshSessionUser();
-
-  if(user){
-    await reloadView(true);
-  }
+  if(user) await reloadView(true);
 
   supabase.auth.onAuthStateChange(async ()=>{
     await refreshSessionUser();
