@@ -1,17 +1,40 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
+/* =========================
+   Perf helpers (tap rapide)
+   ========================= */
+function fastTap(el, handler){
+  if(!el) return;
+
+  let last = 0;
+  const run = (e) => {
+    const now = performance.now();
+    if(now - last < 250) return; // anti double tap/click
+    last = now;
+
+    // Évite "ghost click" après touchend
+    if(e && typeof e.preventDefault === "function") e.preventDefault();
+    handler(e);
+  };
+
+  // Pointer (moderne)
+  el.addEventListener("pointerup", run, { passive:false });
+
+  // Fallback click
+  el.addEventListener("click", (e)=>{
+    // si pointerup a déjà fait le job, anti double
+    run(e);
+  }, { passive:false });
+}
+
 /* ===== Theme (Jour/Nuit) ===== */
 const LS_THEME_KEY = "sncf_theme_mode_v1"; // "light" | "dark"
 
 function applyTheme(mode){
   const root = document.documentElement;
-  if(mode === "dark"){
-    root.setAttribute("data-theme","dark");
-  }else if(mode === "light"){
-    root.setAttribute("data-theme","light");
-  }else{
-    root.removeAttribute("data-theme");
-  }
+  if(mode === "dark") root.setAttribute("data-theme","dark");
+  else if(mode === "light") root.setAttribute("data-theme","light");
+  else root.removeAttribute("data-theme");
 }
 
 function setTheme(mode){
@@ -85,12 +108,26 @@ const settingsPop = document.getElementById("settingsPop");
 const themeLightBtn = document.getElementById("themeLight");
 const themeDarkBtn = document.getElementById("themeDark");
 
+/* Nav buttons */
+const btnPrevMonth = document.getElementById("btnPrevMonth");
+const btnNextMonth = document.getElementById("btnNextMonth");
+const btnPrevYear  = document.getElementById("btnPrevYear");
+const btnNextYear  = document.getElementById("btnNextYear");
+const btnToday     = document.getElementById("btnToday");
+const btnExportXLSX = document.getElementById("btnExportXLSX");
+const btnLogout     = document.getElementById("btnLogout");
+const btnNote       = document.getElementById("btnNote");
+
 /* ===== State ===== */
 let user = null;
 let viewYear = 2026;
 let viewMonth = 0;
 let selectedKey = null;
 const entries = new Map();
+
+/* Perf caches */
+const cellByKey = new Map();   // key -> HTMLElement
+let selectedEl = null;         // HTMLElement selected
 
 /* ===== Helpers ===== */
 const pad2 = (n) => String(n).padStart(2,"0");
@@ -103,9 +140,11 @@ function toast(msg){
   toastEl.classList.add("show");
   setTimeout(()=>toastEl.classList.remove("show"), 2500);
 }
+
 function fmtLong(d){
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
 }
+
 function isoWeek(date){
   const d = new Date(date);
   d.setHours(0,0,0,0);
@@ -113,6 +152,7 @@ function isoWeek(date){
   const week1 = new Date(d.getFullYear(),0,4);
   return 1 + Math.round(((d-week1)/86400000 - 3 + ((week1.getDay()+6)%7))/7);
 }
+
 function getSncfNow(){
   const d = new Date();
   if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
@@ -156,12 +196,14 @@ function closeSheet(){
   backdrop.classList.remove("show");
   sheet.classList.remove("show");
 }
-backdrop.addEventListener("click", closeSheet);
-document.getElementById("btnCloseSheet").addEventListener("click", closeSheet);
-document.getElementById("btnCancelOther").addEventListener("click", closeSheet);
+
+backdrop.addEventListener("click", closeSheet, { passive:true });
+fastTap(document.getElementById("btnCloseSheet"), closeSheet);
+fastTap(document.getElementById("btnCancelOther"), closeSheet);
+
 otherSelect.addEventListener("change", ()=>{
   otherCustom.style.display = (otherSelect.value==="custom") ? "block" : "none";
-});
+}, { passive:true });
 
 /* Auth tabs */
 function showPane(which){
@@ -173,12 +215,12 @@ function showPane(which){
     tabSignup.classList.add("primary"); tabLogin.classList.remove("primary");
   }
 }
-tabLogin.addEventListener("click", ()=>showPane("login"));
-tabSignup.addEventListener("click", ()=>showPane("signup"));
-document.getElementById("btnBackLogin").addEventListener("click", ()=>showPane("login"));
+fastTap(tabLogin, ()=>showPane("login"));
+fastTap(tabSignup, ()=>showPane("signup"));
+fastTap(document.getElementById("btnBackLogin"), ()=>showPane("login"));
 
 /* Auth actions */
-document.getElementById("btnLogin").addEventListener("click", async ()=>{
+fastTap(document.getElementById("btnLogin"), async ()=>{
   loginHint.textContent="";
   const email = (loginEmail.value||"").trim();
   const pass  = loginPass.value||"";
@@ -186,7 +228,8 @@ document.getElementById("btnLogin").addEventListener("click", async ()=>{
   const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
   if(error){ console.error(error); loginHint.textContent = error.message || "Erreur connexion."; }
 });
-document.getElementById("btnSignup").addEventListener("click", async ()=>{
+
+fastTap(document.getElementById("btnSignup"), async ()=>{
   const email = (signEmail.value||"").trim();
   const pass  = (signPass.value||"");
   if(!email || !pass){ toast("Email + mot de passe requis."); return; }
@@ -197,19 +240,24 @@ document.getElementById("btnSignup").addEventListener("click", async ()=>{
   showPane("login");
   loginEmail.value=email; loginPass.value="";
 });
-document.getElementById("btnReset").addEventListener("click", async ()=>{
+
+fastTap(document.getElementById("btnReset"), async ()=>{
   const email = (loginEmail.value||"").trim();
   if(!email){ loginHint.textContent="Entre ton email puis reset."; return; }
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
   if(error){ console.error(error); loginHint.textContent = error.message || "Erreur reset."; return; }
   loginHint.textContent="Email de réinitialisation envoyé.";
 });
-document.getElementById("btnLogout").addEventListener("click", async ()=>{
+
+fastTap(btnLogout, async ()=>{
   await supabase.auth.signOut();
-  entries.clear(); user=null;
+  entries.clear();
+  user=null;
   topSub.textContent="Non connecté";
   gate.classList.add("show");
-  renderMonth(); renderTotals();
+  // on garde l’UI cohérente
+  renderMonth();
+  renderTotals();
 });
 
 /* Wait session */
@@ -254,19 +302,54 @@ async function loadGridEntries(){
       note: r.note || ""
     });
   });
-
-  toast(`Chargé: ${(data||[]).length} jour(s)`);
 }
 
-/* Save immediately */
+/* ------- UI incremental update (no full re-render) ------- */
+function clearCellVisual(cell){
+  cell.classList.remove("jour","nuit","repos","conges","autre");
+  const dot = cell.querySelector(".dot");
+  if(dot) dot.remove();
+  const badge = cell.querySelector(".badge");
+  if(badge) badge.remove();
+}
+
+function applyEntryToCell(cell, entry){
+  if(entry?.status) cell.classList.add(entry.status);
+
+  if(entry?.note){
+    const dot = document.createElement("div");
+    dot.className="dot";
+    cell.appendChild(dot);
+  }
+  if(entry?.status === "autre" && entry.custom_label){
+    const b = document.createElement("div");
+    b.className="badge";
+    b.textContent = entry.custom_label.slice(0,6);
+    cell.appendChild(b);
+  }
+}
+
+function updateCell(key){
+  const cell = cellByKey.get(key);
+  if(!cell) return;
+
+  clearCellVisual(cell);
+  const e = entries.get(key);
+  applyEntryToCell(cell, e);
+}
+
+/* Save immediately (optimistic + patch cell only) */
 async function upsertDay(dateKey, patch){
   if(!user){ toast("Connecte-toi."); return; }
 
   const cur = entries.get(dateKey) || { status:"", custom_label:"", note:"" };
   const next = { ...cur, ...patch };
 
+  // Optimistic: update state + UI instantly (cell only)
   entries.set(dateKey, next);
-  renderMonth(); renderTotals(); setSelected(dateKey);
+  updateCell(dateKey);
+  renderTotals();
+  setSelected(dateKey, { onlySelectionUI:true });
 
   const { error } = await supabase
     .from("work_calendar_entries")
@@ -280,18 +363,29 @@ async function upsertDay(dateKey, patch){
 
   if(error){
     console.error(error);
+
+    // revert state
     if(cur.status || cur.note || cur.custom_label) entries.set(dateKey, cur);
     else entries.delete(dateKey);
-    renderMonth(); renderTotals(); setSelected(dateKey);
+
+    // revert UI
+    updateCell(dateKey);
+    renderTotals();
+    setSelected(dateKey, { onlySelectionUI:true });
+
     toast("Erreur sauvegarde: " + (error.message || error.code || ""));
     return;
   }
+
   saveViewState();
 }
 
-/* Render */
+/* Render month (build cells once) */
 function renderMonth(){
   grid.innerHTML="";
+  cellByKey.clear();
+  selectedEl = null;
+
   navMonth.textContent = MONTHS[viewMonth];
   navYear.textContent  = String(viewYear);
 
@@ -314,39 +408,50 @@ function renderMonth(){
       const cell = document.createElement("div");
       cell.className="day";
       cell.dataset.key=k;
-
       if(d.getMonth() !== viewMonth) cell.classList.add("out");
-
-      const e = entries.get(k);
-      if(e?.status) cell.classList.add(e.status);
-      if(k === selectedKey) cell.classList.add("selected");
 
       cell.textContent = String(d.getDate());
 
-      if(e?.note){
-        const dot = document.createElement("div");
-        dot.className="dot";
-        cell.appendChild(dot);
-      }
-      if(e?.status==="autre" && e.custom_label){
-        const b = document.createElement("div");
-        b.className="badge";
-        b.textContent = e.custom_label.slice(0,6);
-        cell.appendChild(b);
-      }
+      // Apply entry visuals if loaded
+      const e = entries.get(k);
+      applyEntryToCell(cell, e);
 
-      cell.addEventListener("click", ()=>{
+      // Cache
+      cellByKey.set(k, cell);
+
+      // Fast tap select
+      fastTap(cell, ()=>{
         setSelected(k);
         saveViewState();
-      }, {passive:true});
+      });
 
       grid.appendChild(cell);
     }
   }
+
+  // Ensure selection highlight
+  if(selectedKey){
+    const el = cellByKey.get(selectedKey);
+    if(el){
+      el.classList.add("selected");
+      selectedEl = el;
+    }
+  }
 }
 
-function setSelected(k){
+function setSelected(k, opts={ onlySelectionUI:false }){
   selectedKey = k;
+
+  // Fast selection class toggle (no querySelectorAll)
+  if(selectedEl) selectedEl.classList.remove("selected");
+  const el = cellByKey.get(k);
+  if(el){
+    el.classList.add("selected");
+    selectedEl = el;
+  }else{
+    selectedEl = null;
+  }
+
   const d = parseKey(k);
   const e = entries.get(k);
   const state = e?.status ? LABEL[e.status] : "—";
@@ -358,16 +463,14 @@ function setSelected(k){
   sheetSub.textContent = `État actuel: ${state}${extra}`;
   noteText.value = e?.note || "";
 
-  grid.querySelectorAll(".day").forEach(el=>el.classList.remove("selected"));
-  const el = grid.querySelector(`.day[data-key="${k}"]`);
-  if(el) el.classList.add("selected");
+  // opts.onlySelectionUI conservé pour compat (pas d’effet ici)
+  void opts;
 }
 
 function renderTotals(){
   let cJ=0,cN=0,cR=0,cC=0,cA=0;
-  const keys = Array.from(entries.keys()).sort();
-  for(const k of keys){
-    const e = entries.get(k);
+  // entries = uniquement 42 jours chargés -> très rapide
+  for(const e of entries.values()){
     if(!e?.status) continue;
     if(e.status==="jour") cJ++;
     if(e.status==="nuit") cN++;
@@ -375,6 +478,7 @@ function renderTotals(){
     if(e.status==="conges") cC++;
     if(e.status==="autre") cA++;
   }
+
   totalsEl.innerHTML="";
   const chip=(t)=>{
     const d=document.createElement("div");
@@ -400,11 +504,13 @@ function ensureSelected(){
   return selectedKey;
 }
 
+/* Actions buttons (fast tap) */
 document.querySelectorAll("[data-set]").forEach(btn=>{
-  btn.addEventListener("click", async ()=>{
+  fastTap(btn, async ()=>{
     const k = ensureSelected();
     const dSel = parseKey(k);
 
+    // Si sélection hors mois affiché => on se repositionne puis reload
     if(dSel.getFullYear()!==viewYear || dSel.getMonth()!==viewMonth){
       viewYear = clampYear(dSel.getFullYear());
       viewMonth = dSel.getMonth();
@@ -428,12 +534,12 @@ document.querySelectorAll("[data-set]").forEach(btn=>{
   });
 });
 
-document.getElementById("btnNote").addEventListener("click", ()=>{
+fastTap(btnNote, ()=>{
   ensureSelected();
   openSheet("note");
 });
 
-document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
+fastTap(document.getElementById("btnApplyOther"), async ()=>{
   const k = ensureSelected();
   let label = otherSelect.value;
   if(label==="custom"){
@@ -444,18 +550,20 @@ document.getElementById("btnApplyOther").addEventListener("click", async ()=>{
   closeSheet();
 });
 
-document.getElementById("btnSaveNote").addEventListener("click", async ()=>{
+fastTap(document.getElementById("btnSaveNote"), async ()=>{
   const k = ensureSelected();
   await upsertDay(k, { note:(noteText.value||"").trim() });
   closeSheet();
 });
-document.getElementById("btnClearNote").addEventListener("click", async ()=>{
+
+fastTap(document.getElementById("btnClearNote"), async ()=>{
   const k = ensureSelected();
   noteText.value="";
   await upsertDay(k, { note:"" });
   closeSheet();
 });
 
+/* Month/year nav (fast tap) */
 async function changeMonth(delta){
   let y=viewYear, m=viewMonth+delta;
   if(m<0){m=11;y--}
@@ -470,12 +578,13 @@ async function changeYear(delta){
   await reloadView(false);
   saveViewState();
 }
-document.getElementById("btnPrevMonth").addEventListener("click", ()=>changeMonth(-1));
-document.getElementById("btnNextMonth").addEventListener("click", ()=>changeMonth(1));
-document.getElementById("btnPrevYear").addEventListener("click", ()=>changeYear(-1));
-document.getElementById("btnNextYear").addEventListener("click", ()=>changeYear(1));
 
-document.getElementById("btnToday").addEventListener("click", async ()=>{
+fastTap(btnPrevMonth, ()=>changeMonth(-1));
+fastTap(btnNextMonth, ()=>changeMonth(1));
+fastTap(btnPrevYear,  ()=>changeYear(-1));
+fastTap(btnNextYear,  ()=>changeYear(1));
+
+fastTap(btnToday, async ()=>{
   const d = getSncfNow();
   viewYear = clampYear(d.getFullYear());
   viewMonth = d.getMonth();
@@ -484,8 +593,8 @@ document.getElementById("btnToday").addEventListener("click", async ()=>{
   saveViewState();
 });
 
-/* Export Excel */
-document.getElementById("btnExportXLSX").addEventListener("click", ()=>{
+/* Export Excel (sur données chargées) */
+fastTap(btnExportXLSX, ()=>{
   const rows = [["Date","Année","Mois","Semaine","Type","Libellé","Note"]];
   const keys = Array.from(entries.keys()).sort();
   for(const k of keys){
@@ -500,13 +609,15 @@ document.getElementById("btnExportXLSX").addEventListener("click", ()=>{
   XLSX.writeFile(wb, `planning_${viewYear}-${pad2(viewMonth+1)}.xlsx`);
 });
 
-/* Reload */
+/* Reload view (full rebuild only when needed) */
 async function reloadView(keepSelection){
   await loadGridEntries();
   renderMonth();
   renderTotals();
-  if(keepSelection && selectedKey) setSelected(selectedKey);
-  else{
+
+  if(keepSelection && selectedKey){
+    setSelected(selectedKey);
+  }else{
     const k = `${viewYear}-${pad2(viewMonth+1)}-01`;
     selectedKey = k;
     setSelected(k);
@@ -522,8 +633,8 @@ function initSettings(){
   applyTheme(mode);
   updateThemeUI(mode);
 
-  btnSettings.addEventListener("click", (e)=>{
-    e.stopPropagation();
+  fastTap(btnSettings, (e)=>{
+    e?.stopPropagation?.();
     settingsPop.classList.toggle("show");
   });
 
@@ -533,8 +644,8 @@ function initSettings(){
 
   settingsPop.addEventListener("click", (e)=>e.stopPropagation());
 
-  themeLightBtn?.addEventListener("click", ()=>setTheme("light"));
-  themeDarkBtn?.addEventListener("click", ()=>setTheme("dark"));
+  fastTap(themeLightBtn, ()=>setTheme("light"));
+  fastTap(themeDarkBtn, ()=>setTheme("dark"));
 }
 
 /* Init */
@@ -549,12 +660,16 @@ async function init(){
     selectedKey = keyFor(now);
   }
 
+  // Build UI first (empty state), then load if logged
   renderMonth();
   renderTotals();
   if(selectedKey) setSelected(selectedKey);
 
   await refreshSessionUser();
-  if(user) await reloadView(true);
+
+  if(user){
+    await reloadView(true);
+  }
 
   supabase.auth.onAuthStateChange(async ()=>{
     await refreshSessionUser();
