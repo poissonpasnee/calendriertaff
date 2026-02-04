@@ -22,7 +22,7 @@
 
           <!-- Réglages (haut droite) -->
           <div class="settings">
-            <button class="icon" id="btnSettings" aria-label="Réglages">⚙️</button>
+            <button class="icon" id="btnSettings" aria-label="Réglages" type="button">⚙️</button>
 
             <div class="settings-pop" id="settingsPop" role="dialog" aria-label="Réglages">
               <div class="settings-title">Réglages</div>
@@ -40,7 +40,7 @@
           </div>
         </div>
 
-        <!-- NOUVEAU : mois + flèches intégrés dans une même barre -->
+        <!-- Mois + flèches intégrés -->
         <div class="monthnav" aria-label="Navigation calendrier">
           <div class="monthpill">
             <div class="m" id="navMonth">—</div>
@@ -48,21 +48,20 @@
           </div>
 
           <div class="arrows">
-            <button class="icon" id="btnPrevYear" aria-label="Année précédente">«</button>
-            <button class="icon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
-            <button class="icon" id="btnNextMonth" aria-label="Mois suivant">›</button>
-            <button class="icon" id="btnNextYear" aria-label="Année suivante">»</button>
+            <button class="icon" id="btnPrevYear" aria-label="Année précédente" type="button">«</button>
+            <button class="icon" id="btnPrevMonth" aria-label="Mois précédent" type="button">‹</button>
+            <button class="icon" id="btnNextMonth" aria-label="Mois suivant" type="button">›</button>
+            <button class="icon" id="btnNextYear" aria-label="Année suivante" type="button">»</button>
           </div>
         </div>
 
-        <!-- Le reste inchangé -->
         <div class="controls">
-          <button id="btnToday" class="primary pill smallbtn">Aujourd’hui SNCF</button>
+          <button id="btnToday" class="primary pill smallbtn" type="button">Aujourd’hui SNCF</button>
         </div>
 
         <div class="controls2">
-          <button id="btnExportXLSX" class="pill smallbtn">Export Excel</button>
-          <button id="btnLogout" class="pill danger smallbtn">Déconnexion</button>
+          <button id="btnExportXLSX" class="pill smallbtn" type="button">Export Excel</button>
+          <button id="btnLogout" class="pill danger smallbtn" type="button">Déconnexion</button>
         </div>
 
       </div>
@@ -91,15 +90,15 @@
           <div class="date" id="selDate">Sélectionne une date</div>
           <div class="state" id="selState">État: —</div>
         </div>
-        <button id="btnNote" class="pill">📝 Note</button>
+        <button id="btnNote" class="pill" type="button">📝 Note</button>
       </div>
 
       <div class="actions">
-        <button data-set="jour">Jour</button>
-        <button data-set="nuit">Nuit</button>
-        <button data-set="repos">Repos</button>
-        <button data-set="conges">Congés</button>
-        <button data-set="autre">Autre</button>
+        <button data-set="jour" type="button">Jour</button>
+        <button data-set="nuit" type="button">Nuit</button>
+        <button data-set="repos" type="button">Repos</button>
+        <button data-set="conges" type="button">Congés</button>
+        <button data-set="autre" type="button">Autre</button>
       </div>
     </div>
   </div>
@@ -114,7 +113,7 @@
         <div class="sheet-title" id="sheetTitle">—</div>
         <div class="sheet-sub" id="sheetSub">—</div>
       </div>
-      <button id="btnCloseSheet" class="pill">Fermer</button>
+      <button id="btnCloseSheet" class="pill" type="button">Fermer</button>
     </div>
 
     <div id="sheetOther">
@@ -127,16 +126,16 @@
         <input id="otherCustom" placeholder="Libellé" style="display:none" />
       </div>
       <div class="sheet-actions">
-        <button class="primary" id="btnApplyOther">Appliquer</button>
-        <button id="btnCancelOther">Annuler</button>
+        <button class="primary" id="btnApplyOther" type="button">Appliquer</button>
+        <button id="btnCancelOther" type="button">Annuler</button>
       </div>
     </div>
 
     <div id="sheetNote" style="display:none">
       <textarea id="noteText" placeholder="Note (service, RHR, remplacement…)"></textarea>
       <div class="sheet-actions">
-        <button class="primary" id="btnSaveNote">Enregistrer</button>
-        <button class="danger" id="btnClearNote">Vider</button>
+        <button class="primary" id="btnSaveNote" type="button">Enregistrer</button>
+        <button class="danger" id="btnClearNote" type="button">Vider</button>
       </div>
     </div>
   </div>
@@ -147,16 +146,16 @@
       <div class="small">Email + mot de passe (création + reset).</div>
 
       <div class="tabs">
-        <button id="tabLogin" class="primary">Connexion</button>
-        <button id="tabSignup">Créer</button>
+        <button id="tabLogin" class="primary" type="button">Connexion</button>
+        <button id="tabSignup" type="button">Créer</button>
       </div>
 
       <div id="paneLogin" style="margin-top:12px">
         <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
         <input id="loginPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
         <div class="row">
-          <button class="primary" id="btnLogin">Se connecter</button>
-          <button id="btnReset">Reset</button>
+          <button class="primary" id="btnLogin" type="button">Se connecter</button>
+          <button id="btnReset" type="button">Reset</button>
         </div>
         <div class="small" id="loginHint"></div>
       </div>
@@ -165,8 +164,8 @@
         <input id="signEmail" type="email" placeholder="Email" autocomplete="email">
         <input id="signPass" type="password" placeholder="Mot de passe (min 6)" autocomplete="new-password">
         <div class="row">
-          <button class="primary" id="btnSignup">Créer</button>
-          <button id="btnBackLogin">Retour</button>
+          <button class="primary" id="btnSignup" type="button">Créer</button>
+          <button id="btnBackLogin" type="button">Retour</button>
         </div>
         <div class="small">Si la confirmation email est activée sur Supabase, tu devras valider l’email.</div>
       </div>
