@@ -13,55 +13,106 @@
   <header class="appbar">
     <div class="wrap">
       <div class="bar">
-
         <div class="topline">
           <div class="brand">
             <div class="t">Planning SNCF</div>
             <div class="s" id="topSub">Non connecté</div>
           </div>
 
-          <!-- Réglages (haut droite) -->
-          <div class="settings">
-            <button class="icon" id="btnSettings" aria-label="Réglages" type="button">⚙️</button>
+          <div class="right-actions">
+            <!-- Réglages (haut droite) -->
+            <div class="settings">
+              <button class="icon" id="btnSettings" aria-label="Réglages" type="button">⚙️</button>
 
-            <div class="settings-pop" id="settingsPop" role="dialog" aria-label="Réglages">
-              <div class="settings-title">Réglages</div>
+              <div class="settings-pop" id="settingsPop" role="dialog" aria-label="Réglages">
+                <div class="settings-title">Réglages</div>
 
-              <div class="setting-row">
-                <div class="setting-label">Thème</div>
-                <div class="seg" role="group" aria-label="Mode jour/nuit">
-                  <button id="themeLight" class="segbtn" type="button">Jour</button>
-                  <button id="themeDark" class="segbtn" type="button">Nuit</button>
+                <!-- Thème -->
+                <div class="setting-row">
+                  <div class="setting-label">Thème</div>
+                  <div class="seg" role="group" aria-label="Mode jour/nuit">
+                    <button id="themeLight" class="segbtn" type="button">Jour</button>
+                    <button id="themeDark" class="segbtn" type="button">Nuit</button>
+                  </div>
+                </div>
+
+                <!-- Début de semaine -->
+                <div class="setting-row">
+                  <div class="setting-label">Semaine commence</div>
+                  <div class="seg" role="group" aria-label="Début de semaine">
+                    <button id="weekStartSun" class="segbtn" type="button">Dim</button>
+                    <button id="weekStartMon" class="segbtn" type="button">Lun</button>
+                  </div>
+                </div>
+
+                <!-- Numéro de semaine -->
+                <div class="setting-row">
+                  <div class="setting-label">Numéro semaine</div>
+                  <div class="seg" role="group" aria-label="Numéro de semaine">
+                    <button id="weekIso" class="segbtn" type="button">ISO</button>
+                    <button id="weekSimple" class="segbtn" type="button">Simple</button>
+                  </div>
+                </div>
+
+                <!-- Taille des cases -->
+                <div class="setting-row">
+                  <div class="setting-label">Taille cases</div>
+                  <div class="seg" role="group" aria-label="Taille des cases">
+                    <button id="cellCompact" class="segbtn" type="button">Compact</button>
+                    <button id="cellComfort" class="segbtn" type="button">Confort</button>
+                    <button id="cellLarge" class="segbtn" type="button">Grand</button>
+                  </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Toggles utiles -->
+                <label class="toggle-row">
+                  <span>Tap applique direct</span>
+                  <input id="togFastApply" type="checkbox" />
+                </label>
+
+                <label class="toggle-row">
+                  <span>Auto-sélection “Aujourd’hui”</span>
+                  <input id="togAutoToday" type="checkbox" />
+                </label>
+
+                <label class="toggle-row">
+                  <span>Confirmer Déconnexion</span>
+                  <input id="togConfirmLogout" type="checkbox" />
+                </label>
+
+                <label class="toggle-row">
+                  <span>Masquer “Autres” dans totaux</span>
+                  <input id="togHideOtherTotal" type="checkbox" />
+                </label>
+
+                <div class="settings-hint">
+                  Réglages locaux (sur cet appareil). Les données restent dans Supabase.
                 </div>
               </div>
-
-              <div class="settings-hint">Le choix est mémorisé sur cet appareil.</div>
             </div>
           </div>
         </div>
 
-        <!-- Mois + flèches intégrés -->
-        <div class="monthnav" aria-label="Navigation calendrier">
-          <div class="monthpill">
-            <div class="m" id="navMonth">—</div>
-            <div class="y" id="navYear">—</div>
-          </div>
+        <!-- Navigation mois façon calendrier -->
+        <div class="monthbar" aria-label="Navigation calendrier">
+          <button class="icon" id="btnPrevMonth" aria-label="Mois précédent" type="button">‹</button>
 
-          <div class="arrows">
-            <button class="icon" id="btnPrevYear" aria-label="Année précédente" type="button">«</button>
-            <button class="icon" id="btnPrevMonth" aria-label="Mois précédent" type="button">‹</button>
-            <button class="icon" id="btnNextMonth" aria-label="Mois suivant" type="button">›</button>
-            <button class="icon" id="btnNextYear" aria-label="Année suivante" type="button">»</button>
-          </div>
+          <button class="monthbtn" id="btnMonthLabel" type="button" aria-label="Mois en cours">
+            <span class="m" id="navMonth">—</span>
+            <span class="y" id="navYear">—</span>
+          </button>
+
+          <button class="icon" id="btnNextMonth" aria-label="Mois suivant" type="button">›</button>
         </div>
 
-        <div class="controls">
-          <button id="btnToday" class="primary pill smallbtn" type="button">Aujourd’hui SNCF</button>
-        </div>
-
-        <div class="controls2">
-          <button id="btnExportXLSX" class="pill smallbtn" type="button">Export Excel</button>
+        <div class="top-actions">
+          <button class="pill smallbtn ghost" id="btnPrevYear" type="button" aria-label="Année précédente">«</button>
+          <button id="btnToday" class="primary pill smallbtn" type="button">Aujourd’hui</button>
+          <button id="btnExportXLSX" class="pill smallbtn" type="button">Export</button>
           <button id="btnLogout" class="pill danger smallbtn" type="button">Déconnexion</button>
+          <button class="pill smallbtn ghost" id="btnNextYear" type="button" aria-label="Année suivante">»</button>
         </div>
 
       </div>
@@ -70,11 +121,11 @@
 
   <main>
     <div class="wrap">
-      <section class="card">
-        <div class="calendar-head">
+      <section class="card calendar-card">
+        <div class="calendar-head" id="calHead">
           <div>Sem</div>
-          <div>Di/Lu</div><div>Lu/Ma</div><div>Ma/Me</div>
-          <div>Me/Je</div><div>Je/Ve</div><div>Ve/Sa</div><div>Sa/Dim</div>
+          <div id="h0">Dim</div><div id="h1">Lun</div><div id="h2">Mar</div>
+          <div id="h3">Mer</div><div id="h4">Jeu</div><div id="h5">Ven</div><div id="h6">Sam</div>
         </div>
 
         <div class="grid" id="grid"></div>
