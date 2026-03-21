@@ -15,17 +15,10 @@ let cellCache = new Map();
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 
-// --- UTILITAIRES (Définis une seule fois) ---
+// --- UTILITAIRES ---
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
-
-// Fonction de conversion Clé -> Date
-const parseKey = (k) => { 
-  const [y, m, d] = k.split('-').map(Number); 
-  return new Date(y, m - 1, d); 
-};
-
-// Fonction de conversion Date -> Clé
+const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
 // --- INITIALISATION ---
@@ -34,17 +27,13 @@ async function init() {
   applyPrefs();
   renderGrid(); 
   updateSelectionUI();
-  
-  // Vérifie l'auth ET affiche/masque la connexion
   await checkAuth(); 
-  
   setupEvents();
 }
 
 function loadLocalData() {
   const p = localStorage.getItem('prefs_v2');
   if(p) prefs = {...prefs, ...JSON.parse(p)};
-  
   const s = localStorage.getItem('state_v2');
   if(s) state = {...state, ...JSON.parse(s)};
   else {
@@ -66,18 +55,15 @@ function applyPrefs() {
 // --- AUTHENTIFICATION ---
 async function checkAuth() {
   const { data, error } = await supabase.auth.getSession();
-  
   if (error || !data?.session) {
     user = null;
     $('topSub').textContent = "Invité";
-    $('gate').classList.add('show'); 
+    $('gate').classList.add('show');
     return;
   }
-
   user = data.session.user;
   $('topSub').textContent = user.email.split('@')[0];
-  $('gate').classList.remove('show'); 
-  
+  $('gate').classList.remove('show');
   await loadEntries();
   renderGrid();
   renderTotals();
@@ -88,20 +74,13 @@ async function loadEntries() {
   if(!user) return;
   const start = new Date(state.year, state.month - 1, 1);
   const end = new Date(state.year, state.month + 2, 0);
-  
-  const { data, error } = await supabase
-    .from("work_calendar_entries")
-    .select("*")
-    .gte("work_date", keyFor(start))
-    .lte("work_date", keyFor(end));
-    
+  const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", keyFor(start)).lte("work_date", keyFor(end));
   if(error) { console.error(error); return; }
-  
   entries.clear();
   data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label }));
 }
 
-// --- RENDU ---
+// --- RENDU GRILLE (MODIFIÉ POUR DI/LU) ---
 function renderGrid() {
   const grid = $('grid');
   grid.innerHTML = '';
@@ -110,8 +89,16 @@ function renderGrid() {
   $('navMonth').textContent = MONTHS[state.month];
   $('navYear').textContent = state.year;
   
+  // Mise à jour des en-têtes (Di/Lu, Lu/Ma, etc.)
+  const headers = ["Di/Lu", "Lu/Ma", "Ma/Me", "Me/Je", "Je/Ve", "Ve/Sa", "Sa/Di"];
+  for(let i=0; i<7; i++) {
+    const el = $(`h${i}`);
+    if(el) el.textContent = headers[i];
+  }
+
+  // Calcul du début de grille : on aligne sur le Dimanche (0)
   const first = new Date(state.year, state.month, 1);
-  let startDay = first.getDay(); 
+  let startDay = first.getDay(); // 0 = Dimanche
   const startDate = new Date(first);
   startDate.setDate(first.getDate() - startDay);
   
@@ -143,7 +130,6 @@ function renderGrid() {
     if(k === state.selected) cell.classList.add('selected');
     
     cell.onclick = () => handleCellClick(k);
-    
     grid.appendChild(cell);
     cellCache.set(k, cell);
   }
@@ -160,16 +146,13 @@ function getWeekNum(d) {
 function handleCellClick(k) {
   state.selected = k;
   localStorage.setItem('state_v2', JSON.stringify(state));
-  
   const entry = entries.get(k);
-  
   if(prefs.quickTap && !entry?.status) {
     saveEntry(k, { status: 'jour' });
     renderGrid();
     updateSelectionUI();
     return;
   }
-  
   renderGrid();
   updateSelectionUI();
 }
@@ -186,7 +169,6 @@ function updateSelectionUI() {
 function renderTotals() {
   const counts = { jour:0, nuit:0, repos:0, conges:0, autre:0 };
   entries.forEach(e => { if(e.status) counts[e.status]++; });
-  
   const t = $('totals');
   t.innerHTML = '';
   Object.entries(counts).forEach(([k,v]) => {
@@ -201,15 +183,10 @@ function renderTotals() {
 
 // --- SAUVEGARDE ---
 async function saveEntry(k, patch) {
-  if(!user) {
-    $('gate').classList.add('show');
-    return;
-  }
-  
+  if(!user) { $('gate').classList.add('show'); return; }
   const cur = entries.get(k) || { status:'', note:'', custom_label:'' };
   const next = { ...cur, ...patch };
   entries.set(k, next);
-  
   const cell = cellCache.get(k);
   if(cell) {
     cell.className = `day ${cell.classList.contains('out')?'out':''} ${next.status||''}`;
@@ -218,7 +195,6 @@ async function saveEntry(k, patch) {
   }
   if(state.selected === k) updateSelectionUI();
   renderTotals();
-  
   await supabase.from("work_calendar_entries").upsert({
     user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label
   }, { onConflict: "user_id,work_date" });
@@ -261,17 +237,14 @@ function setupEvents() {
   const closeSheet = () => { $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
   $('btnCloseSheet').onclick = closeSheet;
   $('backdrop').onclick = closeSheet;
-
   $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); closeSheet(); };
   $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); closeSheet(); };
-  
   $('btnApplyOther').onclick = () => {
     const val = $('otherSelect').value;
     const custom = $('otherCustom').value;
     saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val });
     closeSheet();
   };
-  
   $('otherSelect').onchange = (e) => { $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
 
   $('btnSettings').onclick = (e) => { e.stopPropagation(); $('settingsPop').classList.toggle('show'); };
@@ -282,7 +255,6 @@ function setupEvents() {
   $('themeDark').onclick = () => { prefs.theme='dark'; savePrefs(); applyPrefs(); };
   $('togQuickTap').onchange = (e) => { prefs.quickTap=e.target.checked; savePrefs(); };
   $('togConfirmLogout').onchange = (e) => { prefs.confirmLogout=e.target.checked; savePrefs(); };
-
   function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
 
   $('tabLogin').onclick = () => { $('paneLogin').style.display='block'; $('paneSignup').style.display='none'; $('tabLogin').classList.add('active'); $('tabSignup').classList.remove('active'); };
@@ -295,8 +267,7 @@ function setupEvents() {
     const hint = $('loginHint');
     hint.textContent = "Connexion...";
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if(error) { hint.textContent = "Erreur: " + error.message; } 
-    else { checkAuth(); }
+    if(error) { hint.textContent = "Erreur: " + error.message; } else { checkAuth(); }
   };
 
   $('btnSignup').onclick = async () => {
@@ -320,9 +291,7 @@ function setupEvents() {
     await supabase.auth.signOut();
     checkAuth();
   };
-  
   $('btnExportXLSX').onclick = () => alert("Export Excel (nécessite fichier complet)");
 }
 
-// Démarrage
 init();
