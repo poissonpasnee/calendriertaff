@@ -14,12 +14,14 @@ let cellCache = new Map();
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
+// Estimation heures par type
+const HOURS_EST = { jour: 8, nuit: 10, repos: 0, conges: 0, autre: 0 };
 
 // --- UTILITAIRES ---
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
-const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const keyFor = (d) => `$${d.getFullYear()}-$${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
 // --- INITIALISATION ---
 async function init() {
@@ -72,6 +74,7 @@ async function checkAuth() {
 
 async function loadEntries() {
   if(!user) return;
+  // Charge 3 mois autour pour être sûr
   const start = new Date(state.year, state.month - 1, 1);
   const end = new Date(state.year, state.month + 2, 0);
   const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", keyFor(start)).lte("work_date", keyFor(end));
@@ -80,7 +83,7 @@ async function loadEntries() {
   data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label }));
 }
 
-// --- RENDU GRILLE (MODIFIÉ POUR DI/LU) ---
+// --- RENDU GRILLE ---
 function renderGrid() {
   const grid = $('grid');
   grid.innerHTML = '';
@@ -89,16 +92,14 @@ function renderGrid() {
   $('navMonth').textContent = MONTHS[state.month];
   $('navYear').textContent = state.year;
   
-  // Mise à jour des en-têtes (Di/Lu, Lu/Ma, etc.)
   const headers = ["Di/Lu", "Lu/Ma", "Ma/Me", "Me/Je", "Je/Ve", "Ve/Sa", "Sa/Di"];
   for(let i=0; i<7; i++) {
-    const el = $(`h${i}`);
+    const el = $$(`h$${i}`);
     if(el) el.textContent = headers[i];
   }
 
-  // Calcul du début de grille : on aligne sur le Dimanche (0)
   const first = new Date(state.year, state.month, 1);
-  let startDay = first.getDay(); // 0 = Dimanche
+  let startDay = first.getDay(); 
   const startDate = new Date(first);
   startDate.setDate(first.getDate() - startDay);
   
@@ -160,9 +161,9 @@ function handleCellClick(k) {
 function updateSelectionUI() {
   const d = parseKey(state.selected);
   const entry = entries.get(state.selected);
-  $('selDate').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $('selDate').textContent = `$${d.getDate()} $${MONTHS[d.getMonth()]}`;
   $('selState').textContent = entry?.status ? LABELS[entry.status] : "Libre";
-  $('sheetTitle').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  $('sheetTitle').textContent = `$${d.getDate()} $${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   $('noteText').value = entry?.note || '';
 }
 
@@ -175,7 +176,7 @@ function renderTotals() {
     if(v>0) {
       const span = document.createElement('span');
       span.className = 'pillchip';
-      span.textContent = `${LABELS[k]}: ${v}`;
+      span.textContent = `$${LABELS[k]}: $${v}`;
       t.appendChild(span);
     }
   });
@@ -189,7 +190,7 @@ async function saveEntry(k, patch) {
   entries.set(k, next);
   const cell = cellCache.get(k);
   if(cell) {
-    cell.className = `day ${cell.classList.contains('out')?'out':''} ${next.status||''}`;
+    cell.className = `day $${cell.classList.contains('out')?'out':''} $${next.status||''}`;
     cell.querySelectorAll('.dot').forEach(e=>e.remove());
     if(next.note) { const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
   }
@@ -198,6 +199,116 @@ async function saveEntry(k, patch) {
   await supabase.from("work_calendar_entries").upsert({
     user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label
   }, { onConflict: "user_id,work_date" });
+}
+
+// --- GESTION EXPORT EXCEL (NOUVEAU) ---
+function openExportModal() {
+  // Définir les dates par défaut : du 1er au dernier jour du mois en cours
+  const firstDay = new Date(state.year, state.month, 1);
+  const lastDay = new Date(state.year, state.month + 1, 0);
+  
+  $('exportStart').value = keyFor(firstDay);
+  $('exportEnd').value = keyFor(lastDay);
+  
+  $('backdropExport').classList.add('show');
+  $('sheetExport').classList.add('show');
+}
+
+function closeExportModal() {
+  $('sheetExport').classList.remove('show');
+  $('backdropExport').classList.remove('show');
+}
+
+function generateExcel() {
+  const startStr = $('exportStart').value;
+  const endStr = $('exportEnd').value;
+  
+  if(!startStr || !endStr) {
+    alert("Veuillez sélectionner une période.");
+    return;
+  }
+
+  const startDate = parseKey(startStr);
+  const endDate = parseKey(endStr);
+  
+  if(endDate < startDate) {
+    alert("La date de fin doit être après la date de début.");
+    return;
+  }
+
+  // Préparation des données
+  const dataRows = [];
+  const stats = { jour:0, nuit:0, repos:0, conges:0, autre:0, totalHeures:0 };
+  
+  // En-têtes du tableau
+  dataRows.push(["Date", "Jour", "Semaine", "Statut", "Libellé", "Note", "Heures Est."]);
+  
+  // Boucle sur la période
+  let current = new Date(startDate);
+  while(current <= endDate) {
+    const k = keyFor(current);
+    const entry = entries.get(k);
+    const status = entry?.status || "";
+    const label = entry?.custom_label || "";
+    const note = entry?.note || "";
+    
+    // Calcul stats
+    if(status) {
+      stats[status] = (stats[status] || 0) + 1;
+      const h = HOURS_EST[status] || 0;
+      stats.totalHeures += h;
+    }
+    
+    const dayName = current.toLocaleDateString('fr-FR', { weekday: 'long' });
+    const weekNum = getWeekNum(current);
+    
+    dataRows.push([
+      k,
+      dayName.charAt(0).toUpperCase() + dayName.slice(1),
+      weekNum,
+      LABELS[status] || "",
+      label,
+      note,
+      HOURS_EST[status] || 0
+    ]);
+    
+    current.setDate(current.getDate() + 1);
+  }
+  
+  // Ligne vide
+  dataRows.push([]);
+  
+  // Tableau Récapitulatif
+  dataRows.push(["--- STATISTIQUES ---", "", "", "", "", "", ""]);
+  dataRows.push(["Total Jours", stats.jour, "", "", "", "", ""]);
+  dataRows.push(["Total Nuits", stats.nuit, "", "", "", "", ""]);
+  dataRows.push(["Total Repos", stats.repos, "", "", "", "", ""]);
+  dataRows.push(["Total Congés", stats.conges, "", "", "", "", ""]);
+  dataRows.push(["Total Autres", stats.autre, "", "", "", "", ""]);
+  dataRows.push(["TOTAL HEURES (Est.)", stats.totalHeures, "", "", "", "", ""]);
+  
+  // Création du fichier Excel
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(dataRows);
+  
+  // Ajustement largeur colonnes
+  ws['!cols'] = [
+    {wch: 12}, // Date
+    {wch: 10}, // Jour
+    {wch: 6},  // Semaine
+    {wch: 10}, // Statut
+    {wch: 15}, // Libellé
+    {wch: 20}, // Note
+    {wch: 10}  // Heures
+  ];
+  
+  XLSX.utils.book_append_sheet(wb, ws, "Planning");
+  
+  // Nom du fichier
+  const fileName = `Planning_$${startStr}_au_$${endStr}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  
+  closeExportModal();
 }
 
 // --- ÉVÉNEMENTS ---
@@ -234,64 +345,7 @@ function setupEvents() {
     $('sheet').classList.add('show');
   };
 
-  const closeSheet = () => { $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
+  const closeSheet = () => { $$('sheet').classList.remove('show'); $$('backdrop').classList.remove('show'); };
   $('btnCloseSheet').onclick = closeSheet;
   $('backdrop').onclick = closeSheet;
-  $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); closeSheet(); };
-  $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); closeSheet(); };
-  $('btnApplyOther').onclick = () => {
-    const val = $('otherSelect').value;
-    const custom = $('otherCustom').value;
-    saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val });
-    closeSheet();
-  };
-  $('otherSelect').onchange = (e) => { $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
-
-  $('btnSettings').onclick = (e) => { e.stopPropagation(); $('settingsPop').classList.toggle('show'); };
-  document.onclick = () => $('settingsPop').classList.remove('show');
-  $('settingsPop').onclick = (e) => e.stopPropagation();
-  
-  $('themeLight').onclick = () => { prefs.theme='light'; savePrefs(); applyPrefs(); };
-  $('themeDark').onclick = () => { prefs.theme='dark'; savePrefs(); applyPrefs(); };
-  $('togQuickTap').onchange = (e) => { prefs.quickTap=e.target.checked; savePrefs(); };
-  $('togConfirmLogout').onchange = (e) => { prefs.confirmLogout=e.target.checked; savePrefs(); };
-  function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
-
-  $('tabLogin').onclick = () => { $('paneLogin').style.display='block'; $('paneSignup').style.display='none'; $('tabLogin').classList.add('active'); $('tabSignup').classList.remove('active'); };
-  $('tabSignup').onclick = () => { $('paneLogin').style.display='none'; $('paneSignup').style.display='block'; $('tabSignup').classList.add('active'); $('tabLogin').classList.remove('active'); };
-  $('btnBackLogin').onclick = $('tabLogin').onclick;
-
-  $('btnLogin').onclick = async () => {
-    const email = $('loginEmail').value;
-    const pass = $('loginPass').value;
-    const hint = $('loginHint');
-    hint.textContent = "Connexion...";
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if(error) { hint.textContent = "Erreur: " + error.message; } else { checkAuth(); }
-  };
-
-  $('btnSignup').onclick = async () => {
-    const email = $('signEmail').value;
-    const pass = $('signPass').value;
-    if(pass.length < 6) return alert("6 caractères min");
-    const { error } = await supabase.auth.signUp({ email, password: pass });
-    if(error) alert(error.message);
-    else { alert("Compte créé ! Connectez-vous."); $('tabLogin').onclick(); }
-  };
-
-  $('btnReset').onclick = async () => {
-    const email = $('loginEmail').value;
-    if(!email) return alert("Entrez email");
-    await supabase.auth.resetPasswordForEmail(email);
-    alert("Email envoyé");
-  };
-
-  $('btnLogout').onclick = async () => {
-    if(prefs.confirmLogout && !confirm("Déconnexion ?")) return;
-    await supabase.auth.signOut();
-    checkAuth();
-  };
-  $('btnExportXLSX').onclick = () => alert("Export Excel (nécessite fichier complet)");
-}
-
-init();
+  $$('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $$('note
