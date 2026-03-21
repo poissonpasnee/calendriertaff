@@ -44,7 +44,6 @@ function calculateMonthSalary(year, month) {
     if (entry && entry.status) {
       if (entry.status === 'jour') totalVariable += parseFloat(prefs.rateDay);
       else if (entry.status === 'nuit') totalVariable += parseFloat(prefs.rateNightFull);
-      // Ajoutez d'autres règles ici si besoin (ex: férié)
     }
     current.setDate(current.getDate() + 1);
   }
@@ -78,7 +77,6 @@ function loadLocalData() {
 function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
   
-  // Sécurité : vérifier si l'élément existe avant de modifier
   if($('togQuickTap')) $('togQuickTap').checked = prefs.quickTap;
   if($('togConfirmLogout')) $('togConfirmLogout').checked = prefs.confirmLogout;
   if($('togPayrollShift')) $('togPayrollShift').checked = prefs.payrollShift;
@@ -129,7 +127,6 @@ function renderGrid() {
   let displayYear = state.year;
   let displayMonth = state.month;
   
-  // Gestion du décalage M+1 pour l'affichage
   if (prefs.payrollShift) {
     displayMonth--;
     if (displayMonth < 0) { displayMonth = 11; displayYear--; }
@@ -230,7 +227,6 @@ function renderTotals() {
     });
   }
 
-  // Affichage Salaire Estimé
   const salary = calculateMonthSalary(state.year, state.month);
   const salaryDiv = $('salaryDisplay');
   const salaryVal = $('salaryValue');
@@ -240,7 +236,6 @@ function renderTotals() {
   }
 }
 
-// --- SAUVEGARDE ---
 async function saveEntry(k, patch) {
   if(!user) { $('gate').classList.add('show'); return; }
   const cur = entries.get(k) || { status:'', note:'', custom_label:'' };
@@ -310,7 +305,7 @@ function generateExcel() {
   closeExportModal();
 }
 
-// --- ÉVÉNEMENTS ---
+// --- GESTIONNAIRE D'ÉVÉNEMENTS ---
 function setupEvents() {
   // Navigation
   $('btnPrevMonth').onclick = () => { state.month--; if(state.month<0){state.month=11;state.year--;} saveAndReload(); };
@@ -425,5 +420,5 @@ function setupEvents() {
   };
 }
 
-// Démarrage
+// Démarrage de l'application
 init();
