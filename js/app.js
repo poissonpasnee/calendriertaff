@@ -1,404 +1,337 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-/* =========================
-   Fast tap (instant)
-   ========================= */
-function fastTap(el, handler){
-  if(!el) return;
-  let last = 0;
-
-  const ignore = (e) => {
-    const t = e?.target;
-    if(!t) return false;
-    const tag = (t.tagName || "").toLowerCase();
-    return tag === "input" || tag === "textarea" || tag === "select" || tag === "option";
-  };
-
-  const run = (e) => {
-    if(ignore(e)) return;
-    const now = performance.now();
-    if(now - last < 220) return;
-    last = now;
-
-    // no ghost click on pointer
-    if(e && e.pointerType) e.preventDefault();
-    handler(e);
-  };
-
-  el.addEventListener("pointerup", run, { passive:false });
-  el.addEventListener("click", (e)=>run(e), { passive:false });
-}
-
-/* =========================
-   Settings (local)
-   ========================= */
-const LS_THEME_KEY = "sncf_theme_mode_v1";    // light/dark
-const LS_PREFS_KEY = "sncf_prefs_v1";
-
-const defaultPrefs = {
-  weekStart: "sun",      // sun|mon (display only)
-  weekNumber: "iso",     // iso|simple
-  cellSize: "comfort",   // compact|comfort|large
-  fastApply: true,       // tap on grid applies selection only (recommended)
-  confirmLogout: true,
-  hideOtherTotal: false,
-  autoToday: true
-};
-
-let prefs = { ...defaultPrefs };
-
-function loadPrefs(){
-  try{
-    const raw = localStorage.getItem(LS_PREFS_KEY);
-    if(!raw) return;
-    const p = JSON.parse(raw);
-    if(!p) return;
-    prefs = { ...defaultPrefs, ...p };
-  }catch{}
-}
-function savePrefs(){
-  try{ localStorage.setItem(LS_PREFS_KEY, JSON.stringify(prefs)); }catch{}
-}
-
-function applyTheme(mode){
-  const root = document.documentElement;
-  if(mode === "dark") root.setAttribute("data-theme","dark");
-  else root.setAttribute("data-theme","light");
-}
-function getTheme(){
-  try{
-    const v = localStorage.getItem(LS_THEME_KEY);
-    return (v === "dark" || v === "light") ? v : "light";
-  }catch{ return "light"; }
-}
-function setTheme(mode){
-  try{ localStorage.setItem(LS_THEME_KEY, mode); }catch{}
-  applyTheme(mode);
-  updateSettingsUI();
-}
-
-function applyCellSize(){
-  document.documentElement.setAttribute("data-size", prefs.cellSize);
-}
-
-const HEAD_SUN = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
-const HEAD_MON = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
-
-function updateHeadLabels(){
-  const arr = (prefs.weekStart === "mon") ? HEAD_MON : HEAD_SUN;
-  for(let i=0;i<7;i++){
-    const el = document.getElementById(`h${i}`);
-    if(el) el.textContent = arr[i];
-  }
-}
-
-/* week number functions */
-function isoWeek(date){
-  const d = new Date(date);
-  d.setHours(0,0,0,0);
-  d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
-  const week1 = new Date(d.getFullYear(),0,4);
-  return 1 + Math.round(((d-week1)/86400000 - 3 + ((week1.getDay()+6)%7))/7);
-}
-function simpleWeekSunday(date){
-  // Week number starting Sunday, week 1 contains Jan 1
-  const d = new Date(date);
-  d.setHours(0,0,0,0);
-  const yearStart = new Date(d.getFullYear(),0,1);
-  const day = Math.floor((d - yearStart)/86400000);
-  // adjust so Sunday is first day
-  const adj = (yearStart.getDay()); // 0..6 (Sun..Sat)
-  return 1 + Math.floor((day + adj) / 7);
-}
-
-function applySettingsToUI(){
-  applyCellSize();
-  updateHeadLabels();
-}
-
-/* Update segmented + toggles */
-function setSegActive(idA, idB, active){
-  const a = document.getElementById(idA);
-  const b = document.getElementById(idB);
-  if(a) a.classList.toggle("active", active === "a");
-  if(b) b.classList.toggle("active", active === "b");
-}
-function setSeg3(aId,bId,cId, which){
-  const a=document.getElementById(aId), b=document.getElementById(bId), c=document.getElementById(cId);
-  if(a) a.classList.toggle("active", which==="a");
-  if(b) b.classList.toggle("active", which==="b");
-  if(c) c.classList.toggle("active", which==="c");
-}
-function updateSettingsUI(){
-  const theme = getTheme();
-  const bL = document.getElementById("themeLight");
-  const bD = document.getElementById("themeDark");
-  if(bL) bL.classList.toggle("active", theme === "light");
-  if(bD) bD.classList.toggle("active", theme === "dark");
-
-  const wsS = document.getElementById("weekStartSun");
-  const wsM = document.getElementById("weekStartMon");
-  if(wsS) wsS.classList.toggle("active", prefs.weekStart === "sun");
-  if(wsM) wsM.classList.toggle("active", prefs.weekStart === "mon");
-
-  const wIso = document.getElementById("weekIso");
-  const wSim = document.getElementById("weekSimple");
-  if(wIso) wIso.classList.toggle("active", prefs.weekNumber === "iso");
-  if(wSim) wSim.classList.toggle("active", prefs.weekNumber === "simple");
-
-  setSeg3("cellCompact","cellComfort","cellLarge",
-    prefs.cellSize==="compact" ? "a" : prefs.cellSize==="comfort" ? "b" : "c"
-  );
-
-  const t1=document.getElementById("togFastApply");
-  const t2=document.getElementById("togAutoToday");
-  const t3=document.getElementById("togConfirmLogout");
-  const t4=document.getElementById("togHideOtherTotal");
-  if(t1) t1.checked = !!prefs.fastApply;
-  if(t2) t2.checked = !!prefs.autoToday;
-  if(t3) t3.checked = !!prefs.confirmLogout;
-  if(t4) t4.checked = !!prefs.hideOtherTotal;
-}
-
-/* =========================
-   Supabase (unchanged)
-   ========================= */
-const SUPABASE_URL  = "https://dstmyvzjirgyuwuojwnk.supabase.co";
+/* --- Configuration & État --- */
+const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
-});
+const LS_PREFS = "planning_prefs_v2";
+const LS_STATE = "planning_state_v2";
 
-/* ===== Constants ===== */
-const MIN_YEAR = 2023;
-const MAX_YEAR = 2035;
-const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const DOW = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
-const LABEL = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
-const LS_KEY = "sncf_planning_state_nolock_v1";
-
-/* ===== DOM ===== */
-const grid = document.getElementById("grid");
-const totalsEl = document.getElementById("totals");
-const navMonth = document.getElementById("navMonth");
-const navYear = document.getElementById("navYear");
-const topSub = document.getElementById("topSub");
-const selDate = document.getElementById("selDate");
-const selState = document.getElementById("selState");
-const toastEl = document.getElementById("toast");
-
-const backdrop = document.getElementById("backdrop");
-const sheet = document.getElementById("sheet");
-const sheetTitle = document.getElementById("sheetTitle");
-const sheetSub = document.getElementById("sheetSub");
-const sheetOther = document.getElementById("sheetOther");
-const sheetNote = document.getElementById("sheetNote");
-const otherSelect = document.getElementById("otherSelect");
-const otherCustom = document.getElementById("otherCustom");
-const noteText = document.getElementById("noteText");
-
-const gate = document.getElementById("gate");
-const tabLogin = document.getElementById("tabLogin");
-const tabSignup = document.getElementById("tabSignup");
-const paneLogin = document.getElementById("paneLogin");
-const paneSignup = document.getElementById("paneSignup");
-const loginEmail = document.getElementById("loginEmail");
-const loginPass = document.getElementById("loginPass");
-const signEmail = document.getElementById("signEmail");
-const signPass = document.getElementById("signPass");
-const loginHint = document.getElementById("loginHint");
-
-/* Settings DOM */
-const btnSettings = document.getElementById("btnSettings");
-const settingsPop = document.getElementById("settingsPop");
-
-/* Nav */
-const btnPrevMonth = document.getElementById("btnPrevMonth");
-const btnNextMonth = document.getElementById("btnNextMonth");
-const btnPrevYear  = document.getElementById("btnPrevYear");
-const btnNextYear  = document.getElementById("btnNextYear");
-const btnToday     = document.getElementById("btnToday");
-const btnExportXLSX = document.getElementById("btnExportXLSX");
-const btnLogout     = document.getElementById("btnLogout");
-const btnNote       = document.getElementById("btnNote");
-
-/* ===== State ===== */
+let prefs = { theme: 'light', weekStart: 'sun', size: 'comfort', quickTap: false, confirmLogout: true };
+let state = { year: 2026, month: 0, selected: null };
 let user = null;
-let viewYear = 2026;
-let viewMonth = 0;
-let selectedKey = null;
-const entries = new Map();
+let entries = new Map();
+let cellCache = new Map();
 
-/* Perf caches */
-const cellByKey = new Map();
-let selectedEl = null;
+/* --- Helpers --- */
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const key = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+const months = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const daysShort = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+const labels = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 
-let toastTimer = null;
-function toast(msg){
-  toastEl.textContent = msg;
-  toastEl.classList.add("show");
-  if(toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>toastEl.classList.remove("show"), 1800);
+/* --- Initialisation --- */
+function init() {
+  loadPrefs();
+  loadState();
+  applyPrefs();
+  setupListeners();
+  refreshAuth();
+  render();
+  
+  // Auto-update theme color meta tag
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if(themeColor) themeColor.setAttribute('content', prefs.theme === 'dark' ? '#0f172a' : '#f4f6fb');
 }
 
-const pad2 = (n) => String(n).padStart(2,"0");
-const keyFor = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-const parseKey = (k) => { const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); };
-const clampYear = (y)=> Math.max(MIN_YEAR, Math.min(MAX_YEAR, y));
-
-function fmtLong(d){
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} (${DOW[d.getDay()]})`;
+function loadPrefs() {
+  try { const p = JSON.parse(localStorage.getItem(LS_PREFS)); if(p) prefs = {...prefs, ...p}; } catch{}
 }
-function getSncfNow(){
-  const d = new Date();
-  if (d.getHours() >= 22) d.setDate(d.getDate() + 1);
-  return d;
-}
-
-/* Persist view */
-function saveViewState(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify({viewYear, viewMonth, selectedKey})); }catch{}
-}
-function restoreViewState(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return false;
-    const st = JSON.parse(raw);
-    if(!st) return false;
-    viewYear = clampYear(st.viewYear ?? viewYear);
-    viewMonth = Math.max(0, Math.min(11, st.viewMonth ?? viewMonth));
-    selectedKey = (typeof st.selectedKey==="string") ? st.selectedKey : null;
-    return true;
-  }catch{return false;}
-}
-
-/* Range (42 days displayed) */
-function gridRangeForMonth(year, month){
-  const first = new Date(year, month, 1);
-  const start = new Date(year, month, 1 - first.getDay());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 41);
-  return { start, end, fromKey:keyFor(start), toKey:keyFor(end) };
-}
-
-/* Sheet */
-function openSheet(mode){
-  sheetOther.style.display = (mode==="other") ? "block" : "none";
-  sheetNote.style.display  = (mode==="note")  ? "block" : "none";
-  backdrop.classList.add("show");
-  sheet.classList.add("show");
-}
-function closeSheet(){
-  backdrop.classList.remove("show");
-  sheet.classList.remove("show");
-}
-backdrop.addEventListener("click", closeSheet, { passive:true });
-fastTap(document.getElementById("btnCloseSheet"), closeSheet);
-fastTap(document.getElementById("btnCancelOther"), closeSheet);
-
-otherSelect.addEventListener("change", ()=>{
-  otherCustom.style.display = (otherSelect.value==="custom") ? "block" : "none";
-}, { passive:true });
-
-/* Auth tabs */
-function showPane(which){
-  if(which==="login"){
-    paneLogin.style.display="block"; paneSignup.style.display="none";
-    tabLogin.classList.add("primary"); tabSignup.classList.remove("primary");
-  }else{
-    paneLogin.style.display="none"; paneSignup.style.display="block";
-    tabSignup.classList.add("primary"); tabLogin.classList.remove("primary");
+function savePrefs() { localStorage.setItem(LS_PREFS, JSON.stringify(prefs)); }
+function loadState() {
+  try { const s = JSON.parse(localStorage.getItem(LS_STATE)); if(s) state = {...state, ...s}; } catch{}
+  const now = new Date();
+  if (!state.selected || state.year < 2020) {
+    state.year = now.getFullYear();
+    state.month = now.getMonth();
+    state.selected = key(now);
   }
 }
-fastTap(tabLogin, ()=>showPane("login"));
-fastTap(tabSignup, ()=>showPane("signup"));
-fastTap(document.getElementById("btnBackLogin"), ()=>showPane("login"));
+function saveState() { localStorage.setItem(LS_STATE, JSON.stringify(state)); }
 
-/* Auth actions */
-fastTap(document.getElementById("btnLogin"), async ()=>{
-  loginHint.textContent="";
-  const email = (loginEmail.value||"").trim();
-  const pass  = loginPass.value||"";
-  if(!email || !pass){ loginHint.textContent="Email + mot de passe requis."; return; }
-  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-  if(error){ console.error(error); loginHint.textContent = error.message || "Erreur connexion."; }
-});
+function applyPrefs() {
+  document.documentElement.setAttribute('data-theme', prefs.theme);
+  document.documentElement.setAttribute('data-size', prefs.size);
+  updateSettingsUI();
+  renderHeaders();
+}
 
-fastTap(document.getElementById("btnSignup"), async ()=>{
-  const email = (signEmail.value||"").trim();
-  const pass  = (signPass.value||"");
-  if(!email || !pass){ toast("Email + mot de passe requis."); return; }
-  if(pass.length < 6){ toast("Mot de passe: 6 caractères minimum."); return; }
-  const { error } = await supabase.auth.signUp({ email, password: pass });
-  if(error){ console.error(error); toast(error.message || "Erreur création compte."); return; }
-  toast("Compte créé. Connecte-toi.");
-  showPane("login");
-  loginEmail.value=email; loginPass.value="";
-});
-
-fastTap(document.getElementById("btnReset"), async ()=>{
-  const email = (loginEmail.value||"").trim();
-  if(!email){ loginHint.textContent="Entre ton email puis reset."; return; }
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  if(error){ console.error(error); loginHint.textContent = error.message || "Erreur reset."; return; }
-  loginHint.textContent="Email de réinitialisation envoyé.";
-});
-
-/* Logout with optional confirm */
-fastTap(btnLogout, async ()=>{
-  if(prefs.confirmLogout){
-    const ok = confirm("Déconnexion ?");
-    if(!ok) return;
+/* --- Rendu --- */
+function renderHeaders() {
+  const startDay = prefs.weekStart === 'mon' ? 1 : 0;
+  const headers = [...daysShort.slice(startDay), ...daysShort.slice(0, startDay)];
+  for(let i=0; i<7; i++) {
+    const el = $(`h${i}`);
+    if(el) el.textContent = headers[i];
   }
-  await supabase.auth.signOut();
-  entries.clear();
-  user=null;
-  topSub.textContent="Non connecté";
-  gate.classList.add("show");
-  renderMonth();
+}
+
+function render() {
+  $('navMonth').textContent = months[state.month];
+  $('navYear').textContent = state.year;
+  
+  const grid = $('grid');
+  grid.innerHTML = '';
+  cellCache.clear();
+
+  const first = new Date(state.year, state.month, 1);
+  let startDay = first.getDay();
+  if (prefs.weekStart === 'mon') startDay = startDay === 0 ? 6 : startDay - 1;
+  
+  const startDate = new Date(first);
+  startDate.setDate(first.getDate() - startDay);
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    const k = key(d);
+    
+    // Week number column
+    if (i % 7 === 0) {
+      const wn = document.createElement('div');
+      wn.className = 'weeknum';
+      wn.textContent = getWeekNumber(d);
+      grid.appendChild(wn);
+    }
+
+    const cell = document.createElement('div');
+    cell.className = `day ${d.getMonth() !== state.month ? 'out' : ''}`;
+    cell.dataset.key = k;
+    cell.textContent = d.getDate();
+    
+    // Apply status
+    const entry = entries.get(k);
+    if (entry?.status) {
+      cell.classList.add(entry.status);
+      if (entry.note) {
+        const dot = document.createElement('div'); dot.className = 'dot'; cell.appendChild(dot);
+      }
+    }
+
+    if (k === state.selected) cell.classList.add('selected');
+    
+    cell.onclick = () => handleCellClick(k);
+    
+    grid.appendChild(cell);
+    cellCache.set(k, cell);
+  }
+  
+  updateSelectionUI();
   renderTotals();
-});
+}
 
-/* Session */
-async function refreshSessionUser(){
-  const { data, error } = await supabase.auth.getSession();
-  if(error){ console.error(error); user=null; }
-  user = data?.session?.user || null;
+function getWeekNumber(d) {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+}
 
-  if(!user){
-    topSub.textContent="Non connecté";
-    gate.classList.add("show");
-  }else{
-    const uidShort = String(user.id||"").slice(0,8);
-    topSub.textContent = `${user.email || "Connecté"} · uid:${uidShort}`;
-    gate.classList.remove("show");
+/* --- Interactions --- */
+function handleCellClick(k) {
+  state.selected = k;
+  saveState();
+  
+  // Quick Tap Feature: Si activé, applique "Jour" directement au premier clic
+  if (prefs.quickTap) {
+    const entry = entries.get(k);
+    if (!entry?.status) {
+      saveEntry(k, { status: 'jour' });
+      render(); // Re-render pour montrer le changement
+      return;
+    }
+  }
+
+  render();
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const d = parseKey(state.selected);
+  const entry = entries.get(state.selected);
+  $('selDate').textContent = `${d.getDate()} ${months[d.getMonth()]}`;
+  $('selState').textContent = entry?.status ? labels[entry.status] : 'Libre';
+  
+  const title = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  $('sheetTitle').textContent = title;
+  $('sheetSub').textContent = entry?.note || 'Aucune note';
+  $('noteText').value = entry?.note || '';
+}
+
+function renderTotals() {
+  let counts = { jour:0, nuit:0, repos:0, conges:0, autre:0 };
+  entries.forEach(e => { if(e.status) counts[e.status]++; });
+  
+  const t = $('totals');
+  t.innerHTML = '';
+  Object.entries(counts).forEach(([k, v]) => {
+    if (v > 0) {
+      const chip = document.createElement('div');
+      chip.className = 'pillchip'; // Assurez-vous que ce style existe ou utilisez un span simple
+      chip.style.cssText = "display:inline-block; padding:4px 8px; border-radius:8px; background:var(--surface2); font-size:11px; font-weight:700; margin-right:4px; border:1px solid var(--stroke);";
+      chip.textContent = `${labels[k]}: ${v}`;
+      t.appendChild(chip);
+    }
+  });
+}
+
+/* --- Sauvegarde --- */
+async function saveEntry(k, patch) {
+  if (!user) { alert('Connectez-vous d\'abord'); return; }
+  
+  const current = entries.get(k) || { status: '', note: '' };
+  const next = { ...current, ...patch };
+  entries.set(k, next);
+  
+  // Optimistic UI update
+  const cell = cellCache.get(k);
+  if (cell) {
+    cell.className = `day ${cell.classList.contains('out') ? 'out' : ''} ${next.status ? next.status : ''} ${state.selected === k ? 'selected' : ''}`;
+    // Clean dots
+    cell.querySelectorAll('.dot').forEach(e => e.remove());
+    if (next.note) { const dot = document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
+  }
+  renderTotals();
+  updateSelectionUI();
+
+  const { error } = await supabase.from('work_calendar_entries').upsert({
+    user_id: user.id, work_date: k, status: next.status, note: next.note
+  }, { onConflict: 'user_id,work_date' });
+  
+  if (error) console.error('Save error', error);
+}
+
+/* --- Auth & Data --- */
+async function refreshAuth() {
+  const { data } = await supabase.auth.getSession();
+  user = data?.session?.user;
+  
+  if (user) {
+    $('gate').classList.remove('show');
+    $('topSub').textContent = user.email.split('@')[0];
+    loadEntries();
+  } else {
+    $('gate').classList.add('show');
+    $('topSub').textContent = 'Invité';
   }
 }
 
-/* Load entries for visible range */
-async function loadGridEntries(){
+async function loadEntries() {
+  if (!user) return;
+  // Load 3 months around current view
+  const start = new Date(state.year, state.month - 1, 1);
+  const end = new Date(state.year, state.month + 2, 0);
+  
+  const { data } = await supabase.from('work_calendar_entries')
+    .select('*')
+    .gte('work_date', key(start))
+    .lte('work_date', key(end));
+    
   entries.clear();
-  if(!user) return;
+  if (data) data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note }));
+  render();
+}
 
-  const { fromKey, toKey } = gridRangeForMonth(viewYear, viewMonth);
+/* --- Listeners --- */
+function setupListeners() {
+  // Nav
+  $('btnPrevMonth').onclick = () => changeMonth(-1);
+  $('btnNextMonth').onclick = () => changeMonth(1);
+  $('btnToday').onclick = () => {
+    const now = new Date();
+    state.year = now.getFullYear(); state.month = now.getMonth(); state.selected = key(now);
+    saveState(); render();
+  };
+  
+  // Actions
+  document.querySelectorAll('[data-set]').forEach(btn => {
+    btn.onclick = () => {
+      if (!state.selected) return;
+      const type = btn.dataset.set;
+      if (type === 'autre') {
+        $('sheetOther').style.display = 'block';
+        $('sheetNote').style.display = 'none';
+        $('backdrop').classList.add('show');
+        $('sheet').classList.add('show');
+      } else {
+        saveEntry(state.selected, { status: type });
+      }
+    };
+  });
 
-  const { data, error } = await supabase
-    .from("work_calendar_entries")
-    .select("work_date,status,custom_label,note")
-    .gte("work_date", fromKey)
-    .lte("work_date", toKey);
+  $('btnNote').onclick = () => {
+    $('sheetNote').style.display = 'block';
+    $('sheetOther').style.display = 'none';
+    $('backdrop').classList.add('show');
+    $('sheet').classList.add('show');
+  };
 
-  if(error){
-    console.error(error);
-    toast("Erreur Supabase: " + (error.message || error.code || ""));
-    return;
-  }
+  $('btnCloseSheet').onclick = $('backdrop').onclick = () => {
+    $('sheet').classList.remove('show');
+    $('backdrop').classList.remove('show');
+  };
 
-  (data||[]).forEach(r=>{
-    entries.set(r.work_date, {
-      status: r.status,
-      custom_label: r.custom_label || "",
+  $('btnSaveNote').onclick = () => {
+    saveEntry(state.selected, { note: $('noteText').value });
+    $('sheet').classList.remove('show');
+    $('backdrop').classList.remove('show');
+  };
+
+  $('btnApplyOther').onclick = () => {
+    const val = $('otherSelect').value;
+    saveEntry(state.selected, { status: 'autre' }); // Simplified for demo
+    $('sheet').classList.remove('show');
+    $('backdrop').classList.remove('show');
+  };
+
+  // Settings
+  $('btnSettings').onclick = (e) => {
+    e.stopPropagation();
+    $('settingsPop').classList.toggle('show');
+  };
+  document.onclick = () => $('settingsPop').classList.remove('show');
+  
+  $('themeLight').onclick = () => { prefs.theme = 'light'; savePrefs(); applyPrefs(); };
+  $('themeDark').onclick = () => { prefs.theme = 'dark'; savePrefs(); applyPrefs(); };
+  $('togQuickTap').onchange = (e) => { prefs.quickTap = e.target.checked; savePrefs(); };
+  $('togConfirmLogout').onchange = (e) => { prefs.confirmLogout = e.target.checked; savePrefs(); };
+
+  // Auth
+  $('btnLogin').onclick = async () => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: $('loginEmail').value, password: $('loginPass').value
+    });
+    if (error) alert(error.message); else refreshAuth();
+  };
+  
+  $('btnLogout').onclick = async () => {
+    if (prefs.confirmLogout && !confirm('Déconnexion ?')) return;
+    await supabase.auth.signOut();
+    refreshAuth();
+  };
+}
+
+function changeMonth(delta) {
+  state.month += delta;
+  if (state.month > 11) { state.month = 0; state.year++; }
+  if (state.month < 0) { state.month = 11; state.year--; }
+  saveState();
+  loadEntries(); // Reload data for new range
+  render();
+}
+
+function updateSettingsUI() {
+  $('themeLight').classList.toggle('active', prefs.theme === 'light');
+  $('themeDark').classList.toggle('active', prefs.theme === 'dark');
+  $('togQuickTap').checked = prefs.quickTap;
+  $('togConfirmLogout').checked = prefs.confirmLogout;
+}
+
+init();      custom_label: r.custom_label || "",
       note: r.note || ""
     });
   });
