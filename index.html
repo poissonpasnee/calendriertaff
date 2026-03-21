@@ -3,24 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=0" />
-  
-  <!-- Configuration PWA / iPhone -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f4f6fb">
-  <meta name="mobile-web-app-capable" content="yes">
-  
-  <title>Mon Planning</title>
+  <title>Mon Planning SNCF</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 
 <body>
 
-  <!-- Notification Toast -->
   <div class="toast" id="toast"></div>
 
-  <!-- Barre du haut -->
+  <!-- Header -->
   <header class="appbar">
     <div class="wrap">
       <div class="topline">
@@ -28,13 +23,11 @@
           <div class="t">Planning</div>
           <div class="s" id="topSub">Chargement...</div>
         </div>
-        <button class="icon" id="btnSettings" aria-label="Réglages">⚙️</button>
+        <button class="icon" id="btnSettings">⚙️</button>
       </div>
 
-      <!-- Popover Réglages -->
       <div class="settings-pop" id="settingsPop">
         <div class="settings-title">Réglages</div>
-        
         <div class="setting-row">
           <span>Thème</span>
           <div class="seg">
@@ -42,65 +35,51 @@
             <button id="themeDark" class="segbtn">Sombre</button>
           </div>
         </div>
-        
         <div class="setting-row">
           <span>Clic direct = Jour</span>
           <input type="checkbox" id="togQuickTap">
         </div>
-        
         <div class="setting-row">
           <span>Confirmer Déco</span>
           <input type="checkbox" id="togConfirmLogout" checked>
         </div>
-        
-        <div style="font-size:11px; color:var(--muted); margin-top:10px; text-align:center;">
-          Les réglages sont locaux.
-        </div>
       </div>
 
-      <!-- Navigation Mois -->
       <div class="monthbar">
-        <button class="icon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
+        <button class="icon" id="btnPrevMonth">‹</button>
         <div class="month-label">
           <span id="navMonth">...</span> <span id="navYear">...</span>
         </div>
-        <button class="icon" id="btnNextMonth" aria-label="Mois suivant">›</button>
+        <button class="icon" id="btnNextMonth">›</button>
       </div>
 
-      <!-- Actions Rapides -->
       <div class="top-actions">
         <button id="btnPrevYear" class="smallbtn">«</button>
         <button id="btnToday" class="primary smallbtn">Aujourd'hui</button>
         <button id="btnNextYear" class="smallbtn">»</button>
-        <button id="btnExportXLSX" class="smallbtn">Export</button>
+        <!-- Le bouton Export déclenche maintenant la modale -->
+        <button id="btnExportXLSX" class="smallbtn" style="border-color:var(--primary); color:var(--primary)">📊 Export</button>
         <button id="btnLogout" class="danger smallbtn">Déco</button>
       </div>
     </div>
   </header>
 
-  <!-- Calendrier -->
+  <!-- Main Calendar -->
   <main>
     <div class="wrap">
       <div class="card">
-        <!-- EN-TÊTES MODIFIÉS ICI -->
         <div class="calendar-head">
           <div>Sem</div>
-          <div id="h0">Di/Lu</div>
-          <div id="h1">Lu/Ma</div>
-          <div id="h2">Ma/Me</div>
-          <div id="h3">Me/Je</div>
-          <div id="h4">Je/Ve</div>
-          <div id="h5">Ve/Sa</div>
-          <div id="h6">Sa/Di</div>
+          <div id="h0">Di/Lu</div><div id="h1">Lu/Ma</div><div id="h2">Ma/Me</div>
+          <div id="h3">Me/Je</div><div id="h4">Je/Ve</div><div id="h5">Ve/Sa</div><div id="h6">Sa/Di</div>
         </div>
-        
         <div class="grid" id="grid"></div>
         <div class="totals" id="totals"></div>
       </div>
     </div>
   </main>
 
-  <!-- Barre d'actions (Bas) -->
+  <!-- Dock -->
   <div class="dock">
     <div class="wrap">
       <div class="selbar">
@@ -110,21 +89,19 @@
         </div>
         <button id="btnNote" class="smallbtn">📝 Note</button>
       </div>
-      
       <div class="actions">
-        <button data-set="jour" type="button">Jour</button>
-        <button data-set="nuit" type="button">Nuit</button>
-        <button data-set="repos" type="button">Repos</button>
-        <button data-set="conges" type="button">Congés</button>
-        <button data-set="autre" type="button">Autre</button>
+        <button data-set="jour">Jour</button>
+        <button data-set="nuit">Nuit</button>
+        <button data-set="repos">Repos</button>
+        <button data-set="conges">Congés</button>
+        <button data-set="autre">Autre</button>
       </div>
     </div>
   </div>
 
-  <!-- Fenêtre Modale (Sheet) -->
+  <!-- Modale Note / Autre -->
   <div class="backdrop" id="backdrop"></div>
-  
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="sheet" id="sheet">
     <div class="grab"></div>
     <div class="sheet-head">
       <div>
@@ -133,60 +110,89 @@
       </div>
       <button id="btnCloseSheet" class="smallbtn">Fermer</button>
     </div>
-    
-    <!-- Contenu Note -->
     <div id="sheetNote">
-      <textarea id="noteText" placeholder="Votre note (ex: 14h-22h, RHR...)"></textarea>
+      <textarea id="noteText" placeholder="Note (ex: 14h-22h, RHR...)"></textarea>
       <div class="sheet-actions">
         <button id="btnSaveNote" class="primary">Enregistrer</button>
         <button id="btnClearNote" class="danger">Effacer</button>
       </div>
     </div>
-
-    <!-- Contenu Autre -->
     <div id="sheetOther" style="display:none">
       <select id="otherSelect">
         <option value="OCP">OCP</option>
         <option value="Férié">Férié</option>
         <option value="custom">Personnalisé...</option>
       </select>
-      <input id="otherCustom" placeholder="Libellé personnalisé" style="display:none; margin-top:8px">
+      <input id="otherCustom" placeholder="Libellé" style="display:none; margin-top:8px">
       <div class="sheet-actions">
         <button id="btnApplyOther" class="primary">Valider</button>
       </div>
     </div>
   </div>
 
-  <!-- Écran de Connexion (GATE) -->
+  <!-- NOUVELLE MODALE D'EXPORT -->
+  <div class="backdrop" id="backdropExport"></div>
+  <div class="sheet" id="sheetExport">
+    <div class="grab"></div>
+    <div class="sheet-head">
+      <div>
+        <div class="sheet-title">Exporter le planning</div>
+        <div class="sheet-sub">Générer un fichier Excel avec statistiques</div>
+      </div>
+      <button id="btnCloseExport" class="smallbtn">Annuler</button>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <label style="font-size:13px; font-weight:700; display:block; margin-bottom:8px;">Période à exporter :</label>
+      
+      <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <div style="flex:1">
+          <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Du</div>
+          <input type="date" id="exportStart" style="padding:8px; font-size:14px;">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Au</div>
+          <input type="date" id="exportEnd" style="padding:8px; font-size:14px;">
+        </div>
+      </div>
+
+      <div style="background:var(--bg); padding:12px; border-radius:8px; font-size:13px; color:var(--muted);">
+        Le fichier inclura :<br>
+        ✅ Détail jour par jour<br>
+        ✅ Statistiques totales (Jours, Nuits, Repos...)<br>
+        ✅ Estimation des heures (basée sur 8h/jour, 10h/nuit)
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button id="btnGenerateXLSX" class="primary" style="flex:1; padding:14px;">📥 Télécharger Excel</button>
+    </div>
+  </div>
+
+  <!-- Login Gate -->
   <div class="gate" id="gate">
     <div class="gate-card">
       <h2>Connexion</h2>
-      
       <div class="tabs">
         <button id="tabLogin" class="active">Se connecter</button>
         <button id="tabSignup">Créer un compte</button>
       </div>
-
       <div id="paneLogin">
         <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
         <input type="password" id="loginPass" placeholder="Mot de passe" style="margin-top:8px" autocomplete="current-password">
-        
         <button id="btnLogin" class="primary" style="width:100%; margin-top:16px; padding:14px;">Entrer</button>
         <button id="btnReset" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted); font-size:13px;">Mot de passe oublié ?</button>
         <div id="loginHint" class="small"></div>
       </div>
-
       <div id="paneSignup" style="display:none">
         <input type="email" id="signEmail" placeholder="Email" autocomplete="email">
         <input type="password" id="signPass" placeholder="Mot de passe (min 6)" style="margin-top:8px" autocomplete="new-password">
-        
         <button id="btnSignup" class="primary" style="width:100%; margin-top:16px; padding:14px;">Créer le compte</button>
         <button id="btnBackLogin" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted); font-size:13px;">Retour</button>
       </div>
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
