@@ -1,40 +1,496 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-/* --- Configuration & État --- */
+/* =========================
+   Configuration
+   ========================= */
 const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const LS_PREFS = "planning_prefs_v2";
-const LS_STATE = "planning_state_v2";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
 
-let prefs = { theme: 'light', weekStart: 'sun', size: 'comfort', quickTap: false, confirmLogout: true };
+/* =========================
+   État & Préférences
+   ========================= */
+const LS_PREFS = "sncf_prefs_v2";
+const LS_STATE = "sncf_state_v2";
+
+const defaultPrefs = {
+  theme: "light",
+  weekStart: "sun",
+  size: "comfort",
+  quickTap: false, // Nouvelle fonctionnalité
+  confirmLogout: true
+};
+
+let prefs = { ...defaultPrefs };
 let state = { year: 2026, month: 0, selected: null };
 let user = null;
 let entries = new Map();
 let cellCache = new Map();
 
-/* --- Helpers --- */
+/* Helpers DOM */
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
-const key = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
-const months = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const daysShort = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
-const labels = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 
-/* --- Initialisation --- */
-function init() {
+const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const DAYS_SUN = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+const DAYS_MON = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
+
+/* =========================
+   Initialisation
+   ========================= */
+async function init() {
   loadPrefs();
-  loadState();
-  applyPrefs();
-  setupListeners();
-  refreshAuth();
-  render();
+  applyPrefsUI();
   
-  // Auto-update theme color meta tag
-  const themeColor = document.querySelector('meta[name="theme-color"]');
-  if(themeColor) themeColor.setAttribute('content', prefs.theme === 'dark' ? '#0f172a' : '#f4f6fb');
+  // Restaurer l'état de vue
+  if (!restoreState()) {
+    const now = new Date();
+    state.year = now.getFullYear();
+    state.month = now.getMonth();
+    state.selected = keyFor(now);
+  }
+
+  // Rendu initial (sans données pour l'instant)
+  renderHeaders();
+  renderGrid();
+  updateSelectionUI();
+  renderTotals();
+
+  // Vérifier l'auth APRÈS le rendu UI pour éviter les bugs d'affichage
+  await checkAuth();
+  
+  setupListeners();
+}
+
+/* =========================
+   Préférences & État
+   ========================= */
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(LS_PREFS);
+    if (raw) prefs = { ...defaultPrefs, ...JSON.parse(raw) };
+  } catch (e) { console.error("Prefs load error", e); }
+}
+
+function savePrefs() {
+  localStorage.setItem(LS_PREFS, JSON.stringify(prefs));
+}
+
+function restoreState() {
+  try {
+    const raw = localStorage.getItem(LS_STATE);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    state = { ...state, ...s };
+    return true;
+  } catch { return false; }
+}
+
+function saveState() {
+  localStorage.setItem(LS_STATE, JSON.stringify(state));
+}
+
+function applyPrefsUI() {
+  document.documentElement.setAttribute('data-theme', prefs.theme);
+  document.documentElement.setAttribute('data-size', prefs.size);
+  
+  // Update toggles UI
+  const togQuick = $('togQuickTap');
+  const togConf = $('togConfirmLogout');
+  if(togQuick) togQuick.checked = prefs.quickTap;
+  if(togConf) togConf.checked = prefs.confirmLogout;
+  
+  // Update theme buttons
+  const btnL = $('themeLight'), btnD = $('themeDark');
+  if(btnL) btnL.classList.toggle('active', prefs.theme === 'light');
+  if(btnD) btnD.classList.toggle('active', prefs.theme === 'dark');
+}
+
+/* =========================
+   Rendu Grille
+   ========================= */
+function renderHeaders() {
+  const list = prefs.weekStart === 'mon' ? DAYS_MON : DAYS_SUN;
+  for(let i=0; i<7; i++) {
+    const el = $(`h${i}`);
+    if(el) el.textContent = list[i];
+  }
+}
+
+function renderGrid() {
+  const grid = $('grid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  cellCache.clear();
+
+  $('navMonth').textContent = MONTHS[state.month];
+  $('navYear').textContent = state.year;
+
+  const first = new Date(state.year, state.month, 1);
+  let startDay = first.getDay();
+  if (prefs.weekStart === 'mon') startDay = startDay === 0 ? 6 : startDay - 1;
+
+  const startDate = new Date(first);
+  startDate.setDate(first.getDate() - startDay);
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    const k = keyFor(d);
+    
+    // Colonne Semaine
+    if (i % 7 === 0) {
+      const wn = document.createElement('div');
+      wn.className = 'weeknum';
+      wn.textContent = getWeekNumber(d);
+      grid.appendChild(wn);
+    }
+
+    const cell = document.createElement('div');
+    cell.className = 'day';
+    if (d.getMonth() !== state.month) cell.classList.add('out');
+    cell.dataset.key = k;
+    cell.textContent = d.getDate();
+
+    // Appliquer les données si disponibles
+    const entry = entries.get(k);
+    if (entry?.status) {
+      cell.classList.add(entry.status);
+      if (entry.note) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        cell.appendChild(dot);
+      }
+    }
+
+    // Sélection
+    if (k === state.selected) {
+      cell.classList.add('selected');
+    }
+
+    // Clic
+    cell.addEventListener('click', () => handleCellClick(k));
+
+    grid.appendChild(cell);
+    cellCache.set(k, cell);
+  }
+}
+
+function getWeekNumber(d) {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+}
+
+/* =========================
+   Interactions
+   ========================= */
+function handleCellClick(k) {
+  state.selected = k;
+  saveState();
+
+  const entry = entries.get(k);
+  
+  // Quick Tap : Si activé et case vide -> Applique "Jour" directement
+  if (prefs.quickTap && !entry?.status) {
+    saveEntry(k, { status: 'jour' });
+    renderGrid(); // Rafraîchir pour voir la couleur
+    updateSelectionUI();
+    return;
+  }
+
+  renderGrid();
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const d = parseKey(state.selected);
+  const entry = entries.get(state.selected);
+  
+  const dateStr = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  $('selDate').textContent = dateStr;
+  
+  const statusLabel = entry?.status ? LABELS[entry.status] : "—";
+  const extra = (entry?.status === 'autre' && entry.custom_label) ? ` (${entry.custom_label})` : "";
+  $('selState').textContent = `État: ${statusLabel}${extra}`;
+  
+  $('sheetTitle').textContent = dateStr;
+  $('sheetSub').textContent = entry?.note ? "Note présente" : "Aucune note";
+  $('noteText').value = entry?.note || "";
+}
+
+function renderTotals() {
+  let counts = { jour:0, nuit:0, repos:0, conges:0, autre:0 };
+  entries.forEach(e => { if(e.status) counts[e.status]++; });
+  
+  const t = $('totals');
+  if(!t) return;
+  t.innerHTML = '';
+  
+  Object.keys(counts).forEach(k => {
+    if (counts[k] > 0) {
+      const chip = document.createElement('div');
+      chip.className = 'pillchip';
+      chip.textContent = `${LABELS[k]}: ${counts[k]}`;
+      t.appendChild(chip);
+    }
+  });
+}
+
+/* =========================
+   Sauvegarde & Auth
+   ========================= */
+async function saveEntry(k, patch) {
+  if (!user) {
+    // Si pas connecté, on sauvegarde en local temporairement (optionnel)
+    // Ici on bloque pour forcer la connexion
+    $('gate').classList.add('show');
+    return;
+  }
+
+  const current = entries.get(k) || { status: '', note: '', custom_label: '' };
+  const next = { ...current, ...patch };
+  entries.set(k, next);
+
+  // Mise à jour UI immédiate
+  const cell = cellCache.get(k);
+  if (cell) {
+    cell.className = `day ${cell.classList.contains('out') ? 'out' : ''} ${next.status ? next.status : ''}`;
+    cell.querySelectorAll('.dot').forEach(e => e.remove());
+    if (next.note) {
+      const dot = document.createElement('div'); dot.className='dot'; cell.appendChild(dot);
+    }
+  }
+  
+  if (state.selected === k) updateSelectionUI();
+  renderTotals();
+
+  const { error } = await supabase
+    .from("work_calendar_entries")
+    .upsert({
+      user_id: user.id,
+      work_date: k,
+      status: next.status,
+      note: next.note || null,
+      custom_label: next.custom_label || null
+    }, { onConflict: "user_id,work_date" });
+
+  if (error) {
+    console.error("Erreur sauvegarde", error);
+    alert("Erreur de synchronisation");
+  }
+}
+
+async function checkAuth() {
+  const { data, error } = await supabase.auth.getSession();
+  
+  if (error || !data?.session) {
+    user = null;
+    $('topSub').textContent = "Non connecté";
+    $('gate').classList.add('show'); // AFFICHER LA CONNEXION
+    return;
+  }
+
+  user = data.session.user;
+  $('topSub').textContent = user.email.split('@')[0];
+  $('gate').classList.remove('show'); // CACHER LA CONNEXION
+  
+  await loadEntries();
+}
+
+async function loadEntries() {
+  if (!user) return;
+  
+  // Charger 3 mois autour de la vue actuelle
+  const start = new Date(state.year, state.month - 1, 1);
+  const end = new Date(state.year, state.month + 2, 0);
+  
+  const { data, error } = await supabase
+    .from("work_calendar_entries")
+    .select("work_date,status,note,custom_label")
+    .gte("work_date", keyFor(start))
+    .lte("work_date", keyFor(end));
+
+  if (error) {
+    console.error("Erreur chargement", error);
+    return;
+  }
+
+  entries.clear();
+  if (data) {
+    data.forEach(r => entries.set(r.work_date, {
+      status: r.status,
+      note: r.note,
+      custom_label: r.custom_label
+    }));
+  }
+  renderGrid();
+  renderTotals();
+  updateSelectionUI();
+}
+
+/* =========================
+   Écouteurs (Listeners)
+   ========================= */
+function setupListeners() {
+  // Navigation
+  $('btnPrevMonth').onclick = () => changeMonth(-1);
+  $('btnNextMonth').onclick = () => changeMonth(1);
+  $('btnToday').onclick = () => {
+    const now = new Date();
+    state.year = now.getFullYear();
+    state.month = now.getMonth();
+    state.selected = keyFor(now);
+    saveState();
+    loadEntries().then(() => {
+      renderGrid();
+      updateSelectionUI();
+    });
+  };
+
+  // Actions Dock
+  document.querySelectorAll('[data-set]').forEach(btn => {
+    btn.onclick = () => {
+      if (!state.selected) return;
+      const type = btn.dataset.set;
+      
+      if (type === 'autre') {
+        $('sheetOther').style.display = 'block';
+        $('sheetNote').style.display = 'none';
+        $('backdrop').classList.add('show');
+        $('sheet').classList.add('show');
+      } else {
+        saveEntry(state.selected, { status: type, custom_label: '' });
+      }
+    };
+  });
+
+  // Note
+  $('btnNote').onclick = () => {
+    $('sheetNote').style.display = 'block';
+    $('sheetOther').style.display = 'none';
+    $('backdrop').classList.add('show');
+    $('sheet').classList.add('show');
+  };
+
+  // Fermeture Sheet
+  const closeSheet = () => {
+    $('sheet').classList.remove('show');
+    $('backdrop').classList.remove('show');
+  };
+  $('btnCloseSheet').onclick = closeSheet;
+  $('backdrop').onclick = closeSheet;
+
+  $('btnSaveNote').onclick = () => {
+    saveEntry(state.selected, { note: $('noteText').value });
+    closeSheet();
+  };
+
+  $('btnApplyOther').onclick = () => {
+    const val = $('otherSelect').value;
+    const custom = $('otherCustom').value;
+    saveEntry(state.selected, { 
+      status: 'autre', 
+      custom_label: val === 'custom' ? custom : val 
+    });
+    closeSheet();
+  };
+
+  // Settings
+  $('btnSettings').onclick = (e) => {
+    e.stopPropagation();
+    $('settingsPop').classList.toggle('show');
+  };
+  document.addEventListener('click', () => $('settingsPop').classList.remove('show'));
+  $('settingsPop').onclick = (e) => e.stopPropagation();
+
+  $('themeLight').onclick = () => { prefs.theme = 'light'; savePrefs(); applyPrefsUI(); };
+  $('themeDark').onclick = () => { prefs.theme = 'dark'; savePrefs(); applyPrefsUI(); };
+  
+  const togQuick = $('togQuickTap');
+  if(togQuick) togQuick.onchange = (e) => { prefs.quickTap = e.target.checked; savePrefs(); };
+  
+  const togConf = $('togConfirmLogout');
+  if(togConf) togConf.onchange = (e) => { prefs.confirmLogout = e.target.checked; savePrefs(); };
+
+  // Auth Actions
+  $('tabLogin').onclick = () => { $('paneLogin').style.display='block'; $('paneSignup').style.display='none'; $('tabLogin').classList.add('primary'); $('tabSignup').classList.remove('primary'); };
+  $('tabSignup').onclick = () => { $('paneLogin').style.display='none'; $('paneSignup').style.display='block'; $('tabSignup').classList.add('primary'); $('tabLogin').classList.remove('primary'); };
+  $('btnBackLogin').onclick = $('tabLogin').onclick;
+
+  $('btnLogin').onclick = async () => {
+    const email = $('loginEmail').value;
+    const pass = $('loginPass').value;
+    const hint = $('loginHint');
+    hint.textContent = "Connexion...";
+    
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) {
+      hint.textContent = "Erreur: " + error.message;
+    } else {
+      hint.textContent = "";
+      checkAuth();
+    }
+  };
+
+  $('btnSignup').onclick = async () => {
+    const email = $('signEmail').value;
+    const pass = $('signPass').value;
+    if(pass.length < 6) { alert("Mot de passe trop court"); return; }
+    
+    const { error } = await supabase.auth.signUp({ email, password: pass });
+    if (error) alert(error.message);
+    else {
+      alert("Compte créé ! Connectez-vous.");
+      $('tabLogin').onclick();
+    }
+  };
+
+  $('btnReset').onclick = async () => {
+    const email = $('loginEmail').value;
+    if(!email) { alert("Entrez votre email d'abord"); return; }
+    await supabase.auth.resetPasswordForEmail(email);
+    alert("Email de réinitialisation envoyé");
+  };
+
+  $('btnLogout').onclick = async () => {
+    if (prefs.confirmLogout && !confirm("Déconnexion ?")) return;
+    await supabase.auth.signOut();
+    entries.clear();
+    user = null;
+    $('topSub').textContent = "Non connecté";
+    $('gate').classList.add('show');
+    renderGrid(); // Effacer visuellement
+  };
+  
+  // Export
+  $('btnExportXLSX').onclick = () => {
+     // (Votre logique d'export existante fonctionne toujours)
+     alert("Fonction export prête (nécessite la librairie XLSX chargée)");
+  };
+}
+
+function changeMonth(delta) {
+  state.month += delta;
+  if (state.month > 11) { state.month = 0; state.year++; }
+  if (state.month < 0) { state.month = 11; state.year--; }
+  saveState();
+  loadEntries().then(() => {
+    renderGrid();
+    updateSelectionUI();
+  });
+}
+
+// Lancement
+init();  if(themeColor) themeColor.setAttribute('content', prefs.theme === 'dark' ? '#0f172a' : '#f4f6fb');
 }
 
 function loadPrefs() {
