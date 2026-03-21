@@ -1,11 +1,11 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-// --- CONFIGURATION ---
+// --- CONFIGURATION SUPABASE ---
 const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// --- ÉTAT GLOBAL ---
+// --- ÉTAT GLOBAL & PRÉFÉRENCES ---
 let user = null;
 let entries = new Map();
 let state = { year: 2026, month: 0, selected: null };
@@ -13,17 +13,17 @@ let prefs = {
   theme: 'light', 
   quickTap: false, 
   confirmLogout: true,
-  // Règles de paie par défaut
-  rateDay: 35,
-  rateNightFull: 82,
-  rateNightSolo: 41,
-  rateHour: 13.80,
-  payrollShift: false // Mode M+1 (décalage)
+  rateDay: 35.0,        // Indemnité Jour
+  rateNightFull: 82.0,  // Nuit Complète (GD)
+  rateNightSolo: 41.0,  // Nuit Seule
+  rateHour: 13.80,      // Taux horaire base
+  payrollShift: false   // Mode Décalage M+1
 };
 let cellCache = new Map();
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
+const BASE_SALARY = 2093.06; // Salaire de base fixe
 
 // --- UTILITAIRES ---
 const $ = (id) => document.getElementById(id);
@@ -32,33 +32,6 @@ const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new D
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
 // --- CALCUL SALAIRE ---
-function calculateDailyEarnings(dateKey, status) {
-  if (!status) return 0;
-  const date = parseKey(dateKey);
-  const dayOfWeek = date.getDay(); // 0 = Dimanche
-  const isSunday = (dayOfWeek === 0);
-  
-  let earnings = 0;
-
-  if (status === 'jour') {
-    earnings = parseFloat(prefs.rateDay);
-    if (isSunday) earnings *= 1.5; // Majoration dimanche (exemple)
-  } 
-  else if (status === 'nuit') {
-    // On utilise le taux "Nuit Complète" par défaut
-    earnings = parseFloat(prefs.rateNightFull);
-  }
-  else if (status === 'autre') {
-    const entry = entries.get(dateKey);
-    if (entry && entry.custom_label === 'Férié') {
-      earnings = parseFloat(prefs.rateDay) * 2; // Férié doublé (exemple)
-    }
-  }
-  // Repos, Congés = 0 (le fixe est ajouté à part)
-  
-  return earnings;
-}
-
 function calculateMonthSalary(year, month) {
   let totalVariable = 0;
   const start = new Date(year, month, 1);
@@ -69,14 +42,13 @@ function calculateMonthSalary(year, month) {
     const k = keyFor(current);
     const entry = entries.get(k);
     if (entry && entry.status) {
-      totalVariable += calculateDailyEarnings(k, entry.status);
+      if (entry.status === 'jour') totalVariable += parseFloat(prefs.rateDay);
+      else if (entry.status === 'nuit') totalVariable += parseFloat(prefs.rateNightFull);
+      // Ajoutez d'autres règles ici si besoin (ex: férié)
     }
     current.setDate(current.getDate() + 1);
   }
-  
-  // Ajout du fixe mensuel (2093.06 €)
-  const total = totalVariable + 2093.06;
-  return total;
+  return BASE_SALARY + totalVariable;
 }
 
 // --- INITIALISATION ---
@@ -85,7 +57,7 @@ async function init() {
   applyPrefs();
   renderGrid(); 
   updateSelectionUI();
-  renderTotals(); // Inclut le salaire
+  renderTotals();
   await checkAuth(); 
   setupEvents();
 }
@@ -105,17 +77,19 @@ function loadLocalData() {
 
 function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
-  $('togQuickTap').checked = prefs.quickTap;
-  $('togConfirmLogout').checked = prefs.confirmLogout;
-  $('togPayrollShift').checked = prefs.payrollShift;
   
-  $('rateDay').value = prefs.rateDay;
-  $('rateNightFull').value = prefs.rateNightFull;
-  $('rateNightSolo').value = prefs.rateNightSolo;
-  $('rateHour').value = prefs.rateHour;
+  // Sécurité : vérifier si l'élément existe avant de modifier
+  if($('togQuickTap')) $('togQuickTap').checked = prefs.quickTap;
+  if($('togConfirmLogout')) $('togConfirmLogout').checked = prefs.confirmLogout;
+  if($('togPayrollShift')) $('togPayrollShift').checked = prefs.payrollShift;
   
-  $('themeLight').classList.toggle('active', prefs.theme === 'light');
-  $('themeDark').classList.toggle('active', prefs.theme === 'dark');
+  if($('rateDay')) $('rateDay').value = prefs.rateDay;
+  if($('rateNightFull')) $('rateNightFull').value = prefs.rateNightFull;
+  if($('rateNightSolo')) $('rateNightSolo').value = prefs.rateNightSolo;
+  if($('rateHour')) $('rateHour').value = prefs.rateHour;
+  
+  if($('themeLight')) $('themeLight').classList.toggle('active', prefs.theme === 'light');
+  if($('themeDark')) $('themeDark').classList.toggle('active', prefs.theme === 'dark');
 }
 
 // --- AUTHENTIFICATION ---
@@ -152,10 +126,10 @@ function renderGrid() {
   grid.innerHTML = '';
   cellCache.clear();
   
-  // Gestion du décalage M+1 pour l'affichage
   let displayYear = state.year;
   let displayMonth = state.month;
   
+  // Gestion du décalage M+1 pour l'affichage
   if (prefs.payrollShift) {
     displayMonth--;
     if (displayMonth < 0) { displayMonth = 11; displayYear--; }
@@ -244,30 +218,25 @@ function renderTotals() {
   entries.forEach(e => { if(e.status) counts[e.status]++; });
   
   const t = $('totals');
-  t.innerHTML = '';
-  Object.entries(counts).forEach(([k,v]) => {
-    if(v>0) {
-      const span = document.createElement('span');
-      span.className = 'pillchip';
-      span.textContent = `${LABELS[k]}: ${v}`;
-      t.appendChild(span);
-    }
-  });
+  if(t) {
+    t.innerHTML = '';
+    Object.entries(counts).forEach(([k,v]) => {
+      if(v>0) {
+        const span = document.createElement('span');
+        span.className = 'pillchip';
+        span.textContent = `${LABELS[k]}: ${v}`;
+        t.appendChild(span);
+      }
+    });
+  }
 
-  // Calcul et affichage du salaire
+  // Affichage Salaire Estimé
   const salary = calculateMonthSalary(state.year, state.month);
   const salaryDiv = $('salaryDisplay');
   const salaryVal = $('salaryValue');
-  
   if(salaryDiv && salaryVal) {
     salaryDiv.style.display = 'block';
-    salaryVal.textContent = salary.toFixed(2).replace('.', ',');
-    
-    if(prefs.payrollShift) {
-      salaryDiv.innerHTML = `Estimation Salaire (Payé ce mois-ci) : <span id="salaryValue">${salary.toFixed(2).replace('.', ',')}</span> €`;
-    } else {
-      salaryDiv.innerHTML = `Estimation Salaire (Travaillé ce mois-ci) : <span id="salaryValue">${salary.toFixed(2).replace('.', ',')}</span> €`;
-    }
+    salaryVal.textContent = salary.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   }
 }
 
@@ -290,7 +259,7 @@ async function saveEntry(k, patch) {
   }, { onConflict: "user_id,work_date" });
 }
 
-// --- GESTION EXPORT EXCEL ---
+// --- EXPORT EXCEL ---
 function openExportModal() {
   const firstDay = new Date(state.year, state.month, 1);
   const lastDay = new Date(state.year, state.month + 1, 0);
@@ -308,71 +277,42 @@ function closeExportModal() {
 function generateExcel() {
   const startStr = $('exportStart').value;
   const endStr = $('exportEnd').value;
-  if(!startStr || !endStr) { alert("Veuillez sélectionner une période."); return; }
-
-  const startDate = parseKey(startStr);
-  const endDate = parseKey(endStr);
-  if(endDate < startDate) { alert("La date de fin doit être après la date de début."); return; }
+  if(!startStr || !endStr) return alert("Période invalide");
+  if(parseKey(endStr) < parseKey(startStr)) return alert("Date de fin < début");
 
   const dataRows = [];
-  const stats = { jour:0, nuit:0, repos:0, conges:0, autre:0, totalHeures:0, totalSalaire:0 };
+  dataRows.push(["Date", "Jour", "Statut", "Estimation (€)"]);
   
-  dataRows.push(["Date", "Jour", "Semaine", "Statut", "Libellé", "Note", "Est. Salaire (€)"]);
-  
-  let current = new Date(startDate);
-  while(current <= endDate) {
+  let totalVariable = 0;
+  let current = parseKey(startStr);
+  while(current <= parseKey(endStr)) {
     const k = keyFor(current);
     const entry = entries.get(k);
     const status = entry?.status || "";
-    const label = entry?.custom_label || "";
-    const note = entry?.note || "";
+    let dailyVal = 0;
+    if(status === 'jour') dailyVal = prefs.rateDay;
+    if(status === 'nuit') dailyVal = prefs.rateNightFull;
     
-    const dailyEarn = calculateDailyEarnings(k, status);
-    
-    if(status) {
-      stats[status] = (stats[status] || 0) + 1;
-      stats.totalSalaire += dailyEarn;
-    }
-    
-    const dayName = current.toLocaleDateString('fr-FR', { weekday: 'long' });
-    const weekNum = getWeekNum(current);
-    
-    dataRows.push([
-      k,
-      dayName.charAt(0).toUpperCase() + dayName.slice(1),
-      weekNum,
-      LABELS[status] || "",
-      label,
-      note,
-      dailyEarn > 0 ? dailyEarn.toFixed(2) : ""
-    ]);
-    
+    totalVariable += dailyVal;
+    dataRows.push([k, current.toLocaleDateString('fr-FR'), LABELS[status]||"", dailyVal > 0 ? dailyVal : ""]);
     current.setDate(current.getDate() + 1);
   }
   
   dataRows.push([]);
-  dataRows.push(["--- STATISTIQUES ---", "", "", "", "", "", ""]);
-  dataRows.push(["Total Jours", stats.jour, "", "", "", "", ""]);
-  dataRows.push(["Total Nuits", stats.nuit, "", "", "", "", ""]);
-  dataRows.push(["Total Repos", stats.repos, "", "", "", "", ""]);
-  dataRows.push(["Total Congés", stats.conges, "", "", "", "", ""]);
-  dataRows.push(["Total Autres", stats.autre, "", "", "", "", ""]);
-  dataRows.push(["TOTAL SALAIRE VARIABLE", "", "", "", "", "", stats.totalSalaire.toFixed(2) + " €"]);
-  dataRows.push(["(+ Fixe Mensuel)", "", "", "", "", "", "2093.06 €"]);
-  dataRows.push(["ESTIMATION TOTALE", "", "", "", "", "", (stats.totalSalaire + 2093.06).toFixed(2) + " €"]);
-  
+  dataRows.push(["Salaire de Base", "", "", BASE_SALARY]);
+  dataRows.push(["Total Variables", "", "", totalVariable]);
+  dataRows.push(["ESTIMATION TOTALE BRUTE", "", "", BASE_SALARY + totalVariable]);
+
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(dataRows);
-  ws['!cols'] = [{wch: 12}, {wch: 10}, {wch: 6}, {wch: 10}, {wch: 15}, {wch: 20}, {wch: 12}];
-  XLSX.utils.book_append_sheet(wb, ws, "Planning");
-  
-  const fileName = `Planning_Salaire_${startStr}_au_${endStr}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  XLSX.utils.book_append_sheet(wb, ws, "Paie");
+  XLSX.writeFile(wb, `Paie_${startStr}_au_${endStr}.xlsx`);
   closeExportModal();
 }
 
 // --- ÉVÉNEMENTS ---
 function setupEvents() {
+  // Navigation
   $('btnPrevMonth').onclick = () => { state.month--; if(state.month<0){state.month=11;state.year--;} saveAndReload(); };
   $('btnNextMonth').onclick = () => { state.month++; if(state.month>11){state.month=0;state.year++;} saveAndReload(); };
   $('btnToday').onclick = () => { const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n); saveAndReload(); };
@@ -384,25 +324,23 @@ function setupEvents() {
     loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); });
   }
 
+  // Actions Dock
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.onclick = () => {
       if(!state.selected) return;
       if(btn.dataset.set === 'autre') {
-        $('sheetOther').style.display = 'block';
-        $('sheetNote').style.display = 'none';
-        $('backdrop').classList.add('show');
-        $('sheet').classList.add('show');
+        $('sheetOther').style.display = 'block'; $('sheetNote').style.display = 'none';
+        $('backdrop').classList.add('show'); $('sheet').classList.add('show');
       } else {
         saveEntry(state.selected, { status: btn.dataset.set, custom_label: '' });
       }
     };
   });
 
+  // Notes & Modales
   $('btnNote').onclick = () => {
-    $('sheetNote').style.display = 'block';
-    $('sheetOther').style.display = 'none';
-    $('backdrop').classList.add('show');
-    $('sheet').classList.add('show');
+    $('sheetNote').style.display = 'block'; $('sheetOther').style.display = 'none';
+    $('backdrop').classList.add('show'); $('sheet').classList.add('show');
   };
 
   const closeSheet = () => { $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
@@ -410,6 +348,7 @@ function setupEvents() {
   $('backdrop').onclick = closeSheet;
   $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); closeSheet(); };
   $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); closeSheet(); };
+  
   $('btnApplyOther').onclick = () => {
     const val = $('otherSelect').value;
     const custom = $('otherCustom').value;
@@ -424,38 +363,34 @@ function setupEvents() {
   $('backdropExport').onclick = closeExportModal;
   $('btnGenerateXLSX').onclick = generateExcel;
 
-  // Settings
+  // Réglages
   $('btnSettings').onclick = (e) => { e.stopPropagation(); $('settingsPop').classList.toggle('show'); };
   document.onclick = () => $('settingsPop').classList.remove('show');
   $('settingsPop').onclick = (e) => e.stopPropagation();
   
   $('themeLight').onclick = () => { prefs.theme='light'; savePrefs(); applyPrefs(); };
   $('themeDark').onclick = () => { prefs.theme='dark'; savePrefs(); applyPrefs(); };
-  $('togQuickTap').onchange = (e) => { prefs.quickTap=e.target.checked; savePrefs(); };
-  $('togConfirmLogout').onchange = (e) => { prefs.confirmLogout=e.target.checked; savePrefs(); };
   
-  // Sauvegarde des taux de paie
-  const saveRates = () => {
-    prefs.rateDay = parseFloat($('rateDay').value) || 35;
-    prefs.rateNightFull = parseFloat($('rateNightFull').value) || 82;
-    prefs.rateNightSolo = parseFloat($('rateNightSolo').value) || 41;
-    prefs.rateHour = parseFloat($('rateHour').value) || 13.8;
-    prefs.payrollShift = $('togPayrollShift').checked;
-    savePrefs();
-    renderTotals(); // Recalculer l'affichage
-  };
-
-  $('rateDay').onchange = saveRates;
-  $('rateNightFull').onchange = saveRates;
-  $('rateNightSolo').onchange = saveRates;
-  $('rateHour').onchange = saveRates;
-  $('togPayrollShift').onchange = saveRates;
+  if($('togQuickTap')) $('togQuickTap').onchange = (e) => { prefs.quickTap=e.target.checked; savePrefs(); };
+  if($('togConfirmLogout')) $('togConfirmLogout').onchange = (e) => { prefs.confirmLogout=e.target.checked; savePrefs(); };
+  if($('togPayrollShift')) $('togPayrollShift').onchange = (e) => { prefs.payrollShift=e.target.checked; savePrefs(); renderGrid(); renderTotals(); };
+  
+  if($('rateDay')) $('rateDay').onchange = (e) => { prefs.rateDay=parseFloat(e.target.value)||0; savePrefs(); renderTotals(); };
+  if($('rateNightFull')) $('rateNightFull').onchange = (e) => { prefs.rateNightFull=parseFloat(e.target.value)||0; savePrefs(); renderTotals(); };
+  if($('rateNightSolo')) $('rateNightSolo').onchange = (e) => { prefs.rateNightSolo=parseFloat(e.target.value)||0; savePrefs(); renderTotals(); };
+  if($('rateHour')) $('rateHour').onchange = (e) => { prefs.rateHour=parseFloat(e.target.value)||0; savePrefs(); };
 
   function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
 
-  // Auth
-  $('tabLogin').onclick = () => { $('paneLogin').style.display='block'; $('paneSignup').style.display='none'; $('tabLogin').classList.add('active'); $('tabSignup').classList.remove('active'); };
-  $('tabSignup').onclick = () => { $('paneLogin').style.display='none'; $('paneSignup').style.display='block'; $('tabSignup').classList.add('active'); $('tabLogin').classList.remove('active'); };
+  // Authentification
+  $('tabLogin').onclick = () => {
+    $('paneLogin').style.display='block'; $('paneSignup').style.display='none';
+    $('tabLogin').classList.add('active'); $('tabSignup').classList.remove('active');
+  };
+  $('tabSignup').onclick = () => {
+    $('paneLogin').style.display='none'; $('paneSignup').style.display='block';
+    $('tabSignup').classList.add('active'); $('tabLogin').classList.remove('active');
+  };
   $('btnBackLogin').onclick = $('tabLogin').onclick;
 
   $('btnLogin').onclick = async () => {
@@ -490,4 +425,5 @@ function setupEvents() {
   };
 }
 
+// Démarrage
 init();
