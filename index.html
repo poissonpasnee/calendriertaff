@@ -3,12 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=0" />
+  
+  <!-- Configuration PWA / iPhone -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f4f6fb">
+  <meta name="mobile-web-app-capable" content="yes">
+  
   <title>Mon Planning</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <!-- Icône pour l'écran d'accueil (optionnel, créez un fichier icon-192.png si voulu) -->
+  <link rel="apple-touch-icon" href="icon-192.png">
 </head>
+
 <body>
 
   <!-- Notification Toast -->
@@ -22,12 +29,13 @@
           <div class="t">Planning</div>
           <div class="s" id="topSub">Chargement...</div>
         </div>
-        <button class="icon" id="btnSettings">⚙️</button>
+        <button class="icon" id="btnSettings" aria-label="Réglages">⚙️</button>
       </div>
 
       <!-- Popover Réglages -->
       <div class="settings-pop" id="settingsPop">
         <div class="settings-title">Réglages</div>
+        
         <div class="setting-row">
           <span>Thème</span>
           <div class="seg">
@@ -35,24 +43,32 @@
             <button id="themeDark" class="segbtn">Sombre</button>
           </div>
         </div>
+        
         <div class="setting-row">
           <span>Clic direct = Jour</span>
           <input type="checkbox" id="togQuickTap">
         </div>
+        
         <div class="setting-row">
           <span>Confirmer Déco</span>
           <input type="checkbox" id="togConfirmLogout" checked>
         </div>
+        
+        <div style="font-size:11px; color:var(--muted); margin-top:10px; text-align:center;">
+          Les réglages sont locaux.
+        </div>
       </div>
 
+      <!-- Navigation Mois -->
       <div class="monthbar">
-        <button class="icon" id="btnPrevMonth">‹</button>
+        <button class="icon" id="btnPrevMonth" aria-label="Mois précédent">‹</button>
         <div class="month-label">
           <span id="navMonth">...</span> <span id="navYear">...</span>
         </div>
-        <button class="icon" id="btnNextMonth">›</button>
+        <button class="icon" id="btnNextMonth" aria-label="Mois suivant">›</button>
       </div>
 
+      <!-- Actions Rapides -->
       <div class="top-actions">
         <button id="btnPrevYear" class="smallbtn">«</button>
         <button id="btnToday" class="primary smallbtn">Aujourd'hui</button>
@@ -88,19 +104,21 @@
         </div>
         <button id="btnNote" class="smallbtn">📝 Note</button>
       </div>
+      
       <div class="actions">
-        <button data-set="jour">Jour</button>
-        <button data-set="nuit">Nuit</button>
-        <button data-set="repos">Repos</button>
-        <button data-set="conges">Congés</button>
-        <button data-set="autre">Autre</button>
+        <button data-set="jour" type="button">Jour</button>
+        <button data-set="nuit" type="button">Nuit</button>
+        <button data-set="repos" type="button">Repos</button>
+        <button data-set="conges" type="button">Congés</button>
+        <button data-set="autre" type="button">Autre</button>
       </div>
     </div>
   </div>
 
   <!-- Fenêtre Modale (Sheet) -->
   <div class="backdrop" id="backdrop"></div>
-  <div class="sheet" id="sheet">
+  
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
     <div class="grab"></div>
     <div class="sheet-head">
       <div>
@@ -112,7 +130,7 @@
     
     <!-- Contenu Note -->
     <div id="sheetNote">
-      <textarea id="noteText" placeholder="Votre note..."></textarea>
+      <textarea id="noteText" placeholder="Votre note (ex: 14h-22h, RHR...)"></textarea>
       <div class="sheet-actions">
         <button id="btnSaveNote" class="primary">Enregistrer</button>
         <button id="btnClearNote" class="danger">Effacer</button>
@@ -124,9 +142,9 @@
       <select id="otherSelect">
         <option value="OCP">OCP</option>
         <option value="Férié">Férié</option>
-        <option value="custom">Personnalisé</option>
+        <option value="custom">Personnalisé...</option>
       </select>
-      <input id="otherCustom" placeholder="Libellé" style="display:none; margin-top:8px">
+      <input id="otherCustom" placeholder="Libellé personnalisé" style="display:none; margin-top:8px">
       <div class="sheet-actions">
         <button id="btnApplyOther" class="primary">Valider</button>
       </div>
@@ -137,378 +155,32 @@
   <div class="gate" id="gate">
     <div class="gate-card">
       <h2>Connexion</h2>
+      
       <div class="tabs">
         <button id="tabLogin" class="active">Se connecter</button>
         <button id="tabSignup">Créer un compte</button>
       </div>
 
       <div id="paneLogin">
-        <input type="email" id="loginEmail" placeholder="Email">
-        <input type="password" id="loginPass" placeholder="Mot de passe" style="margin-top:8px">
-        <button id="btnLogin" class="primary" style="width:100%; margin-top:12px">Entrer</button>
-        <button id="btnReset" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted)">Mot de passe oublié ?</button>
+        <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
+        <input type="password" id="loginPass" placeholder="Mot de passe" style="margin-top:8px" autocomplete="current-password">
+        
+        <button id="btnLogin" class="primary" style="width:100%; margin-top:16px; padding:14px;">Entrer</button>
+        <button id="btnReset" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted); font-size:13px;">Mot de passe oublié ?</button>
         <div id="loginHint" class="small"></div>
       </div>
 
       <div id="paneSignup" style="display:none">
-        <input type="email" id="signEmail" placeholder="Email">
-        <input type="password" id="signPass" placeholder="Mot de passe (min 6)" style="margin-top:8px">
-        <button id="btnSignup" class="primary" style="width:100%; margin-top:12px">Créer</button>
-        <button id="btnBackLogin" style="width:100%; margin-top:8px; background:transparent; border:none">Retour</button>
+        <input type="email" id="signEmail" placeholder="Email" autocomplete="email">
+        <input type="password" id="signPass" placeholder="Mot de passe (min 6)" style="margin-top:8px" autocomplete="new-password">
+        
+        <button id="btnSignup" class="primary" style="width:100%; margin-top:16px; padding:14px;">Créer le compte</button>
+        <button id="btnBackLogin" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted); font-size:13px;">Retour</button>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="js/app.js"></script>
-</body>
-</html>                  </div>
-                </div>
-
-                <div class="setting-row">
-                  <div class="setting-label">Début semaine</div>
-                  <div class="seg">
-                    <button id="weekStartSun" class="segbtn">Dim</button>
-                    <button id="weekStartMon" class="segbtn">Lun</button>
-                  </div>
-                </div>
-
-                <div class="setting-row">
-                  <div class="setting-label">Taille</div>
-                  <div class="seg">
-                    <button id="cellCompact" class="segbtn">S</button>
-                    <button id="cellComfort" class="segbtn">M</button>
-                    <button id="cellLarge" class="segbtn">L</button>
-                  </div>
-                </div>
-
-                <div class="divider"></div>
-
-                <label class="toggle-row">
-                  <span>Clic direct = Jour</span>
-                  <input id="togQuickTap" type="checkbox" />
-                </label>
-                <label class="toggle-row">
-                  <span>Confirmer Déconnexion</span>
-                  <input id="togConfirmLogout" type="checkbox" checked />
-                </label>
-                
-                <div class="settings-hint">Les réglages sont sauvegardés sur cet appareil.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="monthbar">
-          <button class="icon" id="btnPrevMonth">‹</button>
-          <button class="monthbtn" id="btnMonthLabel">
-            <span class="m" id="navMonth">—</span>
-            <span class="y" id="navYear">—</span>
-          </button>
-          <button class="icon" id="btnNextMonth">›</button>
-        </div>
-
-        <div class="top-actions">
-          <button class="pill smallbtn ghost" id="btnPrevYear">«</button>
-          <button id="btnToday" class="primary pill smallbtn">Aujourd'hui</button>
-          <button id="btnExportXLSX" class="pill smallbtn">Export</button>
-          <button id="btnLogout" class="pill danger smallbtn">Déco</button>
-          <button class="pill smallbtn ghost" id="btnNextYear">»</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <div class="wrap">
-      <section class="card calendar-card">
-        <div class="calendar-head" id="calHead">
-          <div>Sem</div>
-          <div id="h0">Dim</div><div id="h1">Lun</div><div id="h2">Mar</div>
-          <div id="h3">Mer</div><div id="h4">Jeu</div><div id="h5">Ven</div><div id="h6">Sam</div>
-        </div>
-        <div class="grid" id="grid"></div>
-        <div class="totals" id="totals"></div>
-      </section>
-    </div>
-  </main>
-
-  <div class="dock">
-    <div class="wrap">
-      <div class="selbar">
-        <div class="left">
-          <div class="date" id="selDate">Sélectionnez une date</div>
-          <div class="state" id="selState">État: —</div>
-        </div>
-        <button id="btnNote" class="pill smallbtn" type="button">📝</button>
-      </div>
-
-      <div class="actions">
-        <button data-set="jour" type="button">Jour</button>
-        <button data-set="nuit" type="button">Nuit</button>
-        <button data-set="repos" type="button">Repos</button>
-        <button data-set="conges" type="button">Congés</button>
-        <button data-set="autre" type="button">Autre</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="backdrop" id="backdrop"></div>
-
-  <div class="sheet" id="sheet" role="dialog">
-    <div class="grab"></div>
-    <div class="sheet-head">
-      <div>
-        <div class="sheet-title" id="sheetTitle">—</div>
-        <div class="sheet-sub" id="sheetSub">—</div>
-      </div>
-      <button id="btnCloseSheet" class="pill smallbtn">Fermer</button>
-    </div>
-
-    <div id="sheetOther">
-      <div class="row">
-        <select id="otherSelect">
-          <option value="OCP">OCP</option>
-          <option value="Férié">Férié</option>
-          <option value="custom">Personnalisé...</option>
-        </select>
-        <input id="otherCustom" placeholder="Libellé (ex: Formation)" style="display:none" />
-      </div>
-      <div class="sheet-actions">
-        <button class="primary" id="btnApplyOther">Valider</button>
-      </div>
-    </div>
-
-    <div id="sheetNote" style="display:none">
-      <textarea id="noteText" placeholder="Note (ex: 14h-22h, RHR...)"></textarea>
-      <div class="sheet-actions">
-        <button class="primary" id="btnSaveNote">Enregistrer</button>
-        <button class="danger" id="btnClearNote">Effacer</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="gate" id="gate">
-    <div class="gate-card">
-      <div class="gate-title">Connexion</div>
-      <div class="tabs">
-        <button id="tabLogin" class="primary">Connexion</button>
-        <button id="tabSignup">Créer</button>
-      </div>
-
-      <div id="paneLogin" style="margin-top:12px">
-        <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
-        <input id="loginPass" type="password" placeholder="Mot de passe" style="margin-top:8px" autocomplete="current-password">
-        <div class="row" style="margin-top:12px">
-          <button class="primary" id="btnLogin">Entrer</button>
-          <button id="btnReset">Reset</button>
-        </div>
-        <div class="small" id="loginHint"></div>
-      </div>
-
-      <div id="paneSignup" style="margin-top:12px; display:none">
-        <input id="signEmail" type="email" placeholder="Email" autocomplete="email">
-        <input id="signPass" type="password" placeholder="Mot de passe (min 6)" style="margin-top:8px" autocomplete="new-password">
-        <div class="row" style="margin-top:12px">
-          <button class="primary" id="btnSignup">Créer</button>
-          <button id="btnBackLogin">Retour</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="js/app.js"></script>
-</body>
-</html>                </div>
-
-                <!-- Début de semaine -->
-                <div class="setting-row">
-                  <div class="setting-label">Semaine commence</div>
-                  <div class="seg" role="group" aria-label="Début de semaine">
-                    <button id="weekStartSun" class="segbtn" type="button">Dim</button>
-                    <button id="weekStartMon" class="segbtn" type="button">Lun</button>
-                  </div>
-                </div>
-
-                <!-- Numéro de semaine -->
-                <div class="setting-row">
-                  <div class="setting-label">Numéro semaine</div>
-                  <div class="seg" role="group" aria-label="Numéro de semaine">
-                    <button id="weekIso" class="segbtn" type="button">ISO</button>
-                    <button id="weekSimple" class="segbtn" type="button">Simple</button>
-                  </div>
-                </div>
-
-                <!-- Taille des cases -->
-                <div class="setting-row">
-                  <div class="setting-label">Taille cases</div>
-                  <div class="seg" role="group" aria-label="Taille des cases">
-                    <button id="cellCompact" class="segbtn" type="button">Compact</button>
-                    <button id="cellComfort" class="segbtn" type="button">Confort</button>
-                    <button id="cellLarge" class="segbtn" type="button">Grand</button>
-                  </div>
-                </div>
-
-                <div class="divider"></div>
-
-                <!-- Toggles utiles -->
-                <label class="toggle-row">
-                  <span>Tap applique direct</span>
-                  <input id="togFastApply" type="checkbox" />
-                </label>
-
-                <label class="toggle-row">
-                  <span>Auto-sélection “Aujourd’hui”</span>
-                  <input id="togAutoToday" type="checkbox" />
-                </label>
-
-                <label class="toggle-row">
-                  <span>Confirmer Déconnexion</span>
-                  <input id="togConfirmLogout" type="checkbox" />
-                </label>
-
-                <label class="toggle-row">
-                  <span>Masquer “Autres” dans totaux</span>
-                  <input id="togHideOtherTotal" type="checkbox" />
-                </label>
-
-                <div class="settings-hint">
-                  Réglages locaux (sur cet appareil). Les données restent dans Supabase.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Navigation mois façon calendrier -->
-        <div class="monthbar" aria-label="Navigation calendrier">
-          <button class="icon" id="btnPrevMonth" aria-label="Mois précédent" type="button">‹</button>
-
-          <button class="monthbtn" id="btnMonthLabel" type="button" aria-label="Mois en cours">
-            <span class="m" id="navMonth">—</span>
-            <span class="y" id="navYear">—</span>
-          </button>
-
-          <button class="icon" id="btnNextMonth" aria-label="Mois suivant" type="button">›</button>
-        </div>
-
-        <div class="top-actions">
-          <button class="pill smallbtn ghost" id="btnPrevYear" type="button" aria-label="Année précédente">«</button>
-          <button id="btnToday" class="primary pill smallbtn" type="button">Aujourd’hui</button>
-          <button id="btnExportXLSX" class="pill smallbtn" type="button">Export</button>
-          <button id="btnLogout" class="pill danger smallbtn" type="button">Déconnexion</button>
-          <button class="pill smallbtn ghost" id="btnNextYear" type="button" aria-label="Année suivante">»</button>
-        </div>
-
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <div class="wrap">
-      <section class="card calendar-card">
-        <div class="calendar-head" id="calHead">
-          <div>Sem</div>
-          <div id="h0">Dim</div><div id="h1">Lun</div><div id="h2">Mar</div>
-          <div id="h3">Mer</div><div id="h4">Jeu</div><div id="h5">Ven</div><div id="h6">Sam</div>
-        </div>
-
-        <div class="grid" id="grid"></div>
-        <div class="totals" id="totals"></div>
-      </section>
-    </div>
-  </main>
-
-  <div class="dock">
-    <div class="wrap">
-      <div class="selbar">
-        <div class="left">
-          <div class="date" id="selDate">Sélectionne une date</div>
-          <div class="state" id="selState">État: —</div>
-        </div>
-        <button id="btnNote" class="pill" type="button">📝 Note</button>
-      </div>
-
-      <div class="actions">
-        <button data-set="jour" type="button">Jour</button>
-        <button data-set="nuit" type="button">Nuit</button>
-        <button data-set="repos" type="button">Repos</button>
-        <button data-set="conges" type="button">Congés</button>
-        <button data-set="autre" type="button">Autre</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="backdrop" id="backdrop"></div>
-
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Édition du jour">
-    <div class="grab"></div>
-
-    <div class="sheet-head">
-      <div>
-        <div class="sheet-title" id="sheetTitle">—</div>
-        <div class="sheet-sub" id="sheetSub">—</div>
-      </div>
-      <button id="btnCloseSheet" class="pill" type="button">Fermer</button>
-    </div>
-
-    <div id="sheetOther">
-      <div class="row">
-        <select id="otherSelect" aria-label="Type Autre">
-          <option value="OCP">OCP</option>
-          <option value="Férié">Férié</option>
-          <option value="custom">Personnalisé</option>
-        </select>
-        <input id="otherCustom" placeholder="Libellé" style="display:none" />
-      </div>
-      <div class="sheet-actions">
-        <button class="primary" id="btnApplyOther" type="button">Appliquer</button>
-        <button id="btnCancelOther" type="button">Annuler</button>
-      </div>
-    </div>
-
-    <div id="sheetNote" style="display:none">
-      <textarea id="noteText" placeholder="Note (service, RHR, remplacement…)"></textarea>
-      <div class="sheet-actions">
-        <button class="primary" id="btnSaveNote" type="button">Enregistrer</button>
-        <button class="danger" id="btnClearNote" type="button">Vider</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="gate" id="gate" aria-label="Connexion">
-    <div class="gate-card">
-      <div class="gate-title">Connexion</div>
-      <div class="small">Email + mot de passe (création + reset).</div>
-
-      <div class="tabs">
-        <button id="tabLogin" class="primary" type="button">Connexion</button>
-        <button id="tabSignup" type="button">Créer</button>
-      </div>
-
-      <div id="paneLogin" style="margin-top:12px">
-        <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
-        <input id="loginPass" type="password" placeholder="Mot de passe" autocomplete="current-password">
-        <div class="row">
-          <button class="primary" id="btnLogin" type="button">Se connecter</button>
-          <button id="btnReset" type="button">Reset</button>
-        </div>
-        <div class="small" id="loginHint"></div>
-      </div>
-
-      <div id="paneSignup" style="margin-top:12px; display:none">
-        <input id="signEmail" type="email" placeholder="Email" autocomplete="email">
-        <input id="signPass" type="password" placeholder="Mot de passe (min 6)" autocomplete="new-password">
-        <div class="row">
-          <button class="primary" id="btnSignup" type="button">Créer</button>
-          <button id="btnBackLogin" type="button">Retour</button>
-        </div>
-        <div class="small">Si la confirmation email est activée sur Supabase, tu devras valider l’email.</div>
-      </div>
-    </div>
-  </div>
-
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
