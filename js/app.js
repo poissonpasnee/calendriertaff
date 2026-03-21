@@ -21,7 +21,7 @@ const HOURS_EST = { jour: 8, nuit: 10, repos: 0, conges: 0, autre: 0 };
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
-const keyFor = (d) => `$${d.getFullYear()}-$${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
 // --- INITIALISATION ---
 async function init() {
@@ -74,7 +74,6 @@ async function checkAuth() {
 
 async function loadEntries() {
   if(!user) return;
-  // Charge 3 mois autour pour être sûr
   const start = new Date(state.year, state.month - 1, 1);
   const end = new Date(state.year, state.month + 2, 0);
   const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", keyFor(start)).lte("work_date", keyFor(end));
@@ -94,7 +93,7 @@ function renderGrid() {
   
   const headers = ["Di/Lu", "Lu/Ma", "Ma/Me", "Me/Je", "Je/Ve", "Ve/Sa", "Sa/Di"];
   for(let i=0; i<7; i++) {
-    const el = $$(`h$${i}`);
+    const el = $(`h${i}`);
     if(el) el.textContent = headers[i];
   }
 
@@ -161,9 +160,9 @@ function handleCellClick(k) {
 function updateSelectionUI() {
   const d = parseKey(state.selected);
   const entry = entries.get(state.selected);
-  $('selDate').textContent = `$${d.getDate()} $${MONTHS[d.getMonth()]}`;
+  $('selDate').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
   $('selState').textContent = entry?.status ? LABELS[entry.status] : "Libre";
-  $('sheetTitle').textContent = `$${d.getDate()} $${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  $('sheetTitle').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   $('noteText').value = entry?.note || '';
 }
 
@@ -176,7 +175,7 @@ function renderTotals() {
     if(v>0) {
       const span = document.createElement('span');
       span.className = 'pillchip';
-      span.textContent = `$${LABELS[k]}: $${v}`;
+      span.textContent = `${LABELS[k]}: ${v}`;
       t.appendChild(span);
     }
   });
@@ -190,7 +189,7 @@ async function saveEntry(k, patch) {
   entries.set(k, next);
   const cell = cellCache.get(k);
   if(cell) {
-    cell.className = `day $${cell.classList.contains('out')?'out':''} $${next.status||''}`;
+    cell.className = `day ${cell.classList.contains('out')?'out':''} ${next.status||''}`;
     cell.querySelectorAll('.dot').forEach(e=>e.remove());
     if(next.note) { const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
   }
@@ -201,9 +200,8 @@ async function saveEntry(k, patch) {
   }, { onConflict: "user_id,work_date" });
 }
 
-// --- GESTION EXPORT EXCEL (NOUVEAU) ---
+// --- GESTION EXPORT EXCEL ---
 function openExportModal() {
-  // Définir les dates par défaut : du 1er au dernier jour du mois en cours
   const firstDay = new Date(state.year, state.month, 1);
   const lastDay = new Date(state.year, state.month + 1, 0);
   
@@ -236,14 +234,11 @@ function generateExcel() {
     return;
   }
 
-  // Préparation des données
   const dataRows = [];
   const stats = { jour:0, nuit:0, repos:0, conges:0, autre:0, totalHeures:0 };
   
-  // En-têtes du tableau
   dataRows.push(["Date", "Jour", "Semaine", "Statut", "Libellé", "Note", "Heures Est."]);
   
-  // Boucle sur la période
   let current = new Date(startDate);
   while(current <= endDate) {
     const k = keyFor(current);
@@ -252,7 +247,6 @@ function generateExcel() {
     const label = entry?.custom_label || "";
     const note = entry?.note || "";
     
-    // Calcul stats
     if(status) {
       stats[status] = (stats[status] || 0) + 1;
       const h = HOURS_EST[status] || 0;
@@ -275,10 +269,7 @@ function generateExcel() {
     current.setDate(current.getDate() + 1);
   }
   
-  // Ligne vide
   dataRows.push([]);
-  
-  // Tableau Récapitulatif
   dataRows.push(["--- STATISTIQUES ---", "", "", "", "", "", ""]);
   dataRows.push(["Total Jours", stats.jour, "", "", "", "", ""]);
   dataRows.push(["Total Nuits", stats.nuit, "", "", "", "", ""]);
@@ -287,25 +278,16 @@ function generateExcel() {
   dataRows.push(["Total Autres", stats.autre, "", "", "", "", ""]);
   dataRows.push(["TOTAL HEURES (Est.)", stats.totalHeures, "", "", "", "", ""]);
   
-  // Création du fichier Excel
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(dataRows);
   
-  // Ajustement largeur colonnes
   ws['!cols'] = [
-    {wch: 12}, // Date
-    {wch: 10}, // Jour
-    {wch: 6},  // Semaine
-    {wch: 10}, // Statut
-    {wch: 15}, // Libellé
-    {wch: 20}, // Note
-    {wch: 10}  // Heures
+    {wch: 12}, {wch: 10}, {wch: 6}, {wch: 10}, {wch: 15}, {wch: 20}, {wch: 10}
   ];
   
   XLSX.utils.book_append_sheet(wb, ws, "Planning");
   
-  // Nom du fichier
-  const fileName = `Planning_$${startStr}_au_$${endStr}.xlsx`;
+  const fileName = `Planning_${startStr}_au_${endStr}.xlsx`;
   XLSX.writeFile(wb, fileName);
   
   closeExportModal();
@@ -345,7 +327,74 @@ function setupEvents() {
     $('sheet').classList.add('show');
   };
 
-  const closeSheet = () => { $$('sheet').classList.remove('show'); $$('backdrop').classList.remove('show'); };
+  const closeSheet = () => { $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
   $('btnCloseSheet').onclick = closeSheet;
   $('backdrop').onclick = closeSheet;
-  $$('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $$('note
+  $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); closeSheet(); };
+  $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); closeSheet(); };
+  $('btnApplyOther').onclick = () => {
+    const val = $('otherSelect').value;
+    const custom = $('otherCustom').value;
+    saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val });
+    closeSheet();
+  };
+  $('otherSelect').onchange = (e) => { $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
+
+  // --- GESTION EXPORT (CORRIGÉ) ---
+  $('btnExportXLSX').onclick = () => {
+    openExportModal();
+  };
+  
+  $('btnCloseExport').onclick = closeExportModal;
+  $('backdropExport').onclick = closeExportModal;
+  $('btnGenerateXLSX').onclick = generateExcel;
+
+  // Settings
+  $('btnSettings').onclick = (e) => { e.stopPropagation(); $('settingsPop').classList.toggle('show'); };
+  document.onclick = () => $('settingsPop').classList.remove('show');
+  $('settingsPop').onclick = (e) => e.stopPropagation();
+  
+  $('themeLight').onclick = () => { prefs.theme='light'; savePrefs(); applyPrefs(); };
+  $('themeDark').onclick = () => { prefs.theme='dark'; savePrefs(); applyPrefs(); };
+  $('togQuickTap').onchange = (e) => { prefs.quickTap=e.target.checked; savePrefs(); };
+  $('togConfirmLogout').onchange = (e) => { prefs.confirmLogout=e.target.checked; savePrefs(); };
+  function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
+
+  // Auth
+  $('tabLogin').onclick = () => { $('paneLogin').style.display='block'; $('paneSignup').style.display='none'; $('tabLogin').classList.add('active'); $('tabSignup').classList.remove('active'); };
+  $('tabSignup').onclick = () => { $('paneLogin').style.display='none'; $('paneSignup').style.display='block'; $('tabSignup').classList.add('active'); $('tabLogin').classList.remove('active'); };
+  $('btnBackLogin').onclick = $('tabLogin').onclick;
+
+  $('btnLogin').onclick = async () => {
+    const email = $('loginEmail').value;
+    const pass = $('loginPass').value;
+    const hint = $('loginHint');
+    hint.textContent = "Connexion...";
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error) { hint.textContent = "Erreur: " + error.message; } else { checkAuth(); }
+  };
+
+  $('btnSignup').onclick = async () => {
+    const email = $('signEmail').value;
+    const pass = $('signPass').value;
+    if(pass.length < 6) return alert("6 caractères min");
+    const { error } = await supabase.auth.signUp({ email, password: pass });
+    if(error) alert(error.message);
+    else { alert("Compte créé ! Connectez-vous."); $('tabLogin').onclick(); }
+  };
+
+  $('btnReset').onclick = async () => {
+    const email = $('loginEmail').value;
+    if(!email) return alert("Entrez email");
+    await supabase.auth.resetPasswordForEmail(email);
+    alert("Email envoyé");
+  };
+
+  $('btnLogout').onclick = async () => {
+    if(prefs.confirmLogout && !confirm("Déconnexion ?")) return;
+    await supabase.auth.signOut();
+    checkAuth();
+  };
+}
+
+init();
