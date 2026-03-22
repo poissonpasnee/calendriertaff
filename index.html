@@ -5,154 +5,159 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=0" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#f4f6fb">
-  <title>Mon Planning SNCF - Paie</title>
+  <meta name="theme-color" content="#0f172a">
+  <title>MyShift • Planning Intelligent</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
 </head>
 
 <body>
+  <!-- Arrière-plan animé -->
+  <div class="ambient-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <header class="appbar">
     <div class="wrap">
       <div class="topline">
         <div class="brand">
-          <div class="t">Planning</div>
-          <div class="s" id="topSub">Chargement...</div>
+          <div class="t">MyShift</div>
+          <div class="s" id="topSub">Connexion...</div>
         </div>
-        <button class="icon" id="btnSettings">⚙️</button>
+        <button class="icon-btn" id="btnSettings">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
       </div>
 
-      <!-- Popover Réglages & Paie -->
+      <!-- Popover Réglages (Design épuré) -->
       <div class="settings-pop" id="settingsPop">
-        <div class="settings-title">Réglages & Paie</div>
+        <div class="pop-header">Paramètres</div>
         
-        <div class="setting-row">
-          <span>Thème</span>
-          <div class="seg">
-            <button id="themeLight" class="segbtn">Clair</button>
-            <button id="themeDark" class="segbtn">Sombre</button>
+        <div class="setting-group">
+          <label>Apparence</label>
+          <div class="seg-control">
+            <button id="themeLight" class="seg-btn">Clair</button>
+            <button id="themeDark" class="seg-btn active">Sombre</button>
           </div>
-        </div>
-        <div class="setting-row">
-          <span>Clic direct = Jour</span>
-          <input type="checkbox" id="togQuickTap">
         </div>
 
         <div class="divider"></div>
-        <div style="font-size:12px; font-weight:700; color:var(--primary); margin:8px 0;">💰 Simulation Salaire</div>
-
-        <div class="setting-row" style="flex-direction:column; align-items:flex-start; gap:4px;">
-          <label style="font-size:11px; color:var(--muted);">Indemnité Jour (€)</label>
-          <input type="number" id="rateDay" value="35" step="0.1">
-        </div>
-
-        <div class="setting-row" style="flex-direction:column; align-items:flex-start; gap:4px;">
-          <label style="font-size:11px; color:var(--muted);">Nuit Complète (€)</label>
-          <input type="number" id="rateNightFull" value="82" step="0.1">
-        </div>
-
-        <div class="setting-row" style="flex-direction:column; align-items:flex-start; gap:4px;">
-          <label style="font-size:11px; color:var(--muted);">Nuit Seule (€)</label>
-          <input type="number" id="rateNightSolo" value="41" step="0.1">
-        </div>
-
-        <div class="setting-row" style="flex-direction:column; align-items:flex-start; gap:4px;">
-          <label style="font-size:11px; color:var(--muted);">Taux Horaire (€)</label>
-          <input type="number" id="rateHour" value="13.80" step="0.01">
-        </div>
-
-        <label class="toggle-row">
-          <span style="font-size:12px;">Voir Salaire M+1 (Décalé)</span>
-          <input type="checkbox" id="togPayrollShift">
-        </label>
-
-        <div style="font-size:10px; color:var(--muted); margin-top:8px; line-height:1.3;">
-          *Estimation brute. Base fixe (2093€) incluse.
+        <div class="setting-group">
+          <label style="color:var(--accent);">💰 Simulation Paie</label>
+          <div class="input-row">
+            <span>Jour</span>
+            <input type="number" id="rateDay" value="35" step="0.1">
+          </div>
+          <div class="input-row">
+            <span>Nuit (GD)</span>
+            <input type="number" id="rateNightFull" value="82" step="0.1">
+          </div>
+          <div class="input-row">
+            <span>Nuit (Seule)</span>
+            <input type="number" id="rateNightSolo" value="41" step="0.1">
+          </div>
+          <label class="toggle-row">
+            <span>Mode Décalage (M+1)</span>
+            <input type="checkbox" id="togPayrollShift">
+          </label>
         </div>
       </div>
 
-      <div class="monthbar">
-        <button class="icon" id="btnPrevMonth">‹</button>
-        <div class="month-label">
-          <span id="navMonth">...</span> <span id="navYear">...</span>
+      <div class="month-nav">
+        <button class="nav-btn" id="btnPrevMonth">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="month-display">
+          <span id="navMonth" class="m-text">Janvier</span>
+          <span id="navYear" class="y-text">2026</span>
         </div>
-        <button class="icon" id="btnNextMonth">›</button>
+        <button class="nav-btn" id="btnNextMonth">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
       </div>
 
-      <div class="top-actions">
-        <button id="btnPrevYear" class="smallbtn">«</button>
-        <button id="btnToday" class="primary smallbtn">Aujourd'hui</button>
-        <button id="btnNextYear" class="smallbtn">»</button>
-        <button id="btnExportXLSX" class="smallbtn" style="border-color:var(--primary); color:var(--primary)">📊 Export</button>
-        <button id="btnLogout" class="danger smallbtn">Déco</button>
+      <div class="quick-actions">
+        <button id="btnToday" class="action-pill primary">Aujourd'hui</button>
+        <button id="btnExportXLSX" class="action-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export
+        </button>
+        <button id="btnLogout" class="action-pill danger">Déco</button>
       </div>
     </div>
   </header>
 
   <main>
     <div class="wrap">
-      <div class="card">
+      <div class="calendar-card">
         <div class="calendar-head">
-          <div>Sem</div>
-          <div id="h0">Di/Lu</div><div id="h1">Lu/Ma</div><div id="h2">Ma/Me</div>
-          <div id="h3">Me/Je</div><div id="h4">Je/Ve</div><div id="h5">Ve/Sa</div><div id="h6">Sa/Di</div>
+          <div class="sem-label">Sem</div>
+          <div id="h0">D/L</div><div id="h1">L/M</div><div id="h2">M/M</div>
+          <div id="h3">M/J</div><div id="h4">J/V</div><div id="h5">V/S</div><div id="h6">S/D</div>
         </div>
         <div class="grid" id="grid"></div>
-        <div class="totals" id="totals"></div>
-        <!-- Affichage Salaire -->
-        <div id="salaryDisplay" style="text-align:center; margin-top:10px; padding:10px; background:var(--primary-soft); border-radius:8px; color:var(--primary); font-weight:800; font-size:14px; display:none;">
-          Estimation : <span id="salaryValue">0</span> €
+        
+        <div class="stats-bar">
+          <div class="stat-item">
+            <span class="stat-val" id="statCount">0</span>
+            <span class="stat-label">Jours travaillés</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item highlight">
+            <span class="stat-val" id="salaryValue">0 €</span>
+            <span class="stat-label">Est. Salaire Brut</span>
+          </div>
         </div>
       </div>
     </div>
   </main>
 
-  <div class="dock">
-    <div class="wrap">
-      <div class="selbar">
-        <div>
-          <div class="sel-date" id="selDate">Sélectionnez une date</div>
-          <div class="sel-state" id="selState">État: —</div>
-        </div>
-        <button id="btnNote" class="smallbtn">📝 Note</button>
+  <div class="dock-container">
+    <div class="dock-glass">
+      <div class="sel-info">
+        <div class="sel-date" id="selDate">Sélectionnez une date</div>
+        <div class="sel-badge" id="selState">Libre</div>
       </div>
-      <div class="actions">
-        <button data-set="jour">Jour</button>
-        <button data-set="nuit">Nuit</button>
-        <button data-set="repos">Repos</button>
-        <button data-set="conges">Congés</button>
-        <button data-set="autre">Autre</button>
+      
+      <div class="actions-grid">
+        <button data-set="jour" class="act-btn jour">Jour</button>
+        <button data-set="nuit" class="act-btn nuit">Nuit</button>
+        <button data-set="repos" class="act-btn repos">Repos</button>
+        <button data-set="conges" class="act-btn conges">Congés</button>
+        <button data-set="autre" class="act-btn autre">Autre</button>
       </div>
     </div>
   </div>
 
+  <!-- Modales -->
   <div class="backdrop" id="backdrop"></div>
   <div class="sheet" id="sheet">
-    <div class="grab"></div>
-    <div class="sheet-head">
-      <div>
-        <div class="sheet-title" id="sheetTitle">Date</div>
-        <div class="sheet-sub" id="sheetSub">Détails</div>
+    <div class="grabber"></div>
+    <div class="sheet-content">
+      <h2 id="sheetTitle">Détails</h2>
+      <p id="sheetSub" class="sub-text">Gérez votre service</p>
+      
+      <div id="sheetNote">
+        <textarea id="noteText" placeholder="Ajouter une note (horaire, remarque...)"></textarea>
+        <div class="sheet-actions">
+          <button id="btnSaveNote" class="btn-full primary">Enregistrer</button>
+          <button id="btnClearNote" class="btn-full ghost">Effacer</button>
+        </div>
       </div>
-      <button id="btnCloseSheet" class="smallbtn">Fermer</button>
-    </div>
-    <div id="sheetNote">
-      <textarea id="noteText" placeholder="Note (ex: 14h-22h...)"></textarea>
-      <div class="sheet-actions">
-        <button id="btnSaveNote" class="primary">Enregistrer</button>
-        <button id="btnClearNote" class="danger">Effacer</button>
-      </div>
-    </div>
-    <div id="sheetOther" style="display:none">
-      <select id="otherSelect">
-        <option value="OCP">OCP</option>
-        <option value="Férié">Férié</option>
-        <option value="custom">Personnalisé...</option>
-      </select>
-      <input id="otherCustom" placeholder="Libellé" style="display:none; margin-top:8px">
-      <div class="sheet-actions">
-        <button id="btnApplyOther" class="primary">Valider</button>
+
+      <div id="sheetOther" style="display:none">
+        <select id="otherSelect" class="modern-select">
+          <option value="OCP">OCP</option>
+          <option value="Férié">Férié</option>
+          <option value="custom">Personnalisé...</option>
+        </select>
+        <input id="otherCustom" placeholder="Votre libellé" style="display:none; margin-top:12px">
+        <button id="btnApplyOther" class="btn-full primary" style="margin-top:16px">Valider</button>
       </div>
     </div>
   </div>
@@ -160,51 +165,67 @@
   <!-- Modale Export -->
   <div class="backdrop" id="backdropExport"></div>
   <div class="sheet" id="sheetExport">
-    <div class="grab"></div>
-    <div class="sheet-head">
-      <div>
-        <div class="sheet-title">Exporter</div>
-        <div class="sheet-sub">Avec estimation salariale</div>
-      </div>
-      <button id="btnCloseExport" class="smallbtn">Annuler</button>
-    </div>
-    <div style="margin-bottom: 20px;">
-      <label style="font-size:13px; font-weight:700; display:block; margin-bottom:8px;">Période :</label>
-      <div style="display:flex; gap:10px; margin-bottom:10px;">
-        <div style="flex:1">
-          <div style="font-size:11px; color:var(--muted);">Du</div>
+    <div class="grabber"></div>
+    <div class="sheet-content">
+      <h2>Exporter les données</h2>
+      <p class="sub-text">Générez un rapport Excel complet</p>
+      
+      <div class="date-range">
+        <div class="range-input">
+          <label>Du</label>
           <input type="date" id="exportStart">
         </div>
-        <div style="flex:1">
-          <div style="font-size:11px; color:var(--muted);">Au</div>
+        <div class="range-input">
+          <label>Au</label>
           <input type="date" id="exportEnd">
         </div>
       </div>
-      <div class="sheet-actions">
-        <button id="btnGenerateXLSX" class="primary" style="flex:1; padding:14px;">📥 Télécharger Excel</button>
-      </div>
+      
+      <button id="btnGenerateXLSX" class="btn-full primary large">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Télécharger le fichier
+      </button>
+      <button id="btnCloseExport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
     </div>
   </div>
 
+  <!-- Login Gate -->
   <div class="gate" id="gate">
     <div class="gate-card">
-      <h2>Connexion</h2>
+      <div class="gate-logo">MyShift</div>
+      <h2>Bienvenue</h2>
+      <p class="gate-sub">Gérez votre planning ferroviaire simplement.</p>
+      
       <div class="tabs">
-        <button id="tabLogin" class="active">Se connecter</button>
-        <button id="tabSignup">Créer un compte</button>
+        <button id="tabLogin" class="tab-btn active">Connexion</button>
+        <button id="tabSignup" class="tab-btn">Créer un compte</button>
       </div>
+
       <div id="paneLogin">
-        <input type="email" id="loginEmail" placeholder="Email">
-        <input type="password" id="loginPass" placeholder="Mot de passe" style="margin-top:8px">
-        <button id="btnLogin" class="primary" style="width:100%; margin-top:16px; padding:14px;">Entrer</button>
-        <button id="btnReset" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted); font-size:13px;">Mot de passe oublié ?</button>
-        <div id="loginHint" class="small"></div>
+        <div class="input-group">
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="exemple@sncf.fr">
+        </div>
+        <div class="input-group">
+          <label>Mot de passe</label>
+          <input type="password" id="loginPass" placeholder="••••••••">
+        </div>
+        <button id="btnLogin" class="btn-full primary large">Se connecter</button>
+        <button id="btnReset" class="btn-link">Mot de passe oublié ?</button>
+        <div id="loginHint" class="hint-text"></div>
       </div>
+
       <div id="paneSignup" style="display:none">
-        <input type="email" id="signEmail" placeholder="Email">
-        <input type="password" id="signPass" placeholder="Mot de passe (min 6)" style="margin-top:8px">
-        <button id="btnSignup" class="primary" style="width:100%; margin-top:16px; padding:14px;">Créer</button>
-        <button id="btnBackLogin" style="width:100%; margin-top:8px; background:transparent; border:none; color:var(--muted); font-size:13px;">Retour</button>
+        <div class="input-group">
+          <label>Email</label>
+          <input type="email" id="signEmail" placeholder="exemple@sncf.fr">
+        </div>
+        <div class="input-group">
+          <label>Mot de passe</label>
+          <input type="password" id="signPass" placeholder="Min. 6 caractères">
+        </div>
+        <button id="btnSignup" class="btn-full primary large">Créer mon compte</button>
+        <button id="btnBackLogin" class="btn-link">Retour à la connexion</button>
       </div>
     </div>
   </div>
