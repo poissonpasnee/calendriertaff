@@ -23,7 +23,21 @@ const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const clean = (txt) => { if (txt === null || txt === undefined) return ""; return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); };
+
+// --- FONCTION DE NETTOYAGE ULTRA-PUISSANTE ---
+const clean = (txt) => { 
+  if (txt === null || txt === undefined) return ""; 
+  // 1. Convertir en string
+  let str = String(txt);
+  // 2. Enlever les accents
+  str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // 3. Mettre en majuscule
+  str = str.toUpperCase();
+  // 4. Enlever TOUS les espaces, tirets, points, virgules inutiles (garde seulement lettres et chiffres)
+  // Cela transforme "N 28" ou "N.28" ou " N28 " en "N28"
+  str = str.replace(/[^A-Z0-9]/g, ""); 
+  return str.trim();
+};
 
 // --- MOTEUR DE PAIE & INITIALISATION ---
 function calculateMonthSalary(year, month) {
@@ -144,7 +158,7 @@ async function saveEntry(k, patch) {
   await supabase.from("work_calendar_entries").upsert({ user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label, imported: next.imported }, { onConflict: "user_id,work_date" });
 }
 
-// --- IMPORT AUTOMATIQUE ROBUSTE ---
+// --- IMPORT AUTOMATIQUE (CORRECTION DÉTECTION CODES) ---
 
 function triggerImport() {
   $('fileInput').click();
@@ -154,7 +168,6 @@ function handleFileSelect(e) {
   const file = e.target.files[0];
   if(!file) return;
   
-  // Vérification préalable du nom
   const keyword = clean($('importKeyword')?.value || "");
   if(!keyword) {
     alert("⚠️ Veuillez d'abord entrer votre NOM dans les Réglages (roue dentée) > Import Sécurisé.");
@@ -172,7 +185,6 @@ function handleFileSelect(e) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
       
-      // Lancement immédiat de l'analyse
       runSmartScan(rawData, keyword);
     } catch (err) {
       console.error(err);
@@ -196,7 +208,8 @@ function runSmartScan(rawData, keyword) {
       for(let k = r + 1; k < Math.min(rawData.length, r + 30); k++) {
         let currentCode = "";
         rawData[k].forEach(cell => {
-          const val = clean(cell);
+          const val = clean(cell); // Utilise notre nouvelle fonction clean
+          // Détection code : 1 ou 2 lettres suivies de 1 à 3 chiffres (ex: N28, J1, R123)
           if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) currentCode = val;
           else if(currentCode && val.length > 3) {
             if(val.includes("NUIT")) codeLegend[currentCode] = "nuit";
@@ -209,7 +222,7 @@ function runSmartScan(rawData, keyword) {
       break;
     }
   }
-  console.log("Légende trouvée à ligne:", legendStartRow, "Codes:", codeLegend);
+  console.log("Légende trouvée à ligne:", legendStartRow, "Codes détectés:", codeLegend);
 
   // 2. TROUVER L'EN-TÊTE (En haut)
   let headerRowIdx = -1;
@@ -253,6 +266,9 @@ function runSmartScan(rawData, keyword) {
   const foundServices = [];
   let matchFound = false;
   const limitRow = (legendStartRow > 0) ? legendStartRow : rawData.length;
+  
+  // Compteur de débogage
+  let codesFoundOnLine = 0;
 
   for(let r = headerRowIdx + 1; r < limitRow; r++) {
     const row = rawData[r];
@@ -264,33 +280,63 @@ function runSmartScan(rawData, keyword) {
     if(hasName) {
       matchFound = true;
       console.log("✅ Ligne trouvée à r=", r);
+      
       row.forEach((cellData, c) => {
-        const code = clean(cellData);
-        if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(code) && dateCols[c]) {
+        const rawVal = cellData;
+        const code = clean(cellData); // Nettoie " N28 " -> "N28"
+        
+        // NOUVELLE CONDITION DE DÉTECTION :
+        // Doit contenir au moins une lettre et un chiffre, et faire moins de 6 caractères
+        // Cela attrape N28, J18, N 28, J.18, etc.
+        const hasLetter = /[A-Z]/.test(code);
+        const hasNumber = /[0-9]/.test(code);
+        const isShort = code.length <= 6;
+        
+        if(hasLetter && hasNumber && isShort && dateCols[c]) {
           let status = codeLegend[code];
-          if(!status) { 
+          
+          // Si pas dans la légende, on devine selon la première lettre
+          if(!status) {
             if(code.startsWith('N')) status = "nuit";
             else if(code.startsWith('J')) status = "jour";
             else if(code.startsWith('R')) status = "repos";
+            else if(code.startsWith('C')) status = "conges";
             else status = "autre";
+            console.log(`⚠️ Code ${code} non dans légende, déduit comme ${status}`);
           }
+          
           const d = dateCols[c];
           const k = keyFor(d);
+          
           if(!foundServices.find(s => s.dateKey === k)) {
-            foundServices.push({ dateKey: k, dateObj: d, dayName: d.toLocaleDateString('fr-FR', {weekday:'long'}), code, status, note: `Import: ${code}` });
+            foundServices.push({ 
+              dateKey: k, 
+              dateObj: d, 
+              dayName: d.toLocaleDateString('fr-FR', {weekday:'long'}), 
+              code: code, 
+              status: status, 
+              note: `Import: ${code}` 
+            });
+            codesFoundOnLine++;
           }
         }
       });
+      
+      console.log(`🔢 ${codesFoundOnLine} codes trouvés sur cette ligne.`);
       break; 
     }
   }
 
   if(!matchFound) {
-    alert(`❌ Le nom "${keyword}" n'a été trouvé dans aucune ligne entre l'en-tête et la légende.\nVérifiez l'orthographe dans les Réglages.`);
+    alert(`❌ Le nom "${keyword}" n'a été trouvé dans aucune ligne.\nVérifiez l'orthographe dans les Réglages.`);
     return;
   }
-  if(foundServices.length === 0) {
-    alert("⚠️ Nom trouvé, mais aucun code (N28, J12...) détecté sur cette ligne.");
+    
+  if(codesFoundOnLine === 0) {
+    // Message de débogage avancé
+    const rowExample = rawData[headerRowIdx+1]; // Prend une ligne exemple
+    console.log("Exemple de données brutes sur une ligne :", rowExample);
+    alert("⚠️ Nom trouvé, mais AUCUN code détecté.\n\nCause probable : Les cellules contiennent des caractères invisibles ou un format étrange.\n\nRegardez la Console (F12) pour voir ce que le script lit vraiment.");
     return;
   }
 
@@ -317,23 +363,14 @@ function showImportPreview(services) {
     list.appendChild(div);
   });
 
-  // Afficher la modale
   $('backdropImport').classList.add('show');
   $('sheetImport').classList.add('show');
   
-  // S'assurer que les boutons fonctionnent
   const btnConfirm = $('btnConfirmImport');
   const btnCancel = $('btnCancelImport');
   
-  if(btnConfirm) {
-    btnConfirm.onclick = confirmImport;
-  }
-  if(btnCancel) {
-    btnCancel.onclick = () => { 
-      $('sheetImport').classList.remove('show'); 
-      $('backdropImport').classList.remove('show'); 
-    };
-  }
+  if(btnConfirm) btnConfirm.onclick = confirmImport;
+  if(btnCancel) btnCancel.onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
 }
 
 function confirmImport() {
@@ -379,13 +416,11 @@ function setupEvents() {
   if($('btnApplyOther')) $('btnApplyOther').onclick = () => { const val = $('otherSelect').value; const custom = $('otherCustom').value; saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val }); closeSheet(); };
   if($('otherSelect')) $('otherSelect').onchange = (e) => { if($('otherCustom')) $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
 
-  // Import
   if($('btnImport')) $('btnImport').onclick = triggerImport;
   if($('fileInput')) $('fileInput').onchange = handleFileSelect;
   if($('btnCancelImport')) $('btnCancelImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
   if($('backdropImport')) $('backdropImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
 
-  // Export
   if($('btnExportXLSX')) $('btnExportXLSX').onclick = () => { const firstDay = new Date(state.year, state.month, 1); const lastDay = new Date(state.year, state.month + 1, 0); if($('exportStart')) $('exportStart').value = keyFor(firstDay); if($('exportEnd')) $('exportEnd').value = keyFor(lastDay); $('backdropExport').classList.add('show'); $('sheetExport').classList.add('show'); };
   if($('btnCloseExport')) $('btnCloseExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
   if($('backdropExport')) $('backdropExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
@@ -406,7 +441,6 @@ function setupEvents() {
     $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show');
   };
 
-  // Settings
   if($('btnSettings')) $('btnSettings').onclick = (e) => { e.stopPropagation(); if($('settingsPop')) $('settingsPop').classList.toggle('show'); };
   document.onclick = () => { if($('settingsPop')) $('settingsPop').classList.remove('show'); };
   if($('settingsPop')) $('settingsPop').onclick = (e) => e.stopPropagation();
@@ -417,7 +451,6 @@ function setupEvents() {
   if($('rateNightSolo')) $('rateNightSolo').onchange = (e) => { prefs.rateNightSolo=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
   if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => { const val = $('importKeyword').value.trim(); if(val) { prefs.importKeyword = val; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); alert("✅ Nom enregistré localement."); $('settingsPop').classList.remove('show'); } else alert("Entrez un nom."); };
 
-  // Auth
   const tabLogin = $('tabLogin'), tabSignup = $('tabSignup'), paneLogin = $('paneLogin'), paneSignup = $('paneSignup');
   if(tabLogin && tabSignup) {
     const switchToLogin = () => { paneLogin.style.display='block'; paneSignup.style.display='none'; tabLogin.classList.add('active'); tabSignup.classList.remove('active'); };
