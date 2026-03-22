@@ -1,6 +1,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 // --- CONFIGURATION SUPABASE ---
+// Remplacez ces valeurs par celles de votre projet de production si nécessaire
 const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -21,6 +22,7 @@ let codeLegend = {}; // Stocke la légende (N28 = Nuit)
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 const BASE_SALARY = 2093.06;
+const DAYS_FR = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -168,7 +170,7 @@ function renderGrid() {
         cell.style.borderColor = 'var(--accent)';
       }
       if(entry.note) {
-        const dot = document.createElement('div'); dot.className='dot'; cell.appendChild(dot);
+        const dot = document.createElement('dot'); dot.className='dot'; cell.appendChild(dot);
       }
     }
     if(k === state.selected) cell.classList.add('selected');
@@ -236,8 +238,14 @@ async function saveEntry(k, patch) {
       cell.style.borderWidth = '2px';
       cell.style.borderColor = 'var(--accent)';
     }
-    cell.querySelectorAll('.dot').forEach(e=>e.remove());
-    if(next.note) { const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
+    // Recréer le point si note présente
+    const existingDot = cell.querySelector('.dot');
+    if(existingDot) existingDot.remove();
+    if(next.note) { 
+        const dot=document.createElement('div'); 
+        dot.className='dot'; 
+        cell.appendChild(dot); 
+    }
   }
   if(state.selected === k) updateSelectionUI();
   renderTotals();
@@ -246,11 +254,11 @@ async function saveEntry(k, patch) {
   }, { onConflict: "user_id,work_date" });
 }
 
-// --- IMPORT EXCEL SPÉCIALISÉ (Structure SNCF : Nom en B, Planning en H-AB) ---
+// --- IMPORT EXCEL ROBUSTE ---
 
 function triggerImport() {
   if(!prefs.importKeyword || prefs.importKeyword.trim() === '') {
-    alert("⚠️ ALERTE CONFIDENTIALITÉ : Veuillez entrer votre NOM DE FAMILLE (ex: INIZAN) dans les Réglages (roue dentée) > section 'Import Sécurisé'.\n\nCe nom reste stocké UNIQUEMENT dans votre appareil. Il n'est jamais envoyé sur Internet.");
+    alert("⚠️ ALERTE CONFIDENTIALITÉ : Veuillez entrer votre NOM DE FAMILLE (ex: INIZAN) dans les Réglages (roue dentée) > section 'Import Sécurisé'.\n\nCe nom reste stocké UNIQUEMENT dans votre appareil.");
     $('btnSettings').click();
     return;
   }
@@ -265,13 +273,11 @@ function handleFileSelect(e) {
   reader.onload = (evt) => {
     try {
       const data = new Uint8Array(evt.target.result);
-      // Lecture brute
       const workbook = XLSX.read(data, { type: 'array', cellDates: false, cellText: true, sheetStubs: true });
       
       if(!workbook.SheetNames.length) throw new Error("Fichier vide");
 
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      // Conversion en tableau complet
       const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
 
       processSNCFData(rawData);
@@ -284,27 +290,37 @@ function handleFileSelect(e) {
   reader.readAsArrayBuffer(file);
 }
 
+// Fonction utilitaire pour normaliser le texte (supprime accents, espaces inutiles)
+function normalizeText(text) {
+    if (!text) return "";
+    return String(text)
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Supprime les accents
+        .replace(/\s+/g, " ") // Remplace plusieurs espaces par un seul
+        .trim();
+}
+
 function processSNCFData(rows) {
   const keywordRaw = prefs.importKeyword.trim();
-  const keyword = keywordRaw.toUpperCase();
+  const keywordClean = normalizeText(keywordRaw);
   
-  if (!keyword) {
+  if (!keywordClean) {
     alert("⚠️ Veuillez définir votre nom dans les réglages.");
     return;
   }
 
-  // 1. Identifier les index de colonnes
+  // Colonnes cibles (0-based)
   const COL_NOM = 1; 
   const COL_PRENOM = 2;
   const COL_START_PLANNING = 7; // H
   const COL_END_PLANNING = 27;  // AB
 
-  // 2. Construire la Légende (Code -> Type)
+  // 1. Construire la Légende
   codeLegend = {};
   let inLegend = false;
   
   for(let r=0; r<rows.length; r++) {
-    // Jointure plus large pour capturer les légendes éparpillées
     const rowText = rows[r].filter(c => c).join(" ").toUpperCase();
     
     if(rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE") || rowText.includes("CODE")) {
@@ -312,19 +328,16 @@ function processSNCFData(rows) {
       continue;
     }
     
-    // On arrête la légende si on tombe sur une ligne qui ressemble à un en-tête de jour
-    const daysFr = ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI", "DIMANCHE"];
-    if(inLegend && daysFr.some(d => rowText.includes(d))) {
-      inLegend = false; 
-      // Ne pas break, car on veut continuer pour trouver la ligne d'en-tête plus bas
+    // Arrêt légende si on trouve des jours
+    if(inLegend && DAYS_FR.some(d => rowText.includes(d))) {
+      inLegend = false;
     }
 
     if(inLegend) {
       const cells = rows[r];
       let currentCode = "";
       for(let c=0; c<cells.length; c++) {
-        const cell = String(cells[c] || "").toUpperCase().trim();
-        // Détection de code (ex: N28, J12, R45)
+        const cell = normalizeText(cells[c]);
         if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(cell)) {
           currentCode = cell;
         } else if (currentCode && cell.length > 2) {
@@ -338,14 +351,13 @@ function processSNCFData(rows) {
     }
   }
 
-  // 3. Trouver la ligne d'en-tête (LUNDI, MARDI...)
+  // 2. Trouver la ligne d'en-tête (Jours)
   let headerRowIndex = -1;
   for(let r=0; r<Math.min(rows.length, 25); r++) {
     let matchCount = 0;
-    // On regarde spécifiquement dans la zone de planning (H à AB)
     for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
-      const cell = String(rows[r][c]||"").toUpperCase().trim();
-      if(daysFr.some(d => cell.includes(d))) matchCount++;
+      const cell = normalizeText(rows[r][c]);
+      if(DAYS_FR.some(d => cell.includes(d))) matchCount++;
     }
     if(matchCount >= 3) {
       headerRowIndex = r;
@@ -358,13 +370,12 @@ function processSNCFData(rows) {
     return;
   }
 
-  // 4. Extraire les dates des en-têtes
+  // 3. Extraire les dates
   let planningDates = [];
-  // Fonction interne pour parser une date
   const parseDate = (cell) => {
     if(!cell) return null;
     const str = String(cell).trim();
-    // Format JJ/MM/AAAA ou JJ/MM
+    // Format JJ/MM/AAAA
     const dmy = str.match(/(\d{1,2})[/\-\.](\d{1,2})[/\-\.]?(\d{2,4})?/);
     if(dmy) {
       const day = parseInt(dmy[1]);
@@ -373,7 +384,7 @@ function processSNCFData(rows) {
       const d = new Date(year, month, day);
       if(!isNaN(d.getTime())) return d;
     }
-    // Format "LUNDI 12" (sans mois/année explicite, on suppose mois courant)
+    // Format "LUNDI 12" + Mois en texte
     const monthsFr = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
     const monthIdx = monthsFr.findIndex(m => str.toLowerCase().includes(m));
     const numMatch = str.match(/(\d{1,2})/);
@@ -384,51 +395,37 @@ function processSNCFData(rows) {
     return null;
   };
 
-  // Essai ligne d'en-tête
   for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
     planningDates[c] = parseDate(rows[headerRowIndex][c]);
   }
-  // Essai ligne suivante si échec
   if(planningDates.every(d => !d) && rows[headerRowIndex + 1]) {
     for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
       planningDates[c] = parseDate(rows[headerRowIndex + 1][c]);
     }
   }
 
-  // 5. SCANNER LES LIGNES POUR TROUVER VOTRE NOM (ROBUSTE)
+  // 4. Scanner les lignes pour trouver l'utilisateur
   const foundServices = [];
-  const daysFr = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
   
   for(let r=headerRowIndex + 1; r<rows.length; r++) {
     const row = rows[r];
-    // Nettoyage robuste : on retire les espaces invisibles, accents, etc.
-    const nomCell = String(row[COL_NOM] || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    const prenomCell = String(row[COL_PRENOM] || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const nomRaw = row[COL_NOM] || "";
+    const nomClean = normalizeText(nomRaw);
     
-    // Normalisation du keyword pour la comparaison
-    const keywordClean = keyword.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
-    // CRITÈRE DE MATCH ÉLARGI :
-    // 1. Correspondance exacte après nettoyage
-    // 2. Le nom dans le fichier CONTIENT le keyword (si keyword > 3 lettres)
-    // 3. Le keyword CONTIENT le nom du fichier (si nom court)
-    const isMatch = (nomCell === keywordClean) || 
-                    (keywordClean.length > 3 && nomCell.includes(keywordClean)) ||
-                    (nomCell.length > 3 && keywordClean.includes(nomCell));
-
-    if(isMatch && nomCell.length > 1) { // Éviter les matchs sur des initiales seules
-      // C'est votre ligne !
+    // Critères de match robustes
+    const isExactMatch = (nomClean === keywordClean);
+    const isPartialMatch = (keywordClean.length > 3 && nomClean.includes(keywordClean));
+    const isReverseMatch = (nomClean.length > 3 && keywordClean.includes(nomClean));
+    
+    if((isExactMatch || isPartialMatch || isReverseMatch) && nomClean.length > 1) {
+      // Ligne trouvée !
       for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
         const codeRaw = String(row[c]||"").trim();
-        const codeUpper = codeRaw.toUpperCase();
+        const codeUpper = normalizeText(codeRaw);
         
-        // Vérifie si c'est un code valide (ex: N28)
         if(codeUpper && /^[A-Z]{1,2}[0-9]{1,3}$/.test(codeUpper)) {
           const status = codeLegend[codeUpper] || "autre";
           let dateObj = planningDates[c];
-          
-          // Fallback : Si pas de date dans l'en-tête, on essaie de déduire par la position (avancé)
-          // Pour l'instant, on skip si pas de date trouvée dans l'en-tête
           
           if(dateObj) {
             foundServices.push({
@@ -442,144 +439,21 @@ function processSNCFData(rows) {
           }
         }
       }
-      // Optionnel : Break si on suppose qu'il n'y a qu'une ligne par personne
-      // break; 
+      // On suppose qu'il n'y a qu'une ligne par agent, on arrête
+      break; 
     }
   }
 
   if(foundServices.length === 0) {
-    // Message d'erreur détaillé pour le débogage
-    console.log("Keyword recherché :", keyword);
-    console.log("Lignes scannées :", rows.length);
-    alert(`❌ Aucun service trouvé pour "${keywordRaw}".\n\nVérifiez :\n1. L'orthographe exacte dans les Réglages.\n2. Que votre nom est bien dans la colonne B.\n3. Ouvrez la Console (F12) pour voir les détails techniques.`);
+    console.log("Débogage Import :");
+    console.log("- Keyword cherché :", keywordClean);
+    console.log("- Lignes totales :", rows.length);
+    console.log("- Ligne d'en-tête trouvée à :", headerRowIndex);
+    alert(`❌ Aucun service trouvé pour "${keywordRaw}".\n\nVérifiez :\n1. L'orthographe dans les Réglages.\n2. Que votre nom est bien dans la colonne B.\n3. Ouvrez la Console (F12) pour voir les détails.`);
     return;
   }
 
   showImportPreview(foundServices);
-}
-
-  if(headerRowIndex === -1) {
-    alert("❌ Impossible de trouver les jours de la semaine (LUNDI, MARDI...) dans les colonnes H à AB. Vérifiez que le fichier n'est pas corrompu.");
-    return;
-  }
-
-  // Extraction des dates réelles si elles sont sur la ligne du dessous ou dans l'en-tête
-  // Souvent : Ligne N = "LUNDI", Ligne N+1 = "12/03" ou juste vide si c'est implicite
-  // On va supposer que la ligne d'en-tête contient "LUNDI 12" ou similaire, ou qu'on doit déduire.
-  // Pour simplifier et être robuste : on va lire la ligne d'en-tête pour avoir les JOURS, 
-  // et on espère que les DATES sont soit dans la même cellule ("LUNDI 12"), soit sur la ligne du dessous.
-  
-  let planningDates = []; // Tableau de Date objects pour chaque colonne de H à AB
-  
-  // Tentative 1 : Les dates sont dans la ligne d'en-tête (ex: "LUNDI 12/03")
-  for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
-    const cell = String(rows[headerRowIndex][c]||"");
-    const dateObj = parseDateFromCell(cell);
-    planningDates[c] = dateObj;
-  }
-
-  // Tentative 2 : Si pas de dates trouvées, regarder la ligne du dessous (headerRowIndex + 1)
-  if(planningDates.every(d => !d)) {
-    const nextRow = rows[headerRowIndex + 1];
-    if(nextRow) {
-      for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
-        const cell = String(nextRow[c]||"");
-        const dateObj = parseDateFromCell(cell);
-        if(dateObj) planningDates[c] = dateObj;
-      }
-    }
-  }
-  
-  // Si toujours pas de dates, on ne peut pas importer précisément. On prévient.
-  const hasDates = planningDates.some(d => d);
-
-  // 4. Boucle sur les lignes de données pour trouver VOTRE NOM (Colonne B)
-  for(let r=headerRowIndex + 1; r<rows.length; r++) {
-    const row = rows[r];
-    const nomCell = String(row[COL_NOM]||"").toUpperCase().trim();
-    const prenomCell = String(row[COL_PRENOM]||"").toUpperCase().trim();
-    
-    // Vérification : Est-ce que cette ligne est pour VOUS ?
-    // On matche si le NOM correspond exactement ou contient le keyword
-    const isMe = (nomCell === keyword) || (nomCell.includes(keyword) && keyword.length > 3);
-    
-    if(isMe) {
-      // C'est votre ligne ! On scanne les colonnes H à AB
-      for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
-        const codeRaw = String(row[c]||"").trim();
-        const codeUpper = codeRaw.toUpperCase();
-        
-        // Si la cellule contient un code (ex: N28, J13)
-        if(codeUpper && /^[A-Z]{1,2}[0-9]{1,3}$/.test(codeUpper)) {
-          const status = codeLegend[codeUpper] || "autre";
-          
-          // Récupérer la date pour cette colonne
-          let dateObj = planningDates[c];
-          
-          // Si pas de date dans l'en-tête, on essaie de la deviner si le fichier a une structure régulière
-          // (C'est complexe sans modèle exact, donc on se fie à l'en-tête)
-          
-          if(dateObj) {
-            foundServices.push({
-              dateKey: keyFor(dateObj),
-              dateObj: dateObj,
-              dayName: dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase(),
-              code: codeUpper,
-              status: status,
-              note: `Import: ${codeUpper}`
-            });
-          } else {
-            console.warn(`Date manquante pour la colonne ${c} (Code: ${codeUpper})`);
-          }
-        }
-      }
-    }
-  }
-
-  if(foundServices.length === 0) {
-    alert(`❌ Aucun service trouvé pour le nom "${keyword}" dans la colonne B.\n\nVérifiez :\n1. Que vous avez entré le nom EXACT comme dans la colonne B (ex: INIZAN).\n2. Que votre ligne de planning contient bien des codes (N28, etc.) dans les colonnes H à AB.`);
-    return;
-  }
-
-  showImportPreview(foundServices);
-}
-
-// Helper pour parser une date depuis une cellule Excel (texte ou nombre)
-function parseDateFromCell(cell) {
-  if(!cell) return null;
-  const str = String(cell).trim();
-  
-  // Cas 1: Date Excel numérique (ex: 44927) - géré par raw:false normalement, mais au cas où
-  if(!isNaN(str) && str.length > 4) {
-     // C'est un serial number Excel, conversion approximative (non géré ici car cellText:true)
-     return null; 
-  }
-  
-  // Cas 2: Texte "12/03/2026" ou "12/03"
-  const dmy = str.match(/(\d{1,2})[/\-\.](\d{1,2})[/\-\.]?(\d{2,4})?/);
-  if(dmy) {
-    const day = parseInt(dmy[1]);
-    const month = parseInt(dmy[2]) - 1;
-    const year = dmy[3] ? (parseInt(dmy[3]) < 100 ? 2000 + parseInt(dmy[3]) : parseInt(dmy[3])) : new Date().getFullYear();
-    const d = new Date(year, month, day);
-    if(!isNaN(d.getTime())) return d;
-  }
-  
-  // Cas 3: Texte "LUNDI 12" ou "LUNDI 12/03"
-  // On essaie d'extraire le chiffre
-  const numMatch = str.match(/(\d{1,2})/);
-  if(numMatch) {
-     // On ne peut pas deviner le mois/année sans plus d'info, on retourne null
-     // Sauf si le mois est écrit en toutes lettres
-     const monthsFr = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
-     const monthIdx = monthsFr.findIndex(m => str.toLowerCase().includes(m));
-     if(monthIdx !== -1 && numMatch) {
-        const d = new Date(new Date().getFullYear(), monthIdx, parseInt(numMatch[1]));
-        if(!isNaN(d.getTime())) return d;
-     }
-  }
-  
-  return null;
 }
 
 function showImportPreview(services) {
@@ -618,6 +492,9 @@ function confirmImport() {
       cell.style.borderStyle = 'dashed';
       cell.style.borderWidth = '2px';
       cell.style.borderColor = 'var(--accent)';
+      // Nettoyage point
+      const existingDot = cell.querySelector('.dot');
+      if(existingDot) existingDot.remove();
     }
     batch.push({ user_id: user.id, work_date: item.dateKey, status: item.status, note: item.note, custom_label: item.code, imported: true });
     count++;
@@ -651,13 +528,16 @@ function openExportModal() {
   $('sheetExport').classList.add('show');
 }
 function closeExportModal() { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); }
+
 function generateExcel() {
   const startStr = $('exportStart').value;
   const endStr = $('exportEnd').value;
   if(!startStr || !endStr) return alert("Période invalide");
+  
   const dataRows = [["Date", "Jour", "Statut", "Code", "Estimation (€)"]];
   let totalVariable = 0;
   let current = parseKey(startStr);
+  
   while(current <= parseKey(endStr)) {
     const k = keyFor(current);
     const entry = entries.get(k);
@@ -670,7 +550,9 @@ function generateExcel() {
     dataRows.push([k, current.toLocaleDateString('fr-FR'), LABELS[status]||"", code, val || ""]);
     current.setDate(current.getDate() + 1);
   }
+  
   dataRows.push([], ["Salaire Base", "", "", "", BASE_SALARY], ["Total Variables", "", "", "", totalVariable], ["ESTIMATION TOTALE", "", "", "", BASE_SALARY + totalVariable]);
+  
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dataRows), "Paie");
   XLSX.writeFile(wb, `Paie_${startStr}_au_${endStr}.xlsx`);
@@ -681,31 +563,41 @@ function setupEvents() {
   if($('btnPrevMonth')) $('btnPrevMonth').onclick = () => { state.month--; if(state.month<0){state.month=11;state.year--;} saveAndReload(); };
   if($('btnNextMonth')) $('btnNextMonth').onclick = () => { state.month++; if(state.month>11){state.month=0;state.year++;} saveAndReload(); };
   if($('btnToday')) $('btnToday').onclick = () => { const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n); saveAndReload(); };
-  function saveAndReload() { localStorage.setItem('state_v2', JSON.stringify(state)); loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); }
+  
+  function saveAndReload() { 
+    localStorage.setItem('state_v2', JSON.stringify(state)); 
+    loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); 
+  }
 
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.onclick = () => {
       if(!state.selected) return;
       if(btn.dataset.set === 'autre') {
-        $('sheetOther').style.display = 'block'; $('sheetNote').style.display = 'none';
-        $('backdrop').classList.add('show'); $('sheet').classList.add('show');
-      } else saveEntry(state.selected, { status: btn.dataset.set, custom_label: '' });
+        $('sheetOther').style.display = 'block'; 
+        $('sheetNote').style.display = 'none';
+        $('backdrop').classList.add('show'); 
+        $('sheet').classList.add('show');
+      } else {
+        saveEntry(state.selected, { status: btn.dataset.set, custom_label: '' });
+      }
     };
   });
 
-  if($('btnNote')) $('btnNote').onclick = () => { $('sheetNote').style.display = 'block'; $('sheetOther').style.display = 'none'; $('backdrop').classList.add('show'); $('sheet').classList.add('show'); };
   const closeSheet = () => { $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
-  if($('btnCloseSheet')) $('btnCloseSheet').onclick = closeSheet;
-  if($('backdrop')) $('backdrop').onclick = closeSheet;
+  
   if($('btnSaveNote')) $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); closeSheet(); };
   if($('btnClearNote')) $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); closeSheet(); };
+  
   if($('btnApplyOther')) $('btnApplyOther').onclick = () => {
     const val = $('otherSelect').value;
     const custom = $('otherCustom').value;
     saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val });
     closeSheet();
   };
-  if($('otherSelect')) $('otherSelect').onchange = (e) => { if($('otherCustom')) $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
+  
+  if($('otherSelect')) $('otherSelect').onchange = (e) => { 
+      if($('otherCustom')) $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; 
+  };
 
   // Import Events
   if($('btnImport')) $('btnImport').onclick = triggerImport;
@@ -740,16 +632,22 @@ function setupEvents() {
     if(val) { prefs.importKeyword = val; savePrefs(); alert("✅ Nom enregistré LOCALEMENT. Il ne quittera jamais votre appareil."); $('settingsPop').classList.remove('show'); }
     else alert("Entrez un nom.");
   };
+  
   function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
 
   // Auth
   const tabLogin = $('tabLogin'), tabSignup = $('tabSignup');
   const paneLogin = $('paneLogin'), paneSignup = $('paneSignup');
+  
   if(tabLogin && tabSignup) {
-    tabLogin.onclick = () => { paneLogin.style.display='block'; paneSignup.style.display='none'; tabLogin.classList.add('active'); tabSignup.classList.remove('active'); };
-    tabSignup.onclick = () => { paneLogin.style.display='none'; paneSignup.style.display='block'; tabSignup.classList.add('active'); tabLogin.classList.remove('active'); };
-    if($('btnBackLogin')) $('btnBackLogin').onclick = tabLogin.onclick;
+    const switchToLogin = () => { paneLogin.style.display='block'; paneSignup.style.display='none'; tabLogin.classList.add('active'); tabSignup.classList.remove('active'); };
+    const switchToSignup = () => { paneLogin.style.display='none'; paneSignup.style.display='block'; tabSignup.classList.add('active'); tabLogin.classList.remove('active'); };
+    
+    tabLogin.onclick = switchToLogin;
+    tabSignup.onclick = switchToSignup;
+    if($('btnBackLogin')) $('btnBackLogin').onclick = switchToLogin;
   }
+  
   if($('btnLogin')) $('btnLogin').onclick = async () => {
     const email = $('loginEmail').value, pass = $('loginPass').value, hint = $('loginHint');
     if(!email || !pass) { hint.textContent = "Champs requis"; return; }
@@ -757,18 +655,21 @@ function setupEvents() {
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if(error) { hint.textContent = "Erreur: " + error.message; } else checkAuth();
   };
+  
   if($('btnSignup')) $('btnSignup').onclick = async () => {
     const email = $('signEmail').value, pass = $('signPass').value;
     if(pass.length < 6) return alert("6 caractères min");
     const { error } = await supabase.auth.signUp({ email, password: pass });
-    if(error) alert(error.message); else { alert("Compte créé !"); tabLogin.onclick(); }
+    if(error) alert(error.message); else { alert("Compte créé ! Vérifiez vos emails."); tabLogin.onclick(); }
   };
+  
   if($('btnReset')) $('btnReset').onclick = async () => {
     const email = $('loginEmail').value;
     if(!email) return alert("Entrez email");
     await supabase.auth.resetPasswordForEmail(email);
-    alert("Email envoyé");
+    alert("Email de réinitialisation envoyé");
   };
+  
   if($('btnLogout')) $('btnLogout').onclick = async () => {
     if(prefs.confirmLogout && !confirm("Déconnexion ?")) return;
     await supabase.auth.signOut();
