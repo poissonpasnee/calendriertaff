@@ -6,24 +6,58 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f172a">
-  <title>MyShift • Import Sécurisé</title>
+  <title>MyShift • Planning Intelligent</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* Styles spécifiques pour la modale de collage */
+    #pasteArea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      color: var(--text);
+      font-family: monospace;
+      font-size: 13px;
+      outline: none;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+    #pasteArea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    #pastePreview {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 15px;
+    }
+  </style>
 </head>
 <body>
+  <!-- Arrière-plan animé -->
   <div class="ambient-bg">
     <div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div>
   </div>
 
+  <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
 
+  <!-- Header -->
   <header class="appbar">
     <div class="wrap">
       <div class="topline">
-        <div class="brand"><div class="t">MyShift</div><div class="s" id="topSub">Connexion...</div></div>
+        <div class="brand">
+          <div class="t">MyShift</div>
+          <div class="s" id="topSub">Connexion...</div>
+        </div>
         <div class="header-actions" style="display:flex; gap:10px;">
-          <button class="icon-btn" id="btnImport" title="Importer Excel" style="border-color:var(--accent); color:var(--accent)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <!-- Bouton Import (Ouvre maintenant la modale de collage) -->
+          <button class="icon-btn" id="btnImport" title="Importer par Copier-Coller" style="border-color:var(--accent); color:var(--accent)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
           </button>
           <button class="icon-btn" id="btnSettings">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -31,6 +65,7 @@
         </div>
       </div>
 
+      <!-- Paramètres -->
       <div class="settings-pop" id="settingsPop">
         <div class="pop-header">Paramètres</div>
         <div class="setting-group">
@@ -50,22 +85,23 @@
         </div>
         <div class="divider"></div>
         <div class="setting-group">
-          <label style="color:var(--accent);">🔒 Import Sécurisé</label>
+          <label style="color:var(--accent);">👤 Info Utilisateur</label>
           <div class="input-row" style="flex-direction:column; gap:8px; align-items:flex-start">
-            <span style="font-size:12px">Votre Nom (Mot-clé)</span>
-            <input type="text" id="importKeyword" placeholder="Ex: CLEMENT" style="width:100%; text-transform:uppercase">
-            <span style="font-size:10px; color:var(--text-muted)">Enregistré localement. Jamais envoyé.</span>
+            <span style="font-size:12px">Votre Nom (Pour info)</span>
+            <input type="text" id="importKeyword" placeholder="Ex: INIZAN" style="width:100%;" disabled>
+            <span style="font-size:10px; color:var(--text-muted)">Non utilisé avec l'import par copier-coller.</span>
           </div>
-          <button id="btnSaveImportConfig" class="btn-full primary" style="margin-top:8px; padding:8px; font-size:12px">Enregistrer le mot-clé</button>
         </div>
       </div>
 
+      <!-- Navigation Mois -->
       <div class="month-nav">
         <button class="nav-btn" id="btnPrevMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
         <div class="month-display"><span id="navMonth" class="m-text">Janvier</span><span id="navYear" class="y-text">2026</span></div>
         <button class="nav-btn" id="btnNextMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
       </div>
 
+      <!-- Actions Rapides -->
       <div class="quick-actions">
         <button id="btnToday" class="action-pill primary">Aujourd'hui</button>
         <button id="btnExportXLSX" class="action-pill">
@@ -77,6 +113,7 @@
     </div>
   </header>
 
+  <!-- Contenu Principal -->
   <main>
     <div class="wrap">
       <div class="calendar-card">
@@ -95,6 +132,7 @@
     </div>
   </main>
 
+  <!-- Dock Mobile -->
   <div class="dock-container">
     <div class="dock-glass">
       <div class="sel-info"><div class="sel-date" id="selDate">Sélectionnez une date</div><div class="sel-badge" id="selState">Libre</div></div>
@@ -108,23 +146,30 @@
     </div>
   </div>
 
-  <!-- Input Fichier Caché -->
+  <!-- Input Fichier Caché (Désactivé mais présent pour compatibilité) -->
   <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none">
 
-  <!-- Modale Import -->
-  <div class="backdrop" id="backdropImport"></div>
-  <div class="sheet" id="sheetImport">
+  <!-- Modale Import Par Copier-Coller (NOUVEAU) -->
+  <div class="backdrop" id="backdropPaste"></div>
+  <div class="sheet" id="sheetPaste">
     <div class="grabber"></div>
     <div class="sheet-content">
-      <h2>🔍 Résultat de l'analyse</h2>
-      <p class="sub-text" id="importSummary">Analyse en cours...</p>
-      <div id="importPreviewList" style="max-height:200px; overflow-y:auto; margin-bottom:20px; background:var(--surface); border-radius:12px; padding:10px; border:1px solid var(--border);"></div>
-      <button id="btnConfirmImport" class="btn-full primary large">✅ Confirmer l'import</button>
-      <button id="btnCancelImport" class="btn-full ghost" style="margin-top:8px">❌ Annuler</button>
+      <h2>📋 Import par Copier-Coller</h2>
+      <p class="sub-text">La méthode infaillible : Ouvrez votre Excel, sélectionnez votre ligne de planning (dates + codes), copiez (Ctrl+C), et collez ci-dessous.</p>
+      
+      <textarea id="pasteArea" placeholder="Collez votre ligne de planning ici..."></textarea>
+      
+      <div style="margin-top: 15px; display: flex; gap: 10px;">
+        <button id="btnProcessPaste" class="btn-full primary">✅ Analyser le collage</button>
+        <button id="btnCancelPaste" class="btn-full ghost">Annuler</button>
+      </div>
+      
+      <div id="pastePreview" style="display: none;"></div>
+      <button id="btnConfirmPaste" class="btn-full primary large" style="margin-top: 10px; display: none;">🚀 Importer ces données</button>
     </div>
   </div>
 
-  <!-- Modale Note -->
+  <!-- Modale Détails (Note / Autre) -->
   <div class="backdrop" id="backdrop"></div>
   <div class="sheet" id="sheet">
     <div class="grabber"></div>
@@ -192,6 +237,7 @@
     </div>
   </div>
 
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
