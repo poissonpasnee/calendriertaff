@@ -6,18 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f172a">
-  <title>MyShift • Planning Intelligent</title>
+  <title>MyShift • Import Sécurisé</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
 </head>
-
 <body>
-  <!-- Arrière-plan animé -->
   <div class="ambient-bg">
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
+    <div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -25,19 +20,19 @@
   <header class="appbar">
     <div class="wrap">
       <div class="topline">
-        <div class="brand">
-          <div class="t">MyShift</div>
-          <div class="s" id="topSub">Connexion...</div>
+        <div class="brand"><div class="t">MyShift</div><div class="s" id="topSub">Connexion...</div></div>
+        <div class="header-actions" style="display:flex; gap:10px;">
+          <button class="icon-btn" id="btnImport" title="Importer Excel" style="border-color:var(--accent); color:var(--accent)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </button>
+          <button class="icon-btn" id="btnSettings">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
         </div>
-        <button class="icon-btn" id="btnSettings">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        </button>
       </div>
 
-      <!-- Popover Réglages (Design épuré) -->
       <div class="settings-pop" id="settingsPop">
         <div class="pop-header">Paramètres</div>
-        
         <div class="setting-group">
           <label>Apparence</label>
           <div class="seg-control">
@@ -45,40 +40,30 @@
             <button id="themeDark" class="seg-btn active">Sombre</button>
           </div>
         </div>
-
         <div class="divider"></div>
         <div class="setting-group">
           <label style="color:var(--accent);">💰 Simulation Paie</label>
-          <div class="input-row">
-            <span>Jour</span>
-            <input type="number" id="rateDay" value="35" step="0.1">
+          <div class="input-row"><span>Jour</span><input type="number" id="rateDay" value="35" step="0.1"></div>
+          <div class="input-row"><span>Nuit (GD)</span><input type="number" id="rateNightFull" value="82" step="0.1"></div>
+          <div class="input-row"><span>Nuit (Seule)</span><input type="number" id="rateNightSolo" value="41" step="0.1"></div>
+          <label class="toggle-row"><span>Mode Décalage (M+1)</span><input type="checkbox" id="togPayrollShift"></label>
+        </div>
+        <div class="divider"></div>
+        <div class="setting-group">
+          <label style="color:var(--accent);">🔒 Import Sécurisé</label>
+          <div class="input-row" style="flex-direction:column; gap:8px; align-items:flex-start">
+            <span style="font-size:12px">Votre Nom (Mot-clé)</span>
+            <input type="text" id="importKeyword" placeholder="Ex: CLEMENT" style="width:100%; text-transform:uppercase">
+            <span style="font-size:10px; color:var(--text-muted)">Enregistré localement. Jamais envoyé.</span>
           </div>
-          <div class="input-row">
-            <span>Nuit (GD)</span>
-            <input type="number" id="rateNightFull" value="82" step="0.1">
-          </div>
-          <div class="input-row">
-            <span>Nuit (Seule)</span>
-            <input type="number" id="rateNightSolo" value="41" step="0.1">
-          </div>
-          <label class="toggle-row">
-            <span>Mode Décalage (M+1)</span>
-            <input type="checkbox" id="togPayrollShift">
-          </label>
+          <button id="btnSaveImportConfig" class="btn-full primary" style="margin-top:8px; padding:8px; font-size:12px">Enregistrer le mot-clé</button>
         </div>
       </div>
 
       <div class="month-nav">
-        <button class="nav-btn" id="btnPrevMonth">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
-        <div class="month-display">
-          <span id="navMonth" class="m-text">Janvier</span>
-          <span id="navYear" class="y-text">2026</span>
-        </div>
-        <button class="nav-btn" id="btnNextMonth">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </button>
+        <button class="nav-btn" id="btnPrevMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <div class="month-display"><span id="navMonth" class="m-text">Janvier</span><span id="navYear" class="y-text">2026</span></div>
+        <button class="nav-btn" id="btnNextMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
       </div>
 
       <div class="quick-actions">
@@ -101,17 +86,10 @@
           <div id="h3">M/J</div><div id="h4">J/V</div><div id="h5">V/S</div><div id="h6">S/D</div>
         </div>
         <div class="grid" id="grid"></div>
-        
         <div class="stats-bar">
-          <div class="stat-item">
-            <span class="stat-val" id="statCount">0</span>
-            <span class="stat-label">Jours travaillés</span>
-          </div>
+          <div class="stat-item"><span class="stat-val" id="statCount">0</span><span class="stat-label">Jours travaillés</span></div>
           <div class="stat-divider"></div>
-          <div class="stat-item highlight">
-            <span class="stat-val" id="salaryValue">0 €</span>
-            <span class="stat-label">Est. Salaire Brut</span>
-          </div>
+          <div class="stat-item highlight"><span class="stat-val" id="salaryValue">0 €</span><span class="stat-label">Est. Salaire Brut</span></div>
         </div>
       </div>
     </div>
@@ -119,11 +97,7 @@
 
   <div class="dock-container">
     <div class="dock-glass">
-      <div class="sel-info">
-        <div class="sel-date" id="selDate">Sélectionnez une date</div>
-        <div class="sel-badge" id="selState">Libre</div>
-      </div>
-      
+      <div class="sel-info"><div class="sel-date" id="selDate">Sélectionnez une date</div><div class="sel-badge" id="selState">Libre</div></div>
       <div class="actions-grid">
         <button data-set="jour" class="act-btn jour">Jour</button>
         <button data-set="nuit" class="act-btn nuit">Nuit</button>
@@ -134,22 +108,36 @@
     </div>
   </div>
 
-  <!-- Modales -->
+  <!-- Input Fichier Caché -->
+  <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none">
+
+  <!-- Modale Import -->
+  <div class="backdrop" id="backdropImport"></div>
+  <div class="sheet" id="sheetImport">
+    <div class="grabber"></div>
+    <div class="sheet-content">
+      <h2>🔍 Résultat de l'analyse</h2>
+      <p class="sub-text" id="importSummary">Analyse en cours...</p>
+      <div id="importPreviewList" style="max-height:200px; overflow-y:auto; margin-bottom:20px; background:var(--surface); border-radius:12px; padding:10px; border:1px solid var(--border);"></div>
+      <button id="btnConfirmImport" class="btn-full primary large">✅ Confirmer l'import</button>
+      <button id="btnCancelImport" class="btn-full ghost" style="margin-top:8px">❌ Annuler</button>
+    </div>
+  </div>
+
+  <!-- Modale Note -->
   <div class="backdrop" id="backdrop"></div>
   <div class="sheet" id="sheet">
     <div class="grabber"></div>
     <div class="sheet-content">
       <h2 id="sheetTitle">Détails</h2>
       <p id="sheetSub" class="sub-text">Gérez votre service</p>
-      
       <div id="sheetNote">
-        <textarea id="noteText" placeholder="Ajouter une note (horaire, remarque...)"></textarea>
+        <textarea id="noteText" placeholder="Ajouter une note..."></textarea>
         <div class="sheet-actions">
           <button id="btnSaveNote" class="btn-full primary">Enregistrer</button>
           <button id="btnClearNote" class="btn-full ghost">Effacer</button>
         </div>
       </div>
-
       <div id="sheetOther" style="display:none">
         <select id="otherSelect" class="modern-select">
           <option value="OCP">OCP</option>
@@ -169,22 +157,11 @@
     <div class="sheet-content">
       <h2>Exporter les données</h2>
       <p class="sub-text">Générez un rapport Excel complet</p>
-      
       <div class="date-range">
-        <div class="range-input">
-          <label>Du</label>
-          <input type="date" id="exportStart">
-        </div>
-        <div class="range-input">
-          <label>Au</label>
-          <input type="date" id="exportEnd">
-        </div>
+        <div class="range-input"><label>Du</label><input type="date" id="exportStart"></div>
+        <div class="range-input"><label>Au</label><input type="date" id="exportEnd"></div>
       </div>
-      
-      <button id="btnGenerateXLSX" class="btn-full primary large">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Télécharger le fichier
-      </button>
+      <button id="btnGenerateXLSX" class="btn-full primary large">📥 Télécharger</button>
       <button id="btnCloseExport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
     </div>
   </div>
@@ -195,37 +172,22 @@
       <div class="gate-logo">MyShift</div>
       <h2>Bienvenue</h2>
       <p class="gate-sub">Gérez votre planning ferroviaire simplement.</p>
-      
       <div class="tabs">
         <button id="tabLogin" class="tab-btn active">Connexion</button>
         <button id="tabSignup" class="tab-btn">Créer un compte</button>
       </div>
-
       <div id="paneLogin">
-        <div class="input-group">
-          <label>Email</label>
-          <input type="email" id="loginEmail" placeholder="exemple@sncf.fr">
-        </div>
-        <div class="input-group">
-          <label>Mot de passe</label>
-          <input type="password" id="loginPass" placeholder="••••••••">
-        </div>
+        <div class="input-group"><label>Email</label><input type="email" id="loginEmail" placeholder="exemple@sncf.fr"></div>
+        <div class="input-group"><label>Mot de passe</label><input type="password" id="loginPass" placeholder="••••••••"></div>
         <button id="btnLogin" class="btn-full primary large">Se connecter</button>
         <button id="btnReset" class="btn-link">Mot de passe oublié ?</button>
         <div id="loginHint" class="hint-text"></div>
       </div>
-
       <div id="paneSignup" style="display:none">
-        <div class="input-group">
-          <label>Email</label>
-          <input type="email" id="signEmail" placeholder="exemple@sncf.fr">
-        </div>
-        <div class="input-group">
-          <label>Mot de passe</label>
-          <input type="password" id="signPass" placeholder="Min. 6 caractères">
-        </div>
+        <div class="input-group"><label>Email</label><input type="email" id="signEmail" placeholder="exemple@sncf.fr"></div>
+        <div class="input-group"><label>Mot de passe</label><input type="password" id="signPass" placeholder="Min. 6 caractères"></div>
         <button id="btnSignup" class="btn-full primary large">Créer mon compte</button>
-        <button id="btnBackLogin" class="btn-link">Retour à la connexion</button>
+        <button id="btnBackLogin" class="btn-link">Retour</button>
       </div>
     </div>
   </div>
