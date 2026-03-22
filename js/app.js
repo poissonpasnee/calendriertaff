@@ -10,20 +10,29 @@ let user = null;
 let entries = new Map();
 let state = { year: 2026, month: 0, selected: null };
 let prefs = { 
-  theme: 'dark', // Défaut sombre pour le nouveau design
+  theme: 'dark', 
   quickTap: false, 
   confirmLogout: true,
   rateDay: 35.0,
   rateNightFull: 82.0,
   rateNightSolo: 41.0,
   rateHour: 13.80,
-  payrollShift: false
+  payrollShift: false,
+  importKeyword: '' // Votre nom pour l'import
 };
 let cellCache = new Map();
+let pendingImport = []; // Données temporaires avant confirmation
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 const BASE_SALARY = 2093.06;
+
+// Mapping Jour Excel -> Case Calendrier (Lundi = Lu/Ma, etc.)
+// Dimanche (0) -> D/L, Lundi (1) -> L/M, etc.
+const DAY_MAP_INDEX = {
+  'DIMANCHE': 0, 'LUNDI': 1, 'MARDI': 2, 'MERCREDI': 3, 
+  'JEUDI': 4, 'VENDREDI': 5, 'SAMEDI': 6
+};
 
 // --- UTILITAIRES ---
 const $ = (id) => document.getElementById(id);
@@ -36,7 +45,6 @@ function calculateMonthSalary(year, month) {
   let totalVariable = 0;
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 0);
-  
   let current = new Date(start);
   while (current <= end) {
     const k = keyFor(current);
@@ -85,10 +93,9 @@ function applyPrefs() {
   if($('rateNightFull')) $('rateNightFull').value = prefs.rateNightFull;
   if($('rateNightSolo')) $('rateNightSolo').value = prefs.rateNightSolo;
   if($('rateHour')) $('rateHour').value = prefs.rateHour;
+  if($('importKeyword')) $('importKeyword').value = prefs.importKeyword;
   
-  // Gestion des boutons thème
-  const btnLight = $('themeLight');
-  const btnDark = $('themeDark');
+  const btnLight = $('themeLight'), btnDark = $('themeDark');
   if(btnLight) btnLight.classList.toggle('active', prefs.theme === 'light');
   if(btnDark) btnDark.classList.toggle('active', prefs.theme === 'dark');
 }
@@ -119,7 +126,7 @@ async function loadEntries() {
   const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", keyFor(start)).lte("work_date", keyFor(end));
   if(error) { console.error(error); return; }
   entries.clear();
-  data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label }));
+  data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported || false }));
 }
 
 // --- RENDU GRILLE ---
@@ -172,6 +179,12 @@ function renderGrid() {
     const entry = entries.get(k);
     if(entry?.status) {
       cell.classList.add(entry.status);
+      // Style spécial si importé
+      if(entry.imported) {
+        cell.style.borderStyle = 'dashed';
+        cell.style.borderWidth = '2px';
+        cell.style.borderColor = 'var(--accent)';
+      }
       if(entry.note) {
         const dot = document.createElement('div'); dot.className='dot'; cell.appendChild(dot);
       }
@@ -219,12 +232,9 @@ function renderTotals() {
   const counts = { jour:0, nuit:0, repos:0, conges:0, autre:0 };
   entries.forEach(e => { if(e.status) counts[e.status]++; });
   
-  const t = $('totals'); // Note: dans le nouveau design, c'est .stats-bar, mais gardons la compatibilité
-  // On met à jour les éléments spécifiques du nouveau design
   const statCount = $('statCount');
   const salaryVal = $('salaryValue');
-  
-  const totalDays = counts.jour + counts.nuit + counts.autre; // Exemple simple
+  const totalDays = counts.jour + counts.nuit + counts.autre;
   
   if(statCount) statCount.textContent = totalDays;
   if(salaryVal) {
@@ -238,21 +248,244 @@ async function saveEntry(k, patch) {
     if($('gate')) $('gate').classList.add('show'); 
     return; 
   }
-  const cur = entries.get(k) || { status:'', note:'', custom_label:'' };
+  const cur = entries.get(k) || { status:'', note:'', custom_label:'', imported:false };
   const next = { ...cur, ...patch };
   entries.set(k, next);
+  
   const cell = cellCache.get(k);
   if(cell) {
     cell.className = `day ${cell.classList.contains('out')?'out':''} ${next.status||''}`;
+    if(next.imported) {
+      cell.style.borderStyle = 'dashed';
+      cell.style.borderWidth = '2px';
+      cell.style.borderColor = 'var(--accent)';
+    }
     cell.querySelectorAll('.dot').forEach(e=>e.remove());
     if(next.note) { const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
   }
+  
   if(state.selected === k) updateSelectionUI();
   renderTotals();
   
   await supabase.from("work_calendar_entries").upsert({
-    user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label
+    user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label, imported: next.imported
   }, { onConflict: "user_id,work_date" });
+}
+
+// --- IMPORT EXCEL INTELLIGENT & SÉCURISÉ ---
+
+function triggerImport() {
+  if(!prefs.importKeyword || prefs.importKeyword.trim() === '') {
+    alert("⚠️ Veuillez d'abord configurer votre nom dans les Réglages (roue dentée) > section 'Import Sécurisé'.");
+    $('btnSettings').click();
+    return;
+  }
+  $('fileInput').click();
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      // Lecture brute pour identifier les en-têtes
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' });
+      processExcelData(jsonData);
+    } catch (err) {
+      alert("Erreur de lecture du fichier Excel. Vérifiez qu'il n'est pas protégé.");
+      console.error(err);
+    }
+    $('fileInput').value = ''; // Reset input
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processExcelData(rows) {
+  // 1. Trouver la ligne d'en-tête contenant "N° / MEMO" ou "MEMO"
+  let headerRowIndex = -1;
+  let colIndex = { code: -1, type: -1, date: -1, name: -1 };
+  
+  for(let i=0; i<Math.min(rows.length, 100); i++) {
+    const row = rows[i].map(c => String(c||'').toUpperCase().trim());
+    // Cherche la colonne MEMO
+    const memoIdx = row.findIndex(c => c.includes('MEMO') || c.includes('N°'));
+    // Cherche la colonne JOUR/NUIT
+    const typeIdx = row.findIndex(c => c.includes('JOUR') && c.includes('NUIT'));
+    
+    if(memoIdx !== -1 && typeIdx !== -1) {
+      headerRowIndex = i;
+      colIndex.code = memoIdx;
+      colIndex.type = typeIdx;
+      // La date est souvent la colonne juste avant le code ou une colonne nommée DATE
+      colIndex.date = row.findIndex(c => c.includes('DATE'));
+      if(colIndex.date === -1) colIndex.date = colIndex.code - 1;
+      
+      // Le nom est souvent en première colonne ou colonne "AGENT"
+      const nameIdx = row.findIndex(c => c.includes('AGENT') || c.includes('NOM'));
+      colIndex.name = nameIdx !== -1 ? nameIdx : 0;
+      break;
+    }
+  }
+
+  if(headerRowIndex === -1 || colIndex.code === -1 || colIndex.type === -1) {
+    alert("❌ Structure Excel non reconnue.\nAssurez-vous que les colonnes 'N° / MEMO' et 'Jour/Nuit' existent dans le fichier.");
+    return;
+  }
+
+  // 2. Construire le dictionnaire Code (ex: N28) -> Type (Nuit/Jour)
+  const codeMap = {};
+  for(let i=headerRowIndex+1; i<rows.length; i++) {
+    const row = rows[i];
+    const code = row[colIndex.code] ? String(row[colIndex.code]).trim() : '';
+    const typeVal = row[colIndex.type] ? String(row[colIndex.type]).toUpperCase().trim() : '';
+    
+    if(code && typeVal && !codeMap[code]) {
+      if(typeVal.includes('NUIT')) codeMap[code] = 'nuit';
+      else if(typeVal.includes('JOUR')) codeMap[code] = 'jour';
+      else if(typeVal.includes('REPOS')) codeMap[code] = 'repos';
+      else codeMap[code] = 'autre';
+    }
+  }
+
+  // 3. Filtrer les lignes par Votre Nom (Keyword)
+  const keyword = prefs.importKeyword.toUpperCase();
+  const foundServices = [];
+
+  for(let i=headerRowIndex+1; i<rows.length; i++) {
+    const row = rows[i];
+    // Vérifie si la ligne contient le nom (dans la colonne Nom ou toute la ligne si prudent)
+    const nameCell = row[colIndex.name] ? String(row[colIndex.name]).toUpperCase().trim() : '';
+    
+    // On matche si le nom correspond EXACTEMENT ou contient le keyword (si keyword > 3 lettres)
+    const isMatch = nameCell === keyword || (keyword.length > 3 && nameCell.includes(keyword));
+
+    if(isMatch) {
+      const dateVal = row[colIndex.date];
+      const codeVal = row[colIndex.code] ? String(row[colIndex.code]).trim() : '';
+      
+      if(dateVal && codeVal) {
+        let dateObj;
+        if(dateVal instanceof Date) {
+          dateObj = dateVal;
+        } else {
+          dateObj = new Date(dateVal);
+        }
+
+        if(!isNaN(dateObj.getTime())) {
+          const status = codeMap[codeVal] || 'autre';
+          const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase();
+          
+          foundServices.push({
+            dateKey: keyFor(dateObj),
+            dateObj: dateObj,
+            dayName: dayName,
+            code: codeVal,
+            status: status,
+            note: `Import: ${codeVal}`
+          });
+        }
+      }
+    }
+  }
+
+  if(foundServices.length === 0) {
+    alert(`Aucun service trouvé pour le nom "${keyword}".\nVérifiez l'orthographe dans les réglages ou la colonne Nom du fichier.`);
+    return;
+  }
+
+  showImportPreview(foundServices);
+}
+
+function showImportPreview(services) {
+  pendingImport = services;
+  const list = $('importPreviewList');
+  const summary = $('importSummary');
+  list.innerHTML = '';
+  
+  summary.textContent = `${services.length} services trouvés pour "${prefs.importKeyword}".`;
+  
+  services.forEach(s => {
+    const div = document.createElement('div');
+    div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px;";
+    div.innerHTML = `
+      <span><b>${s.dayName}</b> ${s.dateObj.toLocaleDateString()}</span>
+      <span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--accent); border:1px solid var(--border);">
+        ${s.status.toUpperCase()} (${s.code})
+      </span>
+    `;
+    list.appendChild(div);
+  });
+
+  $('backdropImport').classList.add('show');
+  $('sheetImport').classList.add('show');
+}
+
+function confirmImport() {
+  if(!user) {
+    alert("Veuillez vous connecter pour importer des données.");
+    $('gate').classList.add('show');
+    return;
+  }
+
+  let count = 0;
+  const batch = [];
+
+  pendingImport.forEach(item => {
+    // Mise à jour locale immédiate
+    entries.set(item.dateKey, {
+      status: item.status,
+      note: item.note,
+      custom_label: item.code,
+      imported: true
+    });
+    
+    const cell = cellCache.get(item.dateKey);
+    if(cell) {
+      cell.className = `day ${cell.classList.contains('out')?'out':''} ${item.status}`;
+      cell.style.borderStyle = 'dashed';
+      cell.style.borderWidth = '2px';
+      cell.style.borderColor = 'var(--accent)';
+    }
+    
+    batch.push({
+      user_id: user.id,
+      work_date: item.dateKey,
+      status: item.status,
+      note: item.note,
+      custom_label: item.code,
+      imported: true
+    });
+    count++;
+  });
+
+  renderTotals();
+  renderGrid(); // Rafraîchir pour afficher les pointillés
+
+  // Sauvegarde en masse (par lots de 10 pour éviter les limites)
+  const saveBatch = async (items) => {
+    for(const item of items) {
+      await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
+    }
+  };
+
+  saveBatch(batch).then(() => {
+    alert(`✅ ${count} services importés avec succès !`);
+    closeImportModal();
+  }).catch(err => {
+    console.error(err);
+    alert("Erreur lors de la sauvegarde. Vérifiez votre connexion.");
+  });
+}
+
+function closeImportModal() {
+  $('sheetImport').classList.remove('show');
+  $('backdropImport').classList.remove('show');
+  pendingImport = [];
 }
 
 // --- EXPORT EXCEL ---
@@ -277,7 +510,7 @@ function generateExcel() {
   if(parseKey(endStr) < parseKey(startStr)) return alert("Date de fin < début");
 
   const dataRows = [];
-  dataRows.push(["Date", "Jour", "Statut", "Estimation (€)"]);
+  dataRows.push(["Date", "Jour", "Statut", "Code Chantier", "Estimation (€)"]);
   
   let totalVariable = 0;
   let current = parseKey(startStr);
@@ -285,19 +518,20 @@ function generateExcel() {
     const k = keyFor(current);
     const entry = entries.get(k);
     const status = entry?.status || "";
+    const code = entry?.custom_label || "";
     let dailyVal = 0;
     if(status === 'jour') dailyVal = prefs.rateDay;
     if(status === 'nuit') dailyVal = prefs.rateNightFull;
     
     totalVariable += dailyVal;
-    dataRows.push([k, current.toLocaleDateString('fr-FR'), LABELS[status]||"", dailyVal > 0 ? dailyVal : ""]);
+    dataRows.push([k, current.toLocaleDateString('fr-FR'), LABELS[status]||"", code, dailyVal > 0 ? dailyVal : ""]);
     current.setDate(current.getDate() + 1);
   }
   
   dataRows.push([]);
-  dataRows.push(["Salaire de Base", "", "", BASE_SALARY]);
-  dataRows.push(["Total Variables", "", "", totalVariable]);
-  dataRows.push(["ESTIMATION TOTALE BRUTE", "", "", BASE_SALARY + totalVariable]);
+  dataRows.push(["Salaire de Base", "", "", "", BASE_SALARY]);
+  dataRows.push(["Total Variables", "", "", "", totalVariable]);
+  dataRows.push(["ESTIMATION TOTALE BRUTE", "", "", "", BASE_SALARY + totalVariable]);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(dataRows);
@@ -362,6 +596,13 @@ function setupEvents() {
     if($('otherCustom')) $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; 
   };
 
+  // --- IMPORT EVENTS ---
+  if($('btnImport')) $('btnImport').onclick = triggerImport;
+  if($('fileInput')) $('fileInput').onchange = handleFileSelect;
+  if($('btnConfirmImport')) $('btnConfirmImport').onclick = confirmImport;
+  if($('btnCancelImport')) $('btnCancelImport').onclick = closeImportModal;
+  if($('backdropImport')) $('backdropImport').onclick = closeImportModal;
+
   // Export
   if($('btnExportXLSX')) $('btnExportXLSX').onclick = () => { openExportModal(); };
   if($('btnCloseExport')) $('btnCloseExport').onclick = closeExportModal;
@@ -384,27 +625,34 @@ function setupEvents() {
   if($('rateNightFull')) $('rateNightFull').onchange = (e) => { prefs.rateNightFull=parseFloat(e.target.value)||0; savePrefs(); renderTotals(); };
   if($('rateNightSolo')) $('rateNightSolo').onchange = (e) => { prefs.rateNightSolo=parseFloat(e.target.value)||0; savePrefs(); renderTotals(); };
   if($('rateHour')) $('rateHour').onchange = (e) => { prefs.rateHour=parseFloat(e.target.value)||0; savePrefs(); };
+  
+  // Sauvegarde du mot-clé d'import
+  if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => {
+    const val = $('importKeyword').value.trim();
+    if(val) {
+      prefs.importKeyword = val;
+      savePrefs();
+      alert("✅ Nom enregistré localement. Vous pouvez maintenant importer vos fichiers Excel.");
+      $('settingsPop').classList.remove('show');
+    } else {
+      alert("Veuillez entrer un nom.");
+    }
+  };
 
   function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
 
-  // --- AUTHENTIFICATION (CORRIGÉ ET COMPLET) ---
-  const tabLogin = $('tabLogin');
-  const tabSignup = $('tabSignup');
-  const paneLogin = $('paneLogin');
-  const paneSignup = $('paneSignup');
+  // Authentification
+  const tabLogin = $('tabLogin'), tabSignup = $('tabSignup');
+  const paneLogin = $('paneLogin'), paneSignup = $('paneSignup');
 
   if(tabLogin && tabSignup && paneLogin && paneSignup) {
     tabLogin.onclick = () => {
-      paneLogin.style.display = 'block';
-      paneSignup.style.display = 'none';
-      tabLogin.classList.add('active');
-      tabSignup.classList.remove('active');
+      paneLogin.style.display = 'block'; paneSignup.style.display = 'none';
+      tabLogin.classList.add('active'); tabSignup.classList.remove('active');
     };
     tabSignup.onclick = () => {
-      paneLogin.style.display = 'none';
-      paneSignup.style.display = 'block';
-      tabSignup.classList.add('active');
-      tabLogin.classList.remove('active');
+      paneLogin.style.display = 'none'; paneSignup.style.display = 'block';
+      tabSignup.classList.add('active'); tabLogin.classList.remove('active');
     };
     if($('btnBackLogin')) $('btnBackLogin').onclick = tabLogin.onclick;
   }
@@ -415,33 +663,15 @@ function setupEvents() {
       const email = $('loginEmail').value;
       const pass = $('loginPass').value;
       const hint = $('loginHint');
+      if(!email || !pass) { hint.textContent = "Champs requis"; hint.style.color="#f43f5e"; return; }
+      hint.textContent = "Connexion..."; hint.style.color="var(--text-muted)";
+      btnLogin.disabled = true; btnLogin.style.opacity = "0.7";
       
-      if(!email || !pass) {
-        hint.textContent = "Veuillez remplir tous les champs.";
-        hint.style.color = "#f43f5e";
-        return;
-      }
-
-      hint.textContent = "Connexion en cours...";
-      hint.style.color = "var(--text-muted)";
-      btnLogin.disabled = true;
-      btnLogin.style.opacity = "0.7";
-
-      try {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-        if(error) { 
-          hint.textContent = "Erreur: " + error.message; 
-          hint.style.color = "#f43f5e";
-          btnLogin.disabled = false;
-          btnLogin.style.opacity = "1";
-        } else { 
-          checkAuth();
-        }
-      } catch (e) {
-        hint.textContent = "Erreur réseau.";
-        btnLogin.disabled = false;
-        btnLogin.style.opacity = "1";
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if(error) { 
+        hint.textContent = "Erreur: " + error.message; hint.style.color="#f43f5e";
+        btnLogin.disabled = false; btnLogin.style.opacity = "1";
+      } else { checkAuth(); }
     };
   }
 
@@ -453,10 +683,7 @@ function setupEvents() {
       if(pass.length < 6) return alert("6 caractères min");
       const { error } = await supabase.auth.signUp({ email, password: pass });
       if(error) alert(error.message);
-      else { 
-        alert("Compte créé ! Connectez-vous."); 
-        if(tabLogin) tabLogin.onclick(); 
-      }
+      else { alert("Compte créé ! Connectez-vous."); tabLogin.onclick(); }
     };
   }
 
@@ -464,9 +691,9 @@ function setupEvents() {
   if(btnReset) {
     btnReset.onclick = async () => {
       const email = $('loginEmail').value;
-      if(!email) return alert("Entrez votre email d'abord");
+      if(!email) return alert("Entrez email");
       await supabase.auth.resetPasswordForEmail(email);
-      alert("Email de réinitialisation envoyé");
+      alert("Email envoyé");
     };
   }
 
