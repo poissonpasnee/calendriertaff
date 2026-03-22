@@ -285,70 +285,178 @@ function handleFileSelect(e) {
 }
 
 function processSNCFData(rows) {
-  const keyword = prefs.importKeyword.toUpperCase().trim();
+  const keywordRaw = prefs.importKeyword.trim();
+  const keyword = keywordRaw.toUpperCase();
   
-  // 1. Identifier les index de colonnes (0-based)
-  // Colonne B = Index 1 (Nom)
-  // Colonne C = Index 2 (Prénom)
-  // Colonne H = Index 7 (Début du planning)
-  // Colonne AB = Index 27 (Fin du planning)
+  if (!keyword) {
+    alert("⚠️ Veuillez définir votre nom dans les réglages.");
+    return;
+  }
+
+  // 1. Identifier les index de colonnes
   const COL_NOM = 1; 
   const COL_PRENOM = 2;
   const COL_START_PLANNING = 7; // H
   const COL_END_PLANNING = 27;  // AB
 
   // 2. Construire la Légende (Code -> Type)
-  // On cherche la section "N° / MEMO" ou "LEGENDE" n'importe où dans le fichier
   codeLegend = {};
   let inLegend = false;
   
   for(let r=0; r<rows.length; r++) {
-    const rowText = rows[r].join(" ").toUpperCase();
-    if(rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE")) {
+    // Jointure plus large pour capturer les légendes éparpillées
+    const rowText = rows[r].filter(c => c).join(" ").toUpperCase();
+    
+    if(rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE") || rowText.includes("CODE")) {
       inLegend = true;
       continue;
     }
+    
+    // On arrête la légende si on tombe sur une ligne qui ressemble à un en-tête de jour
+    const daysFr = ["LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI", "DIMANCHE"];
+    if(inLegend && daysFr.some(d => rowText.includes(d))) {
+      inLegend = false; 
+      // Ne pas break, car on veut continuer pour trouver la ligne d'en-tête plus bas
+    }
+
     if(inLegend) {
-      // Si on rencontre une ligne vide ou un nouveau titre majeur, on peut arrêter (optionnel)
-      // On scanne les cellules pour trouver des codes (ex: N28) et leur type
       const cells = rows[r];
       let currentCode = "";
       for(let c=0; c<cells.length; c++) {
-        const cell = String(cells[c]).toUpperCase().trim();
+        const cell = String(cells[c] || "").toUpperCase().trim();
+        // Détection de code (ex: N28, J12, R45)
         if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(cell)) {
           currentCode = cell;
-        } else if (currentCode && (cell.includes("JOUR") || cell.includes("NUIT") || cell.includes("REPOS"))) {
+        } else if (currentCode && cell.length > 2) {
           if(cell.includes("NUIT")) codeLegend[currentCode] = "nuit";
           else if(cell.includes("JOUR")) codeLegend[currentCode] = "jour";
-          else if(cell.includes("REPOS")) codeLegend[currentCode] = "repos";
-          else codeLegend[currentCode] = "autre";
-          currentCode = ""; // Reset pour le prochain
+          else if(cell.includes("REPOS") || cell.includes("OFF")) codeLegend[currentCode] = "repos";
+          else if(cell.includes("CONG") || cell.includes("CP")) codeLegend[currentCode] = "conges";
+          currentCode = ""; 
         }
       }
     }
   }
 
-  // 3. Scanner les lignes de planning pour trouver VOTRE NOM
-  const foundServices = [];
-  const daysFr = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
-  
-  // On suppose que les en-têtes de jours (Lundi, Mardi...) sont sur la ligne juste avant le premier planning ou la ligne 0/1
-  // Pour être robuste, on va chercher la ligne qui contient "LUNDI", "MARDI" etc. dans les colonnes H à AB
+  // 3. Trouver la ligne d'en-tête (LUNDI, MARDI...)
   let headerRowIndex = -1;
-  let dateRow = []; // Stocke les dates si elles sont sur une ligne dédiée
-  
-  // Recherche de la ligne d'en-tête des jours (LUNDI, MARDI...)
-  for(let r=0; r<Math.min(rows.length, 20); r++) {
+  for(let r=0; r<Math.min(rows.length, 25); r++) {
     let matchCount = 0;
+    // On regarde spécifiquement dans la zone de planning (H à AB)
     for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
       const cell = String(rows[r][c]||"").toUpperCase().trim();
       if(daysFr.some(d => cell.includes(d))) matchCount++;
     }
-    if(matchCount >= 3) { // Si on trouve au moins 3 jours, c'est la ligne d'en-tête
+    if(matchCount >= 3) {
       headerRowIndex = r;
       break;
     }
   }
+
+  if(headerRowIndex === -1) {
+    alert("❌ Structure invalide : Impossible de trouver les jours (LUNDI, MARDI...) dans les colonnes H à AB.");
+    return;
+  }
+
+  // 4. Extraire les dates des en-têtes
+  let planningDates = [];
+  // Fonction interne pour parser une date
+  const parseDate = (cell) => {
+    if(!cell) return null;
+    const str = String(cell).trim();
+    // Format JJ/MM/AAAA ou JJ/MM
+    const dmy = str.match(/(\d{1,2})[/\-\.](\d{1,2})[/\-\.]?(\d{2,4})?/);
+    if(dmy) {
+      const day = parseInt(dmy[1]);
+      const month = parseInt(dmy[2]) - 1;
+      const year = dmy[3] ? (parseInt(dmy[3]) < 100 ? 2000 + parseInt(dmy[3]) : parseInt(dmy[3])) : new Date().getFullYear();
+      const d = new Date(year, month, day);
+      if(!isNaN(d.getTime())) return d;
+    }
+    // Format "LUNDI 12" (sans mois/année explicite, on suppose mois courant)
+    const monthsFr = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+    const monthIdx = monthsFr.findIndex(m => str.toLowerCase().includes(m));
+    const numMatch = str.match(/(\d{1,2})/);
+    if(monthIdx !== -1 && numMatch) {
+       const d = new Date(new Date().getFullYear(), monthIdx, parseInt(numMatch[1]));
+       if(!isNaN(d.getTime())) return d;
+    }
+    return null;
+  };
+
+  // Essai ligne d'en-tête
+  for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+    planningDates[c] = parseDate(rows[headerRowIndex][c]);
+  }
+  // Essai ligne suivante si échec
+  if(planningDates.every(d => !d) && rows[headerRowIndex + 1]) {
+    for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+      planningDates[c] = parseDate(rows[headerRowIndex + 1][c]);
+    }
+  }
+
+  // 5. SCANNER LES LIGNES POUR TROUVER VOTRE NOM (ROBUSTE)
+  const foundServices = [];
+  const daysFr = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
+  
+  for(let r=headerRowIndex + 1; r<rows.length; r++) {
+    const row = rows[r];
+    // Nettoyage robuste : on retire les espaces invisibles, accents, etc.
+    const nomCell = String(row[COL_NOM] || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const prenomCell = String(row[COL_PRENOM] || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    
+    // Normalisation du keyword pour la comparaison
+    const keywordClean = keyword.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+    // CRITÈRE DE MATCH ÉLARGI :
+    // 1. Correspondance exacte après nettoyage
+    // 2. Le nom dans le fichier CONTIENT le keyword (si keyword > 3 lettres)
+    // 3. Le keyword CONTIENT le nom du fichier (si nom court)
+    const isMatch = (nomCell === keywordClean) || 
+                    (keywordClean.length > 3 && nomCell.includes(keywordClean)) ||
+                    (nomCell.length > 3 && keywordClean.includes(nomCell));
+
+    if(isMatch && nomCell.length > 1) { // Éviter les matchs sur des initiales seules
+      // C'est votre ligne !
+      for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+        const codeRaw = String(row[c]||"").trim();
+        const codeUpper = codeRaw.toUpperCase();
+        
+        // Vérifie si c'est un code valide (ex: N28)
+        if(codeUpper && /^[A-Z]{1,2}[0-9]{1,3}$/.test(codeUpper)) {
+          const status = codeLegend[codeUpper] || "autre";
+          let dateObj = planningDates[c];
+          
+          // Fallback : Si pas de date dans l'en-tête, on essaie de déduire par la position (avancé)
+          // Pour l'instant, on skip si pas de date trouvée dans l'en-tête
+          
+          if(dateObj) {
+            foundServices.push({
+              dateKey: keyFor(dateObj),
+              dateObj: dateObj,
+              dayName: dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase(),
+              code: codeUpper,
+              status: status,
+              note: `Import: ${codeUpper}`
+            });
+          }
+        }
+      }
+      // Optionnel : Break si on suppose qu'il n'y a qu'une ligne par personne
+      // break; 
+    }
+  }
+
+  if(foundServices.length === 0) {
+    // Message d'erreur détaillé pour le débogage
+    console.log("Keyword recherché :", keyword);
+    console.log("Lignes scannées :", rows.length);
+    alert(`❌ Aucun service trouvé pour "${keywordRaw}".\n\nVérifiez :\n1. L'orthographe exacte dans les Réglages.\n2. Que votre nom est bien dans la colonne B.\n3. Ouvrez la Console (F12) pour voir les détails techniques.`);
+    return;
+  }
+
+  showImportPreview(foundServices);
+}
 
   if(headerRowIndex === -1) {
     alert("❌ Impossible de trouver les jours de la semaine (LUNDI, MARDI...) dans les colonnes H à AB. Vérifiez que le fichier n'est pas corrompu.");
