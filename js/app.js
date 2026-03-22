@@ -14,11 +14,6 @@ let cellCache = new Map();
 let pendingImport = [];
 let codeLegend = {};
 
-// Variables temporaires pour l'import manuel
-let tempWorkbook = null;
-let selectedNameCell = null; // {row, col}
-let selectedLegendCell = null; // {row, col}
-
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 const BASE_SALARY = 2093.06;
@@ -30,7 +25,7 @@ const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new D
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const clean = (txt) => { if (txt === null || txt === undefined) return ""; return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); };
 
-// --- MOTEUR DE PAIE & INITIALISATION (Identique) ---
+// --- MOTEUR DE PAIE & INITIALISATION ---
 function calculateMonthSalary(year, month) {
   let totalVariable = 0;
   const start = new Date(year, month, 1);
@@ -101,7 +96,7 @@ async function loadEntries() {
   data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported || false }));
 }
 
-// --- RENDU GRILLE (Identique) ---
+// --- RENDU GRILLE ---
 function renderGrid() {
   const grid = $('grid'); if(!grid) return;
   grid.innerHTML = ''; cellCache.clear();
@@ -149,7 +144,7 @@ async function saveEntry(k, patch) {
   await supabase.from("work_calendar_entries").upsert({ user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label, imported: next.imported }, { onConflict: "user_id,work_date" });
 }
 
-// --- NOUVELLE MÉTHODE D'IMPORT "SÉLECTION MANUELLE" ---
+// --- IMPORT AUTOMATIQUE ROBUSTE ---
 
 function triggerImport() {
   $('fileInput').click();
@@ -158,83 +153,46 @@ function triggerImport() {
 function handleFileSelect(e) {
   const file = e.target.files[0];
   if(!file) return;
+  
+  // Vérification préalable du nom
+  const keyword = clean($('importKeyword')?.value || "");
+  if(!keyword) {
+    alert("⚠️ Veuillez d'abord entrer votre NOM dans les Réglages (roue dentée) > Import Sécurisé.");
+    $('btnSettings').click();
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
       const data = new Uint8Array(evt.target.result);
-      tempWorkbook = XLSX.read(data, { type: 'array', cellDates: false, cellText: true });
-      if(!tempWorkbook.SheetNames.length) throw new Error("Fichier vide");
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false, cellText: true });
+      if(!workbook.SheetNames.length) throw new Error("Fichier vide");
       
-      // Ouvre la modale de sélection manuelle
-      openManualSelectModal();
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+      
+      // Lancement immédiat de l'analyse
+      runSmartScan(rawData, keyword);
     } catch (err) {
       console.error(err);
-      alert("❌ Erreur de lecture du fichier.");
+      alert("❌ Erreur de lecture du fichier Excel.");
     }
     $('fileInput').value = '';
   };
   reader.readAsArrayBuffer(file);
 }
 
-function openManualSelectModal() {
-  $('backdropImport').classList.add('show');
-  $('sheetImport').classList.add('show');
-  const content = $('sheetImport').querySelector('.sheet-content');
-  content.innerHTML = `
-    <div class="grabber"></div>
-    <h2>🎯 Sélectionnez 2 cellules</h2>
-    <p class="sub-text">Pour garantir 100% de réussite, indiquez où sont les infos.</p>
-    
-    <div style="background:var(--surface); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border);">
-      <strong>1. Votre Nom :</strong><br>
-      <span style="font-size:12px; color:var(--text-muted)">Cliquez sur une cellule contenant votre NOM dans la grille.</span><br>
-      <button id="btnPickName" class="btn-full primary" style="margin-top:8px; padding:8px; font-size:12px;">📂 Choisir dans le fichier (Simulation)</button>
-      <div id="statusName" style="margin-top:5px; font-size:12px; color:var(--accent); font-weight:bold;"></div>
-    </div>
-
-    <div style="background:var(--surface); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid var(--border);">
-      <strong>2. La Légende (Memo) :</strong><br>
-      <span style="font-size:12px; color:var(--text-muted)">Cliquez sur une cellule dans la section "MEMO" ou "LÉGENDE" en bas.</span><br>
-      <button id="btnPickLegend" class="btn-full primary" style="margin-top:8px; padding:8px; font-size:12px;">📂 Choisir dans le fichier (Simulation)</button>
-      <div id="statusLegend" style="margin-top:5px; font-size:12px; color:var(--accent); font-weight:bold;"></div>
-    </div>
-
-    <div style="font-size:11px; color:var(--text-muted); margin-bottom:15px; font-style:italic;">
-      Note : Comme nous sommes dans un navigateur web, nous ne pouvons pas cliquer directement dans le fichier Excel ouvert. 
-      <br><br>
-      <strong>Solution simplifiée :</strong> Entrez simplement les coordonnées (ex: B7 pour le nom, A50 pour la légende) ou validez si vous faites confiance au mode automatique amélioré ci-dessous.
-    </div>
-
-    <!-- Fallback automatique si l'utilisateur ne veut pas chercher les coordonnées -->
-    <button id="btnRunSmartScan" class="btn-full primary large">🚀 Lancer l'analyse intelligente</button>
-    <button id="btnCancelImport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
-  `;
-
-  $('btnCancelImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); tempWorkbook = null; };
+function runSmartScan(rawData, keyword) {
+  console.log("🔍 Démarrage analyse pour :", keyword);
   
-  $('btnRunSmartScan').onclick = () => {
-    $('sheetImport').classList.remove('show');
-    $('backdropImport').classList.remove('show');
-    runSmartScan(tempWorkbook.Sheets[tempWorkbook.SheetNames[0]]);
-  };
-}
-
-// Cette fonction est la plus robuste possible : elle scanne TOUT sans hypothèse de colonne
-function runSmartScan(sheet) {
-  // Conversion en tableau complet
-  const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
-  console.log("🔍 Analyse de", rawData.length, "lignes.");
-
-  // 1. TROUVER LA LÉGENDE (En bas, cherche les mots clés MEMO/CODE)
+  // 1. TROUVER LA LÉGENDE (En bas)
   codeLegend = {};
   let legendStartRow = -1;
-  
-  // On scanne de la fin vers le début pour trouver la section MEMO
   for(let r = rawData.length - 1; r >= 0; r--) {
     const rowText = rawData[r].join(" ").toUpperCase();
     if(rowText.includes("MEMO") || rowText.includes("LÉGENDE") || rowText.includes("N° /")) {
       legendStartRow = r;
-      // On lit les lignes suivantes pour remplir la légende
       for(let k = r + 1; k < Math.min(rawData.length, r + 30); k++) {
         let currentCode = "";
         rawData[k].forEach(cell => {
@@ -251,9 +209,9 @@ function runSmartScan(sheet) {
       break;
     }
   }
-  console.log("Légende trouvée à la ligne:", legendStartRow, "Codes détectés:", codeLegend);
+  console.log("Légende trouvée à ligne:", legendStartRow, "Codes:", codeLegend);
 
-  // 2. TROUVER L'EN-TÊTE (En haut, cherche LUNDI, MARDI...)
+  // 2. TROUVER L'EN-TÊTE (En haut)
   let headerRowIdx = -1;
   let maxDays = 0;
   let dateCols = {};
@@ -264,9 +222,12 @@ function runSmartScan(sheet) {
     if(count > maxDays) { maxDays = count; headerRowIdx = r; }
   }
 
-  if(headerRowIdx === -1) return alert("❌ Impossible de trouver les jours (LUNDI, MARDI...) en haut du fichier.");
+  if(headerRowIdx === -1) {
+    alert("❌ Impossible de trouver les jours (LUNDI, MARDI...) en haut du fichier.");
+    return;
+  }
 
-  // Extraction des dates (Ligne d'en-tête ou ligne du dessous)
+  // Extraction des dates
   const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
   let refMonth = -1, refYear = new Date().getFullYear();
   const headText = rawData[headerRowIdx].join(" ").toUpperCase();
@@ -288,16 +249,13 @@ function runSmartScan(sheet) {
     if(d) dateCols[c] = d;
   }
 
-  // 3. TROUVER LE NOM ET EXTRAIRE LES CODES (Scan global entre l'en-tête et la légende)
-  const keyword = clean($('importKeyword')?.value || "");
-  if(!keyword) return alert("⚠️ Veuillez entrer votre nom dans les réglages avant d'importer.");
-
+  // 3. TROUVER LE NOM ET EXTRAIRE LES CODES
   const foundServices = [];
   let matchFound = false;
+  const limitRow = (legendStartRow > 0) ? legendStartRow : rawData.length;
 
-  for(let r = headerRowIdx + 1; r < (legendStartRow > 0 ? legendStartRow : rawData.length); r++) {
+  for(let r = headerRowIdx + 1; r < limitRow; r++) {
     const row = rawData[r];
-    // Vérifie si le nom est quelque part dans cette ligne
     const hasName = row.some(cell => {
       const val = clean(cell);
       return val.length >= 3 && val.includes(keyword);
@@ -306,14 +264,14 @@ function runSmartScan(sheet) {
     if(hasName) {
       matchFound = true;
       console.log("✅ Ligne trouvée à r=", r);
-      // Scan toute la ligne pour les codes
       row.forEach((cellData, c) => {
         const code = clean(cellData);
         if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(code) && dateCols[c]) {
           let status = codeLegend[code];
-          if(!status) { // Fallback
+          if(!status) { 
             if(code.startsWith('N')) status = "nuit";
             else if(code.startsWith('J')) status = "jour";
+            else if(code.startsWith('R')) status = "repos";
             else status = "autre";
           }
           const d = dateCols[c];
@@ -323,12 +281,18 @@ function runSmartScan(sheet) {
           }
         }
       });
-      break; // On prend la première ligne trouvée
+      break; 
     }
   }
 
-  if(!matchFound) return alert(`❌ Le nom "${keyword}" n'a été trouvé dans aucune ligne entre l'en-tête et la légende.`);
-  if(foundServices.length === 0) return alert("⚠️ Nom trouvé, mais aucun code (N28...) détecté sur cette ligne.");
+  if(!matchFound) {
+    alert(`❌ Le nom "${keyword}" n'a été trouvé dans aucune ligne entre l'en-tête et la légende.\nVérifiez l'orthographe dans les Réglages.`);
+    return;
+  }
+  if(foundServices.length === 0) {
+    alert("⚠️ Nom trouvé, mais aucun code (N28, J12...) détecté sur cette ligne.");
+    return;
+  }
 
   showImportPreview(foundServices);
 }
@@ -337,32 +301,43 @@ function showImportPreview(services) {
   pendingImport = services;
   const list = $('importPreviewList');
   const summary = $('importSummary');
-  if(!list || !summary) return; // Si on est en mode manuel sans DOM mis à jour
+  
+  if(!list || !summary) {
+    alert("Erreur d'affichage de la modale. Rechargez la page.");
+    return;
+  }
+
   list.innerHTML = '';
-  summary.textContent = `${services.length} services trouvés.`;
+  summary.textContent = `${services.length} services trouvés !`;
+  
   services.forEach(s => {
     const div = document.createElement('div');
     div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px;";
     div.innerHTML = `<span><b>${s.dayName}</b> ${s.dateObj.toLocaleDateString()}</span><span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--accent); border:1px solid var(--border);">${s.status.toUpperCase()} (${s.code})</span>`;
     list.appendChild(div);
   });
+
+  // Afficher la modale
   $('backdropImport').classList.add('show');
   $('sheetImport').classList.add('show');
-  // Remettre les boutons de confirmation si nécessaire ou les gérer via la modale existante
-  // Pour simplifier, on réutilise la modale existante mais on s'assure que les boutons sont là
-  if(!$('btnConfirmImport')) {
-     // Recréer les boutons si ils ont été effacés par openManualSelectModal
-     // (Dans une vraie prod, on gérerait mieux l'état de la modale)
-     alert("Import prêt ! (Note: Interface de confirmation à réintégrer selon votre HTML de base)");
-     confirmImport(); 
-  } else {
-     $('btnConfirmImport').onclick = confirmImport;
-     $('btnCancelImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
+  
+  // S'assurer que les boutons fonctionnent
+  const btnConfirm = $('btnConfirmImport');
+  const btnCancel = $('btnCancelImport');
+  
+  if(btnConfirm) {
+    btnConfirm.onclick = confirmImport;
+  }
+  if(btnCancel) {
+    btnCancel.onclick = () => { 
+      $('sheetImport').classList.remove('show'); 
+      $('backdropImport').classList.remove('show'); 
+    };
   }
 }
 
 function confirmImport() {
-  if(!user) { alert("Connectez-vous."); $('gate').classList.add('show'); return; }
+  if(!user) { alert("Connectez-vous pour importer."); $('gate').classList.add('show'); return; }
   let count = 0;
   const batch = [];
   pendingImport.forEach(item => {
@@ -378,16 +353,18 @@ function confirmImport() {
   renderTotals(); renderGrid();
   (async () => {
     for(const item of batch) await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
-    alert(`✅ ${count} services importés !`);
-    $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show');
+    alert(`✅ ${count} services importés avec succès !`);
+    $('sheetImport').classList.remove('show'); 
+    $('backdropImport').classList.remove('show');
   })();
 }
 
-// --- EVENTS (Identique) ---
+// --- EVENTS ---
 function setupEvents() {
   if($('btnPrevMonth')) $('btnPrevMonth').onclick = () => { state.month--; if(state.month<0){state.month=11;state.year--;} localStorage.setItem('state_v2', JSON.stringify(state)); loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); };
   if($('btnNextMonth')) $('btnNextMonth').onclick = () => { state.month++; if(state.month>11){state.month=0;state.year++;} localStorage.setItem('state_v2', JSON.stringify(state)); loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); };
   if($('btnToday')) $('btnToday').onclick = () => { const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n); localStorage.setItem('state_v2', JSON.stringify(state)); loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); };
+  
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.onclick = () => {
       if(!state.selected) return;
@@ -395,17 +372,20 @@ function setupEvents() {
       else saveEntry(state.selected, { status: btn.dataset.set, custom_label: '' });
     };
   });
+  
   const closeSheet = () => { $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
   if($('btnSaveNote')) $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); closeSheet(); };
   if($('btnClearNote')) $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); closeSheet(); };
   if($('btnApplyOther')) $('btnApplyOther').onclick = () => { const val = $('otherSelect').value; const custom = $('otherCustom').value; saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val }); closeSheet(); };
   if($('otherSelect')) $('otherSelect').onchange = (e) => { if($('otherCustom')) $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
 
+  // Import
   if($('btnImport')) $('btnImport').onclick = triggerImport;
   if($('fileInput')) $('fileInput').onchange = handleFileSelect;
-  // Les boutons Confirm/Cancel sont gérés dynamiquement dans la modale
+  if($('btnCancelImport')) $('btnCancelImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
   if($('backdropImport')) $('backdropImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
 
+  // Export
   if($('btnExportXLSX')) $('btnExportXLSX').onclick = () => { const firstDay = new Date(state.year, state.month, 1); const lastDay = new Date(state.year, state.month + 1, 0); if($('exportStart')) $('exportStart').value = keyFor(firstDay); if($('exportEnd')) $('exportEnd').value = keyFor(lastDay); $('backdropExport').classList.add('show'); $('sheetExport').classList.add('show'); };
   if($('btnCloseExport')) $('btnCloseExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
   if($('backdropExport')) $('backdropExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
@@ -426,6 +406,7 @@ function setupEvents() {
     $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show');
   };
 
+  // Settings
   if($('btnSettings')) $('btnSettings').onclick = (e) => { e.stopPropagation(); if($('settingsPop')) $('settingsPop').classList.toggle('show'); };
   document.onclick = () => { if($('settingsPop')) $('settingsPop').classList.remove('show'); };
   if($('settingsPop')) $('settingsPop').onclick = (e) => e.stopPropagation();
@@ -434,8 +415,9 @@ function setupEvents() {
   if($('rateDay')) $('rateDay').onchange = (e) => { prefs.rateDay=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
   if($('rateNightFull')) $('rateNightFull').onchange = (e) => { prefs.rateNightFull=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
   if($('rateNightSolo')) $('rateNightSolo').onchange = (e) => { prefs.rateNightSolo=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
-  if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => { const val = $('importKeyword').value.trim(); if(val) { prefs.importKeyword = val; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); alert("✅ Nom enregistré."); $('settingsPop').classList.remove('show'); } else alert("Entrez un nom."); };
+  if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => { const val = $('importKeyword').value.trim(); if(val) { prefs.importKeyword = val; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); alert("✅ Nom enregistré localement."); $('settingsPop').classList.remove('show'); } else alert("Entrez un nom."); };
 
+  // Auth
   const tabLogin = $('tabLogin'), tabSignup = $('tabSignup'), paneLogin = $('paneLogin'), paneSignup = $('paneSignup');
   if(tabLogin && tabSignup) {
     const switchToLogin = () => { paneLogin.style.display='block'; paneSignup.style.display='none'; tabLogin.classList.add('active'); tabSignup.classList.remove('active'); };
