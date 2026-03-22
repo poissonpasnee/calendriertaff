@@ -18,7 +18,7 @@ let prefs = {
   rateNightSolo: 41.0,
   rateHour: 13.80,
   payrollShift: false,
-  importKeyword: '' // Votre nom pour l'import
+  importKeyword: '' // Votre nom pour l'import (stocké localement)
 };
 let cellCache = new Map();
 let pendingImport = []; // Données temporaires avant confirmation
@@ -26,13 +26,6 @@ let pendingImport = []; // Données temporaires avant confirmation
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
 const BASE_SALARY = 2093.06;
-
-// Mapping Jour Excel -> Case Calendrier (Lundi = Lu/Ma, etc.)
-// Dimanche (0) -> D/L, Lundi (1) -> L/M, etc.
-const DAY_MAP_INDEX = {
-  'DIMANCHE': 0, 'LUNDI': 1, 'MARDI': 2, 'MERCREDI': 3, 
-  'JEUDI': 4, 'VENDREDI': 5, 'SAMEDI': 6
-};
 
 // --- UTILITAIRES ---
 const $ = (id) => document.getElementById(id);
@@ -126,7 +119,12 @@ async function loadEntries() {
   const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", keyFor(start)).lte("work_date", keyFor(end));
   if(error) { console.error(error); return; }
   entries.clear();
-  data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported || false }));
+  data.forEach(r => entries.set(r.work_date, { 
+    status: r.status, 
+    note: r.note, 
+    custom_label: r.custom_label, 
+    imported: r.imported || false 
+  }));
 }
 
 // --- RENDU GRILLE ---
@@ -179,7 +177,7 @@ function renderGrid() {
     const entry = entries.get(k);
     if(entry?.status) {
       cell.classList.add(entry.status);
-      // Style spécial si importé
+      // Style spécial si importé (pointillés)
       if(entry.imported) {
         cell.style.borderStyle = 'dashed';
         cell.style.borderWidth = '2px';
@@ -276,7 +274,7 @@ async function saveEntry(k, patch) {
 
 function triggerImport() {
   if(!prefs.importKeyword || prefs.importKeyword.trim() === '') {
-    alert("⚠️ Veuillez d'abord configurer votre nom dans les Réglages (roue dentée) > section 'Import Sécurisé'.");
+    alert("⚠️ Veuillez d'abord configurer votre nom dans les Réglages (roue dentée) > section 'Import Sécurisé'.\nC'est indispensable pour vous identifier dans le fichier.");
     $('btnSettings').click();
     return;
   }
@@ -287,64 +285,109 @@ function handleFileSelect(e) {
   const file = e.target.files[0];
   if(!file) return;
 
+  // Vérification extension
+  const fileName = file.name.toLowerCase();
+  if(!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+    alert("⚠️ Ce fichier ne semble pas être un Excel valide (.xlsx).\n\nSolution : Ouvrez le fichier dans Excel, faites 'Enregistrer sous' et choisissez 'Classeur Excel (.xlsx)' standard.");
+    return;
+  }
+
   const reader = new FileReader();
+  
+  reader.onerror = (err) => {
+    console.error("Erreur lecture fichier:", err);
+    alert("❌ Impossible de lire le fichier. Assurez-vous qu'il n'est pas ouvert dans Excel en même temps.");
+  };
+
   reader.onload = (evt) => {
     try {
       const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      
+      // Options de lecture robustes
+      const workbook = XLSX.read(data, { 
+        type: 'array', 
+        cellDates: true, // Force la lecture des dates
+        cellNF: true,    // Garde le formatage nombre
+        cellText: true,  // Garde le texte brut (important pour "N28")
+        sheetStubs: true // Lit même les cellules vides
+      });
+
+      if(!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new Error("Aucune feuille de calcul trouvée.");
+      }
+
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      // Lecture brute pour identifier les en-têtes
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' });
+      
+      // Conversion en JSON brut (tableau de tableaux)
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+        header: 1, 
+        raw: false, // Utilise le texte affiché
+        dateNF: 'dd/mm/yyyy', 
+        defval: "" // Remplace les vides par chaîne vide
+      });
+
+      if(jsonData.length === 0) {
+        throw new Error("Le fichier semble vide.");
+      }
+
       processExcelData(jsonData);
+      
     } catch (err) {
-      alert("Erreur de lecture du fichier Excel. Vérifiez qu'il n'est pas protégé.");
-      console.error(err);
+      console.error("Erreur détaillée:", err);
+      alert("❌ Erreur de lecture : " + err.message + "\n\n💡 Solution la plus fréquente :\n1. Ouvrez le fichier dans Excel.\n2. Faites 'Enregistrer sous'.\n3. Choisissez 'Classeur Excel (.xlsx)' (format standard).\n4. Réimportez ce nouveau fichier.");
     }
-    $('fileInput').value = ''; // Reset input
+    $('fileInput').value = ''; 
   };
+  
   reader.readAsArrayBuffer(file);
 }
 
 function processExcelData(rows) {
-  // 1. Trouver la ligne d'en-tête contenant "N° / MEMO" ou "MEMO"
+  // 1. Trouver la ligne d'en-tête contenant "N° / MEMO" ou "MEMO" et "JOUR/NUIT"
   let headerRowIndex = -1;
   let colIndex = { code: -1, type: -1, date: -1, name: -1 };
   
+  // On scanne les 50 premières lignes pour trouver les en-têtes
   for(let i=0; i<Math.min(rows.length, 100); i++) {
     const row = rows[i].map(c => String(c||'').toUpperCase().trim());
-    // Cherche la colonne MEMO
+    
     const memoIdx = row.findIndex(c => c.includes('MEMO') || c.includes('N°'));
-    // Cherche la colonne JOUR/NUIT
     const typeIdx = row.findIndex(c => c.includes('JOUR') && c.includes('NUIT'));
     
     if(memoIdx !== -1 && typeIdx !== -1) {
       headerRowIndex = i;
       colIndex.code = memoIdx;
       colIndex.type = typeIdx;
+      
       // La date est souvent la colonne juste avant le code ou une colonne nommée DATE
       colIndex.date = row.findIndex(c => c.includes('DATE'));
       if(colIndex.date === -1) colIndex.date = colIndex.code - 1;
       
       // Le nom est souvent en première colonne ou colonne "AGENT"
-      const nameIdx = row.findIndex(c => c.includes('AGENT') || c.includes('NOM'));
+      const nameIdx = row.findIndex(c => c.includes('AGENT') || c.includes('NOM') || c.includes('MATRICULE'));
       colIndex.name = nameIdx !== -1 ? nameIdx : 0;
       break;
     }
   }
 
   if(headerRowIndex === -1 || colIndex.code === -1 || colIndex.type === -1) {
-    alert("❌ Structure Excel non reconnue.\nAssurez-vous que les colonnes 'N° / MEMO' et 'Jour/Nuit' existent dans le fichier.");
+    alert("❌ Structure Excel non reconnue.\n\nAssurez-vous que le fichier contient bien les colonnes :\n- 'N° / MEMO' (ou 'MEMO')\n- 'Jour/Nuit'");
     return;
   }
 
   // 2. Construire le dictionnaire Code (ex: N28) -> Type (Nuit/Jour)
+  // On lit toute la section "Mémo" pour créer la correspondance
   const codeMap = {};
   for(let i=headerRowIndex+1; i<rows.length; i++) {
     const row = rows[i];
-    const code = row[colIndex.code] ? String(row[colIndex.code]).trim() : '';
+    // Si la ligne est vide ou ne contient pas de code, on skip
+    if(!row[colIndex.code]) continue;
+
+    const code = String(row[colIndex.code]).trim();
     const typeVal = row[colIndex.type] ? String(row[colIndex.type]).toUpperCase().trim() : '';
     
-    if(code && typeVal && !codeMap[code]) {
+    // On évite d'écraser si déjà vu, sauf si vide
+    if(code && !codeMap[code]) {
       if(typeVal.includes('NUIT')) codeMap[code] = 'nuit';
       else if(typeVal.includes('JOUR')) codeMap[code] = 'jour';
       else if(typeVal.includes('REPOS')) codeMap[code] = 'repos';
@@ -358,7 +401,7 @@ function processExcelData(rows) {
 
   for(let i=headerRowIndex+1; i<rows.length; i++) {
     const row = rows[i];
-    // Vérifie si la ligne contient le nom (dans la colonne Nom ou toute la ligne si prudent)
+    // Vérifie si la ligne contient le nom dans la colonne identifiée
     const nameCell = row[colIndex.name] ? String(row[colIndex.name]).toUpperCase().trim() : '';
     
     // On matche si le nom correspond EXACTEMENT ou contient le keyword (si keyword > 3 lettres)
@@ -374,6 +417,11 @@ function processExcelData(rows) {
           dateObj = dateVal;
         } else {
           dateObj = new Date(dateVal);
+          // Si la date n'est pas valide (NaN), on essaie de parser manuellement si c'est un string "Lundi 12..."
+          if(isNaN(dateObj.getTime())) {
+             // Cas rare où Excel lit mal la date, on skip pour l'instant
+             continue; 
+          }
         }
 
         if(!isNaN(dateObj.getTime())) {
@@ -394,7 +442,7 @@ function processExcelData(rows) {
   }
 
   if(foundServices.length === 0) {
-    alert(`Aucun service trouvé pour le nom "${keyword}".\nVérifiez l'orthographe dans les réglages ou la colonne Nom du fichier.`);
+    alert(`Aucun service trouvé pour le nom "${keyword}".\n\nVérifiez :\n1. L'orthographe dans les Réglages > Import.\n2. Que votre nom apparaît bien dans la colonne identifiée du fichier.`);
     return;
   }
 
@@ -466,7 +514,7 @@ function confirmImport() {
   renderTotals();
   renderGrid(); // Rafraîchir pour afficher les pointillés
 
-  // Sauvegarde en masse (par lots de 10 pour éviter les limites)
+  // Sauvegarde en masse (par lots séquentiels pour éviter les limites)
   const saveBatch = async (items) => {
     for(const item of items) {
       await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
@@ -474,11 +522,11 @@ function confirmImport() {
   };
 
   saveBatch(batch).then(() => {
-    alert(`✅ ${count} services importés avec succès !`);
+    alert(`✅ ${count} services importés avec succès !\nLes cases importées sont entourées en pointillés.`);
     closeImportModal();
   }).catch(err => {
     console.error(err);
-    alert("Erreur lors de la sauvegarde. Vérifiez votre connexion.");
+    alert("Erreur lors de la sauvegarde. Vérifiez votre connexion Internet.");
   });
 }
 
@@ -632,10 +680,10 @@ function setupEvents() {
     if(val) {
       prefs.importKeyword = val;
       savePrefs();
-      alert("✅ Nom enregistré localement. Vous pouvez maintenant importer vos fichiers Excel.");
+      alert("✅ Nom enregistré localement. Vous pouvez maintenant importer vos fichiers Excel en toute confidentialité.");
       $('settingsPop').classList.remove('show');
     } else {
-      alert("Veuillez entrer un nom.");
+      alert("Veuillez entrer un nom ou un identifiant.");
     }
   };
 
@@ -693,7 +741,7 @@ function setupEvents() {
       const email = $('loginEmail').value;
       if(!email) return alert("Entrez email");
       await supabase.auth.resetPasswordForEmail(email);
-      alert("Email envoyé");
+      alert("Email de réinitialisation envoyé");
     };
   }
 
