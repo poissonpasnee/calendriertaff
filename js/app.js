@@ -21,13 +21,12 @@ const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-
-// Nettoie tout sauf lettres et chiffres
 const clean = (txt) => { 
   if (txt === null || txt === undefined) return ""; 
   return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "").trim();
 };
 
+// --- MOTEUR DE PAIE & AUTH ---
 function calculateMonthSalary(year, month) {
   let totalVariable = 0;
   const start = new Date(year, month, 1);
@@ -46,11 +45,13 @@ function calculateMonthSalary(year, month) {
 }
 
 async function init() { loadLocalData(); applyPrefs(); renderGrid(); updateSelectionUI(); renderTotals(); await checkAuth(); setupEvents(); }
+
 function loadLocalData() {
   const p = localStorage.getItem('prefs_v2'); if(p) prefs = {...prefs, ...JSON.parse(p)};
   const s = localStorage.getItem('state_v2'); if(s) state = {...state, ...JSON.parse(s)};
   else { const now = new Date(); state.year = now.getFullYear(); state.month = now.getMonth(); state.selected = keyFor(now); }
 }
+
 function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
   if($('rateDay')) $('rateDay').value = prefs.rateDay;
@@ -60,23 +61,33 @@ function applyPrefs() {
   if(btnLight) btnLight.classList.toggle('active', prefs.theme === 'light');
   if(btnDark) btnDark.classList.toggle('active', prefs.theme === 'dark');
 }
+
 async function checkAuth() {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data?.session) {
-    user = null; if($('topSub')) $('topSub').textContent = "Invité"; if($('gate')) $('gate').classList.add('show'); return;
+    user = null;
+    if($('topSub')) $('topSub').textContent = "Invité";
+    if($('gate')) $('gate').classList.add('show');
+    return;
   }
-  user = data.session.user; if($('topSub')) $('topSub').textContent = user.email.split('@')[0]; if($('gate')) $('gate').classList.remove('show');
-  await loadEntries(); renderGrid(); renderTotals(); updateSelectionUI();
+  user = data.session.user;
+  if($('topSub')) $('topSub').textContent = user.email.split('@')[0];
+  if($('gate')) $('gate').classList.remove('show');
+  await loadEntries();
+  renderGrid(); renderTotals(); updateSelectionUI();
 }
+
 async function loadEntries() {
   if(!user) return;
   const start = new Date(state.year, state.month - 1, 1);
   const end = new Date(state.year, state.month + 2, 0);
   const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", keyFor(start)).lte("work_date", keyFor(end));
-  if(error) { console.error(error); return; }
+  if(error) { console.error("Erreur chargement:", error); return; }
   entries.clear();
   data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported || false }));
 }
+
+// --- RENDU GRILLE ---
 function renderGrid() {
   const grid = $('grid'); if(!grid) return; grid.innerHTML = ''; cellCache.clear();
   let displayYear = state.year, displayMonth = state.month;
@@ -107,10 +118,21 @@ function getWeekNum(d) { const date = new Date(d); date.setHours(0,0,0,0); date.
 function handleCellClick(k) { state.selected = k; localStorage.setItem('state_v2', JSON.stringify(state)); const entry = entries.get(k); if(prefs.quickTap && !entry?.status) { saveEntry(k, { status: 'jour' }); renderGrid(); updateSelectionUI(); return; } renderGrid(); updateSelectionUI(); }
 function updateSelectionUI() { const d = parseKey(state.selected); const entry = entries.get(state.selected); if($('selDate')) $('selDate').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`; if($('selState')) $('selState').textContent = entry?.status ? LABELS[entry.status] : "Libre"; if($('sheetTitle')) $('sheetTitle').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; if($('noteText')) $('noteText').value = entry?.note || ''; }
 function renderTotals() { const counts = { jour:0, nuit:0, repos:0, conges:0, autre:0 }; entries.forEach(e => { if(e.status) counts[e.status]++; }); if($('statCount')) $('statCount').textContent = counts.jour + counts.nuit + counts.autre; if($('salaryValue')) { const salary = calculateMonthSalary(state.year, state.month); $('salaryValue').textContent = salary.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €'; } }
+
+// --- SAUVEGARDE SÉCURISÉE (CORRECTION ERREUR 400) ---
 async function saveEntry(k, patch) {
-  if(!user) { if($('gate')) $('gate').classList.add('show'); return; }
+  // 1. Vérification CRITIQUE : Si pas d'utilisateur, on arrête tout.
+  if(!user) { 
+    console.error("Tentative de sauvegarde sans utilisateur connecté.");
+    $('gate').classList.add('show'); 
+    return; 
+  }
+
   const cur = entries.get(k) || { status:'', note:'', custom_label:'', imported:false };
-  const next = { ...cur, ...patch }; entries.set(k, next);
+  const next = { ...cur, ...patch };
+  
+  // Mise à jour locale immédiate (optimiste)
+  entries.set(k, next);
   const cell = cellCache.get(k);
   if(cell) {
     cell.className = `day ${cell.classList.contains('out')?'out':''} ${next.status||''}`;
@@ -118,16 +140,40 @@ async function saveEntry(k, patch) {
     const existingDot = cell.querySelector('.dot'); if(existingDot) existingDot.remove();
     if(next.note) { const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
   }
-  if(state.selected === k) updateSelectionUI(); renderTotals();
-  await supabase.from("work_calendar_entries").upsert({ user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label, imported: next.imported }, { onConflict: "user_id,work_date" });
+  if(state.selected === k) updateSelectionUI();
+  renderTotals();
+
+  // 2. Envoi à Supabase
+  try {
+    const { error } = await supabase.from("work_calendar_entries").upsert({
+      user_id: user.id, // On force l'ID de l'utilisateur connecté
+      work_date: k,
+      status: next.status,
+      note: next.note,
+      custom_label: next.custom_label,
+      imported: next.imported
+    }, { onConflict: "user_id,work_date" });
+
+    if(error) {
+      console.error("Erreur Supabase:", error);
+      alert("Erreur de synchronisation : " + error.message);
+      // En cas d'erreur, on recharge les données pour rétablir l'état précédent
+      await loadEntries();
+      renderGrid();
+    }
+  } catch (e) {
+    console.error("Erreur réseau:", e);
+  }
 }
 
+// --- IMPORT EXCEL "RADICAL" ---
 function triggerImport() { $('fileInput').click(); }
 
 function handleFileSelect(e) {
   const file = e.target.files[0]; if(!file) return;
   const keyword = clean($('importKeyword')?.value || "");
   if(!keyword) { alert("⚠️ Entrez votre NOM dans les Réglages > Import Sécurisé."); $('btnSettings').click(); return; }
+  
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
@@ -136,25 +182,23 @@ function handleFileSelect(e) {
       if(!workbook.SheetNames.length) throw new Error("Fichier vide");
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
-      runSmartScan(rawData, keyword);
+      runRadicalScan(rawData, keyword);
     } catch (err) { console.error(err); alert("❌ Erreur de lecture."); }
     $('fileInput').value = '';
   };
   reader.readAsArrayBuffer(file);
 }
 
-function runSmartScan(rawData, keyword) {
-  console.log("🔍 Analyse pour :", keyword);
-  
-  // 1. LÉGENDE (Bas du fichier)
+function runRadicalScan(rawData, keyword) {
+  console.log("🔍 Scan radical pour :", keyword);
   codeLegend = {};
+  
+  // 1. LÉGENDE (Bas)
   let legendStartRow = -1;
-  // On scanne large pour trouver la légende
   for(let r = rawData.length - 1; r >= 0; r--) {
     const rowText = rawData[r].join(" ").toUpperCase();
     if(rowText.includes("MEMO") || rowText.includes("LÉGENDE") || rowText.includes("N° /")) {
       legendStartRow = r;
-      // On lit les 50 lignes suivantes pour la légende
       for(let k = r + 1; k < Math.min(rawData.length, r + 50); k++) {
         let currentCode = "";
         rawData[k].forEach(cell => {
@@ -171,22 +215,19 @@ function runSmartScan(rawData, keyword) {
       break;
     }
   }
-  console.log("Légende :", codeLegend);
 
-  // 2. EN-TÊTE (Haut)
+  // 2. EN-TÊTE & DATES
   let headerRowIdx = -1;
   let maxDays = 0;
-  let dateColumns = {}; // Map: indexCol -> DateObj
+  let dateMap = {}; // Map: IndexCol -> DateObj
   
   for(let r=0; r<Math.min(rawData.length, 40); r++) {
     let count = 0;
     rawData[r].forEach(c => { if(DAYS_FR.some(d => clean(c).includes(d))) count++; });
     if(count > maxDays) { maxDays = count; headerRowIdx = r; }
   }
-
   if(headerRowIdx === -1) return alert("❌ Jours introuvables.");
 
-  // Extraction des dates et repérage des colonnes de codes
   const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
   let refMonth = -1, refYear = new Date().getFullYear();
   const headText = rawData[headerRowIdx].join(" ").toUpperCase();
@@ -202,20 +243,21 @@ function runSmartScan(rawData, keyword) {
     return null;
   };
 
-  // On identifie les colonnes qui ont une date
+  // Remplir dateMap
   for(let c=0; c<rawData[headerRowIdx].length; c++) {
     let d = parseDate(rawData[headerRowIdx][c]);
     if(!d && rawData[headerRowIdx+1]) d = parseDate(rawData[headerRowIdx+1][c]);
-    if(d) dateColumns[c] = d;
+    if(d) dateMap[c] = d;
   }
 
-  // 3. SCAN DE LA LIGNE DE L'UTILISATEUR
-  const limitRow = (legendStartRow > 0) ? legendStartRow : rawData.length;
+  // 3. RECHERCHE DU NOM ET EXTRACTION "RADICALE"
   const foundServices = [];
   let matchFound = false;
+  const limitRow = (legendStartRow > 0) ? legendStartRow : rawData.length;
 
   for(let r = headerRowIdx + 1; r < limitRow; r++) {
     const row = rawData[r];
+    // Vérif nom
     const hasName = row.some(cell => {
       const val = clean(cell);
       return val.length >= 3 && val.includes(keyword);
@@ -223,42 +265,31 @@ function runSmartScan(rawData, keyword) {
 
     if(hasName) {
       matchFound = true;
-      console.log("✅ Ligne trouvée à r=", r);
+      console.log("✅ Ligne trouvée (r=" + r + "). Analyse des cellules...");
       
-      // On scanne TOUTE la ligne, pas juste les colonnes de dates
-      // Mais on essaie d'associer le code à la date la plus proche à gauche
-      let lastDateCol = -1;
-      let lastDateObj = null;
-
-      // Première passe : repérer les dates et les codes
+      // On scanne TOUTE la ligne
       for(let c=0; c<row.length; c++) {
-        const val = clean(row[c]);
+        const rawCell = row[c];
+        const val = clean(rawCell);
         
-        // Si c'est une colonne de date connue
-        if(dateColumns[c]) {
-          lastDateCol = c;
-          lastDateObj = dateColumns[c];
-        }
-        
-        // Si c'est un code potentiel (Lettre + Chiffre)
+        // CRITÈRE RADICAL : 2 à 5 caractères, contient lettre ET chiffre
         const hasLetter = /[A-Z]/.test(val);
         const hasNumber = /[0-9]/.test(val);
-        const isShort = val.length <= 6 && val.length >= 2;
+        const isShort = val.length >= 2 && val.length <= 5;
         
         if(hasLetter && hasNumber && isShort) {
-          // C'est un code ! On l'associe à la dernière date trouvée à gauche
-          // Ou si on est dans une colonne juste après une date (cas classique SNCF)
-          let associatedDate = lastDateObj;
+          // C'est un code potentiel (ex: N28, J12, R3)
+          // On cherche la date associée (colonne de date la plus proche à gauche)
+          let associatedDate = null;
           
-          // Cas spécifique : Si la colonne actuelle est juste après une colonne de date (c-1)
-          if(!associatedDate && c > 0 && dateColumns[c-1]) {
-            associatedDate = dateColumns[c-1];
+          // Cherche en arrière jusqu'à trouver une colonne de date
+          for(let back=c; back>=0; back--) {
+            if(dateMap[back]) {
+              associatedDate = dateMap[back];
+              break;
+            }
           }
-          // Cas : Si la colonne actuelle est à +2 d'une date (c-2)
-          if(!associatedDate && c > 1 && dateColumns[c-2]) {
-            associatedDate = dateColumns[c-2];
-          }
-
+          
           if(associatedDate) {
             let status = codeLegend[val];
             if(!status) {
@@ -270,6 +301,7 @@ function runSmartScan(rawData, keyword) {
             }
             
             const k = keyFor(associatedDate);
+            // Éviter doublons
             if(!foundServices.find(s => s.dateKey === k)) {
               foundServices.push({ 
                 dateKey: k, dateObj: associatedDate, 
@@ -280,14 +312,12 @@ function runSmartScan(rawData, keyword) {
           }
         }
       }
-      break;
+      break; // Stop après la première ligne trouvée
     }
   }
 
   if(!matchFound) return alert(`❌ Nom "${keyword}" introuvable.`);
-  if(foundServices.length === 0) {
-    return alert("⚠️ Nom trouvé mais AUCUN code (N28, J12...) détecté sur la ligne.\nVérifiez que votre planning contient bien des codes alphanumériques.");
-  }
+  if(foundServices.length === 0) return alert("⚠️ Nom trouvé mais AUCUN code (type N28) détecté sur la ligne.");
 
   showImportPreview(foundServices);
 }
@@ -328,12 +358,16 @@ function confirmImport() {
   });
   renderTotals(); renderGrid();
   (async () => {
-    for(const item of batch) await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
+    for(const item of batch) {
+      const { error } = await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
+      if(error) console.error("Erreur batch:", error);
+    }
     alert(`✅ ${count} services importés !`);
     $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show');
   })();
 }
 
+// --- EVENTS ---
 function setupEvents() {
   if($('btnPrevMonth')) $('btnPrevMonth').onclick = () => { state.month--; if(state.month<0){state.month=11;state.year--;} localStorage.setItem('state_v2', JSON.stringify(state)); loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); };
   if($('btnNextMonth')) $('btnNextMonth').onclick = () => { state.month++; if(state.month>11){state.month=0;state.year++;} localStorage.setItem('state_v2', JSON.stringify(state)); loadEntries().then(() => { renderGrid(); updateSelectionUI(); renderTotals(); }); };
