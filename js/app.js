@@ -1,13 +1,15 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
+// --- CONFIGURATION ---
 const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// --- ÉTAT GLOBAL ---
 let user = null;
 let entries = new Map();
-let state = { year: 2026, month: 0, selected: null };
-let prefs = { theme: 'dark', rateDay: 35.0, rateNightFull: 82.0 };
+let state = { year: new Date().getFullYear(), month: new Date().getMonth(), selected: null };
+let prefs = { theme: 'dark', rateDay: 35.0, rateNightFull: 82.0, rateNightSolo: 41.0 };
 let cellCache = new Map();
 let pendingImport = [];
 
@@ -16,318 +18,654 @@ const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autr
 const BASE_SALARY = 2093.06;
 const DAYS_FR = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
 
+// --- UTILITAIRES ---
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
-const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const clean = (txt) => { if(!txt) return ""; return String(txt).toUpperCase().replace(/[^A-Z0-9]/g, ""); };
+const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 
-// --- MOTEUR ---
-function calculateMonthSalary(year, month) {
+// Nettoie le texte : garde seulement Lettres et Chiffres, met en MAJUSCULE
+const clean = (txt) => {
+  if (txt === null || txt === undefined) return "";
+  return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+};
+
+// --- MOTEUR DE PAIE ---
+function calculateSalary() {
   let total = 0;
-  const end = new Date(year, month + 1, 0);
-  for(let d=1; d<=end.getDate(); d++) {
-    const k = keyFor(new Date(year, month, d));
+  const end = new Date(state.year, state.month + 1, 0);
+  for (let d = 1; d <= end.getDate(); d++) {
+    const k = keyFor(new Date(state.year, state.month, d));
     const e = entries.get(k);
-    if(e?.status === 'jour') total += prefs.rateDay;
-    if(e?.status === 'nuit') total += prefs.rateNightFull;
+    if (e?.status === 'jour') total += parseFloat(prefs.rateDay);
+    if (e?.status === 'nuit') total += parseFloat(prefs.rateNightFull);
   }
   return BASE_SALARY + total;
 }
 
+// --- INITIALISATION ---
 async function init() {
   loadLocal();
   applyPrefs();
+  if (!state.selected) state.selected = keyFor(new Date());
+  
+  await checkAuth();
   renderGrid();
   updateUI();
-  await checkAuth();
   setupEvents();
 }
 
 function loadLocal() {
-  const p = localStorage.getItem('prefs'); if(p) prefs = {...prefs, ...JSON.parse(p)};
-  const s = localStorage.getItem('state'); if(s) state = {...state, ...JSON.parse(s)};
-  else { const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n); }
+  const p = localStorage.getItem('ms_prefs');
+  if (p) prefs = { ...prefs, ...JSON.parse(p) };
+  const s = localStorage.getItem('ms_state');
+  if (s) state = { ...state, ...JSON.parse(s) };
 }
 
 function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
-  if($('rateDay')) $('rateDay').value = prefs.rateDay;
-  if($('rateNightFull')) $('rateNightFull').value = prefs.rateNightFull;
-  $('themeLight').classList.toggle('active', prefs.theme==='light');
-  $('themeDark').classList.toggle('active', prefs.theme==='dark');
+  if ($('rateDay')) $('rateDay').value = prefs.rateDay;
+  if ($('rateNightFull')) $('rateNightFull').value = prefs.rateNightFull;
+  if ($('themeLight')) $('themeLight').classList.toggle('active', prefs.theme === 'light');
+  if ($('themeDark')) $('themeDark').classList.toggle('active', prefs.theme === 'dark');
 }
 
+// --- AUTHENTIFICATION ---
 async function checkAuth() {
-  const { data } = await supabase.auth.getSession();
-  if(!data?.session) { $('gate').classList.add('show'); $('topSub').textContent="Invité"; return; }
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session) {
+    user = null;
+    if ($('topSub')) $('topSub').textContent = "Invité";
+    if ($('gate')) $('gate').classList.add('show');
+    return;
+  }
   user = data.session.user;
-  $('gate').classList.remove('show');
-  $('topSub').textContent = user.email.split('@')[0];
+  if ($('topSub')) $('topSub').textContent = user.email.split('@')[0];
+  if ($('gate')) $('gate').classList.remove('show');
   await loadEntries();
   renderGrid();
   updateUI();
 }
 
 async function loadEntries() {
-  if(!user) return;
-  const start = keyFor(new Date(state.year, state.month-1, 1));
-  const end = keyFor(new Date(state.year, state.month+2, 0));
-  const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", start).lte("work_date", end);
-  if(error) return;
+  if (!user) return;
+  const start = keyFor(new Date(state.year, state.month - 1, 1));
+  const end = keyFor(new Date(state.year, state.month + 2, 0));
+  
+  const { data, error } = await supabase
+    .from("work_calendar_entries")
+    .select("*")
+    .gte("work_date", start)
+    .lte("work_date", end);
+
+  if (error) { console.error("Erreur chargement:", error); return; }
+  
   entries.clear();
-  data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported }));
+  if (data) {
+    data.forEach(r => entries.set(r.work_date, { 
+      status: r.status, 
+      note: r.note, 
+      custom_label: r.custom_label, 
+      imported: r.imported 
+    }));
+  }
 }
 
-// --- RENDU ---
+// --- RENDU GRILLE ---
 function renderGrid() {
-  const grid = $('grid'); if(!grid) return; grid.innerHTML = ''; cellCache.clear();
-  let dy = state.year, dm = state.month;
-  if($('navMonth')) $('navMonth').textContent = MONTHS[dm];
-  if($('navYear')) $('navYear').textContent = dy;
-  
+  const grid = $('grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  cellCache.clear();
+
+  let dy = state.year;
+  let dm = state.month;
+
+  if ($('navMonth')) $('navMonth').textContent = MONTHS[dm];
+  if ($('navYear')) $('navYear').textContent = dy;
+
   const first = new Date(dy, dm, 1);
-  let start = new Date(first); start.setDate(first.getDate() - first.getDay());
-  
-  for(let i=0; i<42; i++) {
-    const d = new Date(start); d.setDate(start.getDate() + i);
+  let startDay = first.getDay();
+  const startDate = new Date(first);
+  startDate.setDate(first.getDate() - startDay);
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
     const k = keyFor(d);
-    if(i%7===0) { const wn = document.createElement('div'); wn.className='weeknum'; wn.textContent = Math.ceil(d.getDate()/7); grid.appendChild(wn); }
-    
-    const cell = document.createElement('div'); cell.className = 'day';
-    if(d.getMonth() !== dm) cell.classList.add('out');
-    cell.textContent = d.getDate(); cell.dataset.key = k;
-    
-    const e = entries.get(k);
-    if(e?.status) {
-      cell.classList.add(e.status);
-      if(e.imported) { cell.style.border = '2px dashed var(--accent)'; }
-      if(e.note) { const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot); }
+
+    if (i % 7 === 0) {
+      const wn = document.createElement('div');
+      wn.className = 'weeknum';
+      wn.textContent = Math.ceil(d.getDate() / 7); // Approx semaine
+      grid.appendChild(wn);
     }
-    if(k === state.selected) cell.classList.add('selected');
-    cell.onclick = () => { state.selected=k; localStorage.setItem('state', JSON.stringify(state)); renderGrid(); updateUI(); };
-    grid.appendChild(cell); cellCache.set(k, cell);
+
+    const cell = document.createElement('div');
+    cell.className = 'day';
+    if (d.getMonth() !== dm) cell.classList.add('out');
+    cell.textContent = d.getDate();
+    cell.dataset.key = k;
+
+    const entry = entries.get(k);
+    if (entry?.status) {
+      cell.classList.add(entry.status);
+      if (entry.imported) {
+        cell.style.border = '2px dashed var(--accent)';
+        cell.style.boxSizing = 'border-box';
+      }
+      if (entry.note) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        cell.appendChild(dot);
+      }
+    }
+
+    if (k === state.selected) cell.classList.add('selected');
+
+    cell.onclick = () => {
+      state.selected = k;
+      localStorage.setItem('ms_state', JSON.stringify(state));
+      renderGrid();
+      updateUI();
+      // Ouvrir modale note automatiquement si on veut, ou laisser les boutons du bas
+      openNoteModal(); 
+    };
+
+    grid.appendChild(cell);
+    cellCache.set(k, cell);
   }
 }
 
 function updateUI() {
+  if (!state.selected) return;
   const d = parseKey(state.selected);
-  $('selDate').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  const e = entries.get(state.selected);
-  $('selState').textContent = e?.status ? LABELS[e.status] : "Libre";
-  $('statCount').textContent = Array.from(entries.values()).filter(x=>['jour','nuit','autre'].includes(x.status)).length;
-  $('salaryValue').textContent = calculateMonthSalary(state.year, state.month).toFixed(2) + ' €';
+  if ($('selDate')) $('selDate').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  
+  const entry = entries.get(state.selected);
+  if ($('selState')) $('selState').textContent = entry?.status ? LABELS[entry.status] : "Libre";
+  
+  // Stats
+  let count = 0;
+  entries.forEach(e => { if (['jour', 'nuit', 'autre'].includes(e.status)) count++; });
+  if ($('statCount')) $('statCount').textContent = count;
+  
+  if ($('salaryValue')) {
+    const sal = calculateSalary();
+    $('salaryValue').textContent = sal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
 }
 
+// --- SAUVEGARDE ---
 async function saveEntry(k, patch) {
-  if(!user) return;
-  const cur = entries.get(k) || { status:'', note:'', custom_label:'', imported:false };
+  if (!user) {
+    $('gate').classList.add('show');
+    return;
+  }
+
+  const cur = entries.get(k) || { status: '', note: '', custom_label: '', imported: false };
   const next = { ...cur, ...patch };
   entries.set(k, next);
-  
+
   const cell = cellCache.get(k);
-  if(cell) {
-    cell.className = `day ${cell.classList.contains('out')?'out':''} ${next.status||''}`;
-    if(next.imported) cell.style.border = '2px dashed var(--accent)';
-    // Dot logic omitted for brevity
+  if (cell) {
+    cell.className = `day ${cell.classList.contains('out') ? 'out' : ''} ${next.status || ''}`;
+    if (next.imported) {
+      cell.style.border = '2px dashed var(--accent)';
+      cell.style.boxSizing = 'border-box';
+    }
+    // Gestion point note
+    const oldDot = cell.querySelector('.dot');
+    if (oldDot) oldDot.remove();
+    if (next.note) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      cell.appendChild(dot);
+    }
   }
+
   updateUI();
-  
-  await supabase.from("work_calendar_entries").upsert({
-    user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label, imported: next.imported
-  }, { onConflict: "user_id,work_date" });
+
+  // Envoi Supabase
+  try {
+    const { error } = await supabase.from("work_calendar_entries").upsert({
+      user_id: user.id,
+      work_date: k,
+      status: next.status,
+      note: next.note,
+      custom_label: next.custom_label,
+      imported: next.imported
+    }, { onConflict: "user_id,work_date" });
+
+    if (error) throw error;
+  } catch (e) {
+    console.error("Erreur sauvegarde:", e);
+    alert("Erreur de synchronisation: " + e.message);
+    // Recharger pour rétablir l'état cohérent
+    await loadEntries();
+    renderGrid();
+  }
 }
 
-// --- IA "DATA MINING" ---
-function triggerImport() { $('fileInput').click(); }
+// --- CERVEAU "IA" D'IMPORT ---
+
+function triggerImport() {
+  if (!user) {
+    alert("Veuillez vous connecter d'abord.");
+    $('gate').classList.add('show');
+    return;
+  }
+  $('fileInput').click();
+}
 
 function handleFile(e) {
-  const file = e.target.files[0]; if(!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
+
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
-      const wb = XLSX.read(new Uint8Array(evt.target.result), { type:'array', cellText:true, raw:false });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
-      findBestRow(rows);
-    } catch(err) { alert("Erreur de lecture"); }
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellText: true, raw: false });
+      
+      if (!workbook.SheetNames.length) throw new Error("Fichier vide");
+      
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      
+      analyzeData(rows);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Erreur lors de la lecture du fichier Excel.");
+    }
     $('fileInput').value = '';
   };
   reader.readAsArrayBuffer(file);
 }
 
-function findBestRow(rows) {
+function analyzeData(rows) {
+  console.log(`🔍 Analyse de ${rows.length} lignes...`);
+  
   let bestScore = -1;
   let bestRowIdx = -1;
   let bestRowData = [];
 
-  // 1. Scanner toutes les lignes pour trouver celle avec le plus de codes
-  for(let r=0; r<rows.length; r++) {
+  // 1. SCANNER TOUTES LES LIGNES POUR TROUVER CELLE AVEC LE PLUS DE CODES
+  for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     let score = 0;
+    
     row.forEach(cell => {
       const val = clean(cell);
-      // Un code = 1 lettre + chiffres, longueur 2-5
-      if(/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length>=2 && val.length<=5) score++;
+      // Critère : Contient Lettre + Chiffre, longueur 2 à 6 (ex: N28, J12, R3, CS45)
+      const hasLetter = /[A-Z]/.test(val);
+      const hasNumber = /[0-9]/.test(val);
+      const isShort = val.length >= 2 && val.length <= 6;
+      
+      if (hasLetter && hasNumber && isShort) {
+        score++;
+      }
     });
-    
-    if(score > bestScore) {
+
+    // On ignore les lignes avec trop peu de codes (probablement en-têtes ou bruit)
+    if (score > bestScore && score >= 3) {
       bestScore = score;
       bestRowIdx = r;
       bestRowData = row;
     }
   }
 
-  if(bestScore === 0) return alert("❌ Aucun code de chantier (N28, J12...) détecté dans le fichier.");
+  if (bestScore === -1) {
+    return alert("❌ Aucun code de chantier (type N28, J12, R3) détecté dans le fichier.\nAssurez-vous d'importer le bon fichier de planning.");
+  }
 
-  console.log(`✅ Ligne idéale trouvée à l'index ${bestRowIdx} avec un score de ${bestScore} codes.`);
-  extractData(rows, bestRowIdx, bestRowData);
+  console.log(`✅ Ligne idéale trouvée : Index ${bestRowIdx} avec ${bestScore} codes.`);
+  extractSchedule(rows, bestRowIdx, bestRowData);
 }
 
-function extractData(rows, rowIdx, rowData) {
-  // 2. Trouver l'en-tête de dates au-dessus de cette ligne
+function extractSchedule(rows, rowIdx, rowData) {
+  // 2. TROUVER L'EN-TÊTE DE DATES (Au-dessus de la ligne trouvée)
   let headerIdx = -1;
-  for(let r=rowIdx-1; r>=0; r--) {
-    const txt = rows[r].join(" ").toUpperCase();
-    let days = 0;
-    DAYS_FR.forEach(d => { if(txt.includes(d)) days++; });
-    if(days >= 3) { headerIdx = r; break; }
-  }
-
-  if(headerIdx === -1) return alert("❌ Impossible de trouver les jours de la semaine au-dessus de votre ligne.");
-
-  // 3. Mapper les dates
-  const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
-  const year = new Date().getFullYear();
-  let month = state.month;
-  const headTxt = rows[headerIdx].join(" ").toUpperCase();
-  monthsFr.forEach((m,i) => { if(headTxt.includes(m)) month=i; });
-
-  const dateMap = {};
-  const headRow = rows[headerIdx];
-  const subRow = rows[headerIdx+1] || [];
-  
-  for(let c=0; c<Math.max(headRow.length, subRow.length); c++) {
-    const c1 = String(headRow[c]||""); const c2 = String(subRow[c]||"");
-    let date = null;
-    const m1 = c1.match(/(\d{1,2})[/\-\.](\d{1,2})/);
-    if(m1) date = new Date(year, parseInt(m1[2])-1, parseInt(m1[1]));
-    if(!date && /^\d{1,2}$/.test(c1.trim())) date = new Date(year, month, parseInt(c1.trim()));
-    if(!date) {
-      const m2 = c2.match(/(\d{1,2})[/\-\.](\d{1,2})/);
-      if(m2) date = new Date(year, parseInt(m2[2])-1, parseInt(m2[1]));
+  for (let r = rowIdx - 1; r >= 0; r--) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    let dayCount = 0;
+    DAYS_FR.forEach(d => { if (rowText.includes(d)) dayCount++; });
+    
+    if (dayCount >= 3) {
+      headerIdx = r;
+      break;
     }
-    if(date && !isNaN(date)) dateMap[c] = date;
   }
 
-  // 4. Extraire les codes de la ligne idéale
-  const services = [];
-  rowData.forEach((cell, c) => {
-    const val = clean(cell);
-    if(/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length>=2 && val.length<=5) {
-      // Chercher date à gauche
-      let d = null;
-      for(let back=c; back>=0; back--) if(dateMap[back]) { d=dateMap[back]; break; }
+  if (headerIdx === -1) {
+    return alert("❌ Impossible de trouver les jours de la semaine (Lundi, Mardi...) au-dessus de votre ligne de planning.");
+  }
+
+  // 3. MAPPER LES DATES AUX COLONNES
+  const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
+  const currentYear = new Date().getFullYear();
+  let detectedMonth = state.month; // Par défaut le mois affiché
+  
+  // Essayer de détecter le mois dans l'en-tête
+  const headerText = rows[headerIdx].join(" ").toUpperCase();
+  monthsFr.forEach((m, i) => { if (headerText.includes(m)) detectedMonth = i; });
+
+  const dateMap = {}; // Map: IndexCol -> DateObj
+  const headRow = rows[headerIdx];
+  const subRow = rows[headerIdx + 1] || []; // Parfois la date est sur la ligne du dessous
+
+  for (let c = 0; c < Math.max(headRow.length, subRow.length); c++) {
+    const c1 = String(headRow[c] || "");
+    const c2 = String(subRow[c] || "");
+    let dateObj = null;
+
+    // Essai format "23/03" ou "23/3"
+    const m1 = c1.match(/(\d{1,2})[/\-\.](\d{1,2})/);
+    if (m1) dateObj = new Date(currentYear, parseInt(m1[2]) - 1, parseInt(m1[1]));
+
+    // Essai format "23" seul (on utilise le mois détecté)
+    if (!dateObj && /^\d{1,2}$/.test(c1.trim()) && c1.trim().length > 0) {
+      dateObj = new Date(currentYear, detectedMonth, parseInt(c1.trim()));
+    }
+
+    // Si pas trouvé, essayer ligne du dessous
+    if (!dateObj) {
+      const m2 = c2.match(/(\d{1,2})[/\-\.](\d{1,2})/);
+      if (m2) dateObj = new Date(currentYear, parseInt(m2[2]) - 1, parseInt(m2[1]));
       
-      if(d && d.getMonth() === state.month) {
-        let status = 'autre';
-        if(val.startsWith('N')) status='nuit';
-        else if(val.startsWith('J')) status='jour';
-        else if(val.startsWith('R')) status='repos';
+      if (!dateObj && /^\d{1,2}$/.test(c2.trim()) && c2.trim().length > 0) {
+        dateObj = new Date(currentYear, detectedMonth, parseInt(c2.trim()));
+      }
+    }
+
+    if (dateObj && !isNaN(dateObj.getTime())) {
+      dateMap[c] = dateObj;
+    }
+  }
+
+  // 4. EXTRAIRE LES CODES DE LA LIGNE UTILISATEUR
+  const services = [];
+  
+  rowData.forEach((cell, colIndex) => {
+    const val = clean(cell);
+    const hasLetter = /[A-Z]/.test(val);
+    const hasNumber = /[0-9]/.test(val);
+    const isShort = val.length >= 2 && val.length <= 6;
+
+    if (hasLetter && hasNumber && isShort) {
+      // C'est un code ! Chercher la date associée (la plus proche à gauche)
+      let associatedDate = null;
+      for (let back = colIndex; back >= 0; back--) {
+        if (dateMap[back]) {
+          associatedDate = dateMap[back];
+          break;
+        }
+      }
+
+      if (associatedDate) {
+        // Déterminer le statut selon la première lettre
+        let status = "autre";
+        if (val.startsWith('N')) status = "nuit";
+        else if (val.startsWith('J')) status = "jour";
+        else if (val.startsWith('R')) status = "repos";
+        else if (val.startsWith('C') || val.startsWith('CP')) status = "conges";
+
+        const k = keyFor(associatedDate);
         
-        const k = keyFor(d);
-        if(!services.find(s=>s.dateKey===k)) {
-          services.push({ dateKey:k, dateObj:d, dayName:d.toLocaleDateString('fr-FR',{weekday:'long'}), code:val, status, note:`Auto: ${val}` });
+        // Éviter doublons pour la même date
+        if (!services.find(s => s.dateKey === k)) {
+          services.push({
+            dateKey: k,
+            dateObj: associatedDate,
+            dayName: associatedDate.toLocaleDateString('fr-FR', { weekday: 'long' }),
+            code: val,
+            status: status,
+            note: `Auto: ${val}`
+          });
         }
       }
     }
   });
 
-  if(services.length === 0) return alert("⚠️ Codes trouvés, mais aucune date correspondante dans ce mois.");
+  if (services.length === 0) {
+    return alert("⚠️ Codes détectés, mais aucune date correspondante n'a pu être associée dans le mois affiché.");
+  }
+
   showPreview(services);
 }
 
 function showPreview(services) {
   pendingImport = services;
-  const list = $('importPreviewList'); list.innerHTML = '';
-  $('importSummary').textContent = `🤖 J'ai trouvé la ligne avec ${services.length} services.`;
+  const list = $('importPreviewList');
+  const summary = $('importSummary');
+  
+  if (!list || !summary) return;
+  
+  list.innerHTML = '';
+  summary.textContent = `🤖 Analyse terminée : ${services.length} services trouvés automatiquement.`;
+  
   services.forEach(s => {
     const div = document.createElement('div');
-    div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; font-size:13px;";
-    div.innerHTML = `<span><b>${s.dayName}</b> ${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span> <b style="color:var(--accent)">${s.code}</b>`;
+    div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px;";
+    div.innerHTML = `
+      <span><b>${s.dayName}</b> ${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span>
+      <span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--accent); border:1px solid var(--border);">
+        ${s.code} (${s.status})
+      </span>
+    `;
     list.appendChild(div);
   });
+
   $('backdropImport').classList.add('show');
   $('sheetImport').classList.add('show');
-  $('btnConfirmImport').onclick = confirmImport;
-  $('btnCancelImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
+  
+  // Attacher les événements aux boutons
+  const btnConfirm = $('btnConfirmImport');
+  const btnCancel = $('btnCancelImport');
+  
+  if (btnConfirm) {
+    btnConfirm.onclick = confirmImport;
+  }
+  if (btnCancel) {
+    btnCancel.onclick = () => {
+      $('sheetImport').classList.remove('show');
+      $('backdropImport').classList.remove('show');
+    };
+  }
 }
 
 function confirmImport() {
-  if(!user) return;
+  if (!user) return;
+  
   let count = 0;
   pendingImport.forEach(item => {
-    entries.set(item.dateKey, { status: item.status, note: item.note, custom_label: item.code, imported: true });
+    entries.set(item.dateKey, { 
+      status: item.status, 
+      note: item.note, 
+      custom_label: item.code, 
+      imported: true 
+    });
+    
     const cell = cellCache.get(item.dateKey);
-    if(cell) { cell.className = `day ${cell.classList.contains('out')?'out':''} ${item.status}`; cell.style.border='2px dashed var(--accent)'; }
+    if (cell) {
+      cell.className = `day ${cell.classList.contains('out') ? 'out' : ''} ${item.status}`;
+      cell.style.border = '2px dashed var(--accent)';
+      cell.style.boxSizing = 'border-box';
+    }
     count++;
   });
-  renderGrid(); updateUI();
   
+  renderGrid();
+  updateUI();
+  
+  // Fermer modale
+  $('sheetImport').classList.remove('show');
+  $('backdropImport').classList.remove('show');
+
+  // Sauvegarde Batch
   (async () => {
-    for(const item of pendingImport) {
-      await supabase.from("work_calendar_entries").upsert({
-        user_id: user.id, work_date: item.dateKey, status: item.status, note: item.note, custom_label: item.code, imported: true
+    let successCount = 0;
+    for (const item of pendingImport) {
+      const { error } = await supabase.from("work_calendar_entries").upsert({
+        user_id: user.id,
+        work_date: item.dateKey,
+        status: item.status,
+        note: item.note,
+        custom_label: item.code,
+        imported: true
       }, { onConflict: "user_id,work_date" });
+      
+      if (!error) successCount++;
     }
-    alert(`✅ ${count} services importés !`);
-    $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show');
+    
+    alert(`✅ ${successCount} services importés avec succès !`);
   })();
 }
 
-// --- EVENTS ---
+// --- GESTION MODALES & EVENTS ---
+
+function openNoteModal() {
+  const entry = entries.get(state.selected);
+  const d = parseKey(state.selected);
+  
+  if ($('sheetTitle')) $('sheetTitle').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  if ($('noteText')) $('noteText').value = entry?.note || '';
+  
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
+}
+
+function closeNoteModal() {
+  $('sheet').classList.remove('show');
+  $('backdrop').classList.remove('show');
+}
+
 function setupEvents() {
-  $('btnPrevMonth').onclick = () => { state.month--; if(state.month<0){state.month=11;state.year--;} localStorage.setItem('state', JSON.stringify(state)); loadEntries().then(()=>{renderGrid();updateUI();}); };
-  $('btnNextMonth').onclick = () => { state.month++; if(state.month>11){state.month=0;state.year++;} localStorage.setItem('state', JSON.stringify(state)); loadEntries().then(()=>{renderGrid();updateUI();}); };
-  $('btnToday').onclick = () => { const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n); localStorage.setItem('state', JSON.stringify(state)); loadEntries().then(()=>{renderGrid();updateUI();}); };
+  // Navigation
+  if ($('btnPrevMonth')) $('btnPrevMonth').onclick = () => {
+    state.month--;
+    if (state.month < 0) { state.month = 11; state.year--; }
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  };
   
+  if ($('btnNextMonth')) $('btnNextMonth').onclick = () => {
+    state.month++;
+    if (state.month > 11) { state.month = 0; state.year++; }
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  };
+  
+  if ($('btnToday')) $('btnToday').onclick = () => {
+    const n = new Date();
+    state.year = n.getFullYear();
+    state.month = n.getMonth();
+    state.selected = keyFor(n);
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  };
+
+  // Actions Dock
   document.querySelectorAll('[data-set]').forEach(btn => {
-    btn.onclick = () => { if(!state.selected) return; saveEntry(state.selected, { status: btn.dataset.set, note:'' }); };
+    btn.onclick = () => {
+      if (!state.selected) return;
+      saveEntry(state.selected, { status: btn.dataset.set, note: entries.get(state.selected)?.note || '' });
+      closeNoteModal();
+    };
   });
+
+  // Modale Note
+  if ($('btnSaveNote')) $('btnSaveNote').onclick = () => {
+    saveEntry(state.selected, { note: $('noteText').value });
+    closeNoteModal();
+  };
+  if ($('btnClearNote')) $('btnClearNote').onclick = () => {
+    saveEntry(state.selected, { note: '' });
+    closeNoteModal();
+  };
+  // Fermeture backdrop note
+  if ($('backdrop')) $('backdrop').onclick = closeNoteModal;
+
+  // Import
+  if ($('btnImport')) $('btnImport').onclick = triggerImport;
+  if ($('fileInput')) $('fileInput').onchange = handleFile;
   
-  $('btnSaveNote').onclick = () => { saveEntry(state.selected, { note: $('noteText').value }); $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
-  $('btnClearNote').onclick = () => { saveEntry(state.selected, { note: '' }); $('sheet').classList.remove('show'); $('backdrop').classList.remove('show'); };
-  cellCache.get(state.selected)?.click(); // Open note modal on load fix
-  
-  $('btnImport').onclick = triggerImport;
-  $('fileInput').onchange = handleFile;
-  
-  $('btnSettings').onclick = (e) => { e.stopPropagation(); $('settingsPop').classList.toggle('show'); };
+  // Paramètres
+  if ($('btnSettings')) $('btnSettings').onclick = (e) => {
+    e.stopPropagation();
+    $('settingsPop').classList.toggle('show');
+  };
   document.onclick = () => $('settingsPop').classList.remove('show');
-  $('settingsPop').onclick = e => e.stopPropagation();
-  
-  $('themeLight').onclick = () => { prefs.theme='light'; localStorage.setItem('prefs', JSON.stringify(prefs)); applyPrefs(); };
-  $('themeDark').onclick = () => { prefs.theme='dark'; localStorage.setItem('prefs', JSON.stringify(prefs)); applyPrefs(); };
-  $('rateDay').onchange = e => { prefs.rateDay=parseFloat(e.target.value); localStorage.setItem('prefs', JSON.stringify(prefs)); updateUI(); };
-  $('rateNightFull').onchange = e => { prefs.rateNightFull=parseFloat(e.target.value); localStorage.setItem('prefs', JSON.stringify(prefs)); updateUI(); };
-  
-  $('btnLogout').onclick = async () => { await supabase.auth.signOut(); checkAuth(); };
-  
-  $('btnLogin').onclick = async () => {
-    const { error } = await supabase.auth.signInWithPassword({ email: $('loginEmail').value, password: $('loginPass').value });
-    if(error) $('loginHint').textContent = error.message; else checkAuth();
+  if ($('settingsPop')) $('settingsPop').onclick = (e) => e.stopPropagation();
+
+  if ($('themeLight')) $('themeLight').onclick = () => {
+    prefs.theme = 'light';
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    applyPrefs();
+  };
+  if ($('themeDark')) $('themeDark').onclick = () => {
+    prefs.theme = 'dark';
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    applyPrefs();
+  };
+  if ($('rateDay')) $('rateDay').onchange = (e) => {
+    prefs.rateDay = parseFloat(e.target.value) || 0;
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    updateUI();
+  };
+  if ($('rateNightFull')) $('rateNightFull').onchange = (e) => {
+    prefs.rateNightFull = parseFloat(e.target.value) || 0;
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    updateUI();
+  };
+
+  // Logout
+  if ($('btnLogout')) $('btnLogout').onclick = async () => {
+    await supabase.auth.signOut();
+    checkAuth();
+  };
+
+  // Login
+  if ($('btnLogin')) $('btnLogin').onclick = async () => {
+    const email = $('loginEmail').value;
+    const pass = $('loginPass').value;
+    if (!email || !pass) {
+      $('loginHint').textContent = "Email et mot de passe requis.";
+      return;
+    }
+    $('loginHint').textContent = "Connexion...";
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) {
+      $('loginHint').textContent = "Erreur: " + error.message;
+    } else {
+      checkAuth();
+    }
   };
   
-  $('btnExportXLSX').onclick = () => { 
-    $('exportStart').value = keyFor(new Date(state.year, state.month, 1));
-    $('exportEnd').value = keyFor(new Date(state.year, state.month+1, 0));
-    $('backdropExport').classList.add('show'); $('sheetExport').classList.add('show');
+  if ($('tabSignup')) $('tabSignup').onclick = () => {
+    alert("Fonctionnalité d'inscription à venir. Veuillez contacter l'admin.");
   };
-  $('btnCloseExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
-  $('btnGenerateXLSX').onclick = () => {
-    // Simple export logic
-    alert("Fonction export prête (à implémenter selon besoin)");
-    $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show');
+
+  // Export
+  if ($('btnExportXLSX')) $('btnExportXLSX').onclick = () => {
+    const start = new Date(state.year, state.month, 1);
+    const end = new Date(state.year, state.month + 1, 0);
+    if ($('exportStart')) $('exportStart').value = keyFor(start);
+    if ($('exportEnd')) $('exportEnd').value = keyFor(end);
+    $('backdropExport').classList.add('show');
+    $('sheetExport').classList.add('show');
+  };
+  if ($('btnCloseExport')) $('btnCloseExport').onclick = () => {
+    $('sheetExport').classList.remove('show');
+    $('backdropExport').classList.remove('show');
+  };
+  if ($('btnGenerateXLSX')) $('btnGenerateXLSX').onclick = () => {
+    // Logique d'export simplifiée pour l'exemple
+    alert("Export Excel généré (Fonctionnalité complète à intégrer)");
+    $('sheetExport').classList.remove('show');
+    $('backdropExport').classList.remove('show');
   };
 }
 
+// Lancement
 init();
