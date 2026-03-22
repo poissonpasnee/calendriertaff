@@ -16,7 +16,7 @@ let prefs = {
 };
 let cellCache = new Map();
 let pendingImport = [];
-let codeLegend = {};
+let codeLegend = {}; // Sera rempli par la lecture du BAS du fichier
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
@@ -28,10 +28,9 @@ const pad = (n) => String(n).padStart(2, '0');
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 
-// --- UTILITAIRE ROBUSTE ---
-// Normalise tout texte : majuscules, sans accents, sans espaces superflus
+// --- UTILITAIRE DE NETTOYAGE ---
 const clean = (txt) => {
-  if (!txt && txt !== 0) return "";
+  if (txt === null || txt === undefined) return "";
   return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ");
 };
 
@@ -241,7 +240,7 @@ async function saveEntry(k, patch) {
   }, { onConflict: "user_id,work_date" });
 }
 
-// --- IMPORT "INFAILLIBLE" (BALAYAGE GLOBAL) ---
+// --- IMPORT SPÉCIAL "LÉGENDE EN BAS" ---
 
 function triggerImport() {
   if(!prefs.importKeyword || prefs.importKeyword.trim() === '') {
@@ -263,7 +262,7 @@ function handleFileSelect(e) {
       if(!workbook.SheetNames.length) throw new Error("Fichier vide");
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
-      processUniversalImport(rawData);
+      processSmartImport(rawData);
     } catch (err) {
       console.error(err);
       alert("❌ Erreur de lecture du fichier.");
@@ -273,21 +272,66 @@ function handleFileSelect(e) {
   reader.readAsArrayBuffer(file);
 }
 
-function processUniversalImport(rows) {
+function processSmartImport(rows) {
   const keyword = clean(prefs.importKeyword);
   if (!keyword) return alert("Nom manquant dans les réglages.");
 
-  console.log("🔍 Analyse universelle pour :", keyword);
+  console.log("🔍 Démarrage de l'analyse intelligente...");
 
-  // 1. Détecter la zone de dates (En-têtes)
-  // On cherche la ligne qui contient le plus de jours (LUNDI, MARDI...)
+  // ÉTAPE 1 : TROUVER LA LÉGENDE EN BAS DU DOCUMENT (MEMO / CODE)
+  // On scanne la fin du fichier pour trouver la correspondance Code -> Type
+  codeLegend = {};
+  let legendFound = false;
+  
+  // On commence par la fin et on remonte pour trouver la section MEMO
+  for(let r = rows.length - 1; r >= 0; r--) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    
+    // Si on trouve un en-tête de jour, on arrête (on est remonté trop haut)
+    if(DAYS_FR.some(d => rowText.includes(d))) break;
+
+    if(rowText.includes("MEMO") || rowText.includes("LÉGENDE") || rowText.includes("N° /") || rowText.includes("CODE")) {
+      legendFound = true;
+      // On lit les lignes suivantes (qui sont en fait après dans le fichier, donc index > r)
+      // Mais comme on boucle à l'envers, on va lire les lignes r+1 à la fin
+      for(let k = r + 1; k < rows.length; k++) {
+        const legendRow = rows[k];
+        let currentCode = "";
+        
+        legendRow.forEach(cell => {
+          const val = clean(cell);
+          // Détection du code (ex: N28)
+          if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) {
+            currentCode = val;
+          } 
+          // Détection du type si on a un code en attente
+          else if(currentCode && val.length > 3) {
+            if(val.includes("NUIT")) codeLegend[currentCode] = "nuit";
+            else if(val.includes("JOUR")) codeLegend[currentCode] = "jour";
+            else if(val.includes("REPOS") || val.includes("OFF")) codeLegend[currentCode] = "repos";
+            else if(val.includes("CONG") || val.includes("CP")) codeLegend[currentCode] = "conges";
+            // On ne reset pas currentCode immédiatement au cas où la description est longue
+          }
+        });
+      }
+      break; // On a trouvé et lu la légende, on sort
+    }
+  }
+
+  if(!legendFound) {
+    console.warn("Aucune section MEMO/LÉGENDE trouvée en bas du fichier. Utilisation des défauts.");
+  } else {
+    console.log("✅ Légende détectée en bas du fichier :", codeLegend);
+  }
+
+  // ÉTAPE 2 : TROUVER LA GRILLE ET LES DATES (EN HAUT)
   let headerRowIdx = -1;
   let maxDaysCount = 0;
-  let dateColumns = {}; // Map: indexCol -> DateObj
+  let dateColumns = {}; 
 
-  for(let r=0; r<Math.min(rows.length, 30); r++) {
+  for(let r=0; r<Math.min(rows.length, 40); r++) {
     let count = 0;
-    rows[r].forEach((cell, c) => {
+    rows[r].forEach((cell) => {
       const txt = clean(cell);
       if(DAYS_FR.some(d => txt.includes(d))) count++;
     });
@@ -298,15 +342,13 @@ function processUniversalImport(rows) {
   }
 
   if(headerRowIdx === -1 || maxDaysCount < 3) {
-    return alert("❌ Impossible de détecter les jours de la semaine dans le fichier.");
+    return alert("❌ Impossible de détecter les jours de la semaine en haut du fichier.");
   }
 
-  // Extraire les dates sous les en-têtes
-  // On regarde la ligne d'en-tête et la suivante pour trouver des dates (12/03, 12, etc.)
+  // Extraction des dates
   const parseDate = (str, refMonth, refYear) => {
     if(!str) return null;
     const s = String(str);
-    // Format 12/03 ou 12/03/2026
     const m1 = s.match(/(\d{1,2})[/\-\.](\d{1,2})/);
     if(m1) {
       const d = parseInt(m1[1]);
@@ -315,78 +357,73 @@ function processUniversalImport(rows) {
       const date = new Date(y, m, d);
       if(!isNaN(date)) return date;
     }
-    // Format "12" seul (on suppose le mois de l'en-tête si présent)
     const m2 = s.match(/^\d{1,2}$/);
-    if(m2 && refMonth !== -1) {
-       return new Date(refYear, refMonth, parseInt(m2[0]));
-    }
+    if(m2 && refMonth !== -1) return new Date(refYear, refMonth, parseInt(m2[0]));
     return null;
   };
 
-  // Déduire le mois/année de référence (souvent dans la ligne d'en-tête ou au dessus)
   let refYear = new Date().getFullYear();
   let refMonth = -1;
-  // Tentative simple : si l'en-tête dit "LUNDI 12 JANVIER", on le prend
   const headerText = rows[headerRowIdx].join(" ").toUpperCase();
   const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
   monthsFr.forEach((m, idx) => { if(headerText.includes(m)) refMonth = idx; });
-  if(refMonth === -1) refMonth = new Date().getMonth(); // Fallback
+  if(refMonth === -1) refMonth = new Date().getMonth();
 
   for(let c=0; c<rows[headerRowIdx].length; c++) {
-    // Cherche date dans la ligne d'en-tête ou la ligne du dessous
     let d = parseDate(rows[headerRowIdx][c], refMonth, refYear);
     if(!d && rows[headerRowIdx+1]) d = parseDate(rows[headerRowIdx+1][c], refMonth, refYear);
     if(d) dateColumns[c] = d;
   }
 
-  // 2. Construire la légende (Code -> Type)
-  codeLegend = {};
-  let inLegend = false;
-  for(let r=0; r<rows.length; r++) {
-    const txt = rows[r].join(" ").toUpperCase();
-    if(txt.includes("MEMO") || txt.includes("LÉGENDE") || txt.includes("CODE")) { inLegend = true; continue; }
-    if(inLegend && DAYS_FR.some(d => txt.includes(d))) break; // Fin légende
-    
-    if(inLegend) {
-      let currentCode = "";
-      rows[r].forEach(cell => {
-        const val = clean(cell);
-        if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) currentCode = val;
-        else if(currentCode && val.length > 3) {
-          if(val.includes("NUIT")) codeLegend[currentCode] = "nuit";
-          else if(val.includes("JOUR")) codeLegend[currentCode] = "jour";
-          else if(val.includes("REPOS")) codeLegend[currentCode] = "repos";
-          else if(val.includes("CONG")) codeLegend[currentCode] = "conges";
-          currentCode = "";
-        }
-      });
-    }
-  }
-
-  // 3. BALAYAGE GLOBAL : Trouver LE nom n'importe où
+  // ÉTAPE 3 : TROUVER VOTRE NOM ET EXTRAIRE LES CODES
   const foundServices = [];
-  let matchFound = false;
+  let matchCount = 0;
 
-  for(let r=headerRowIdx + 1; r<rows.length; r++) {
+  // On cherche uniquement entre l'en-tête et la légende (pour éviter de lire la légende comme une ligne de planning)
+  const limitSearchRow = legendFound ? rows.length - 10 : rows.length; 
+
+  for(let r=headerRowIdx + 1; r<limitSearchRow; r++) {
     const row = rows[r];
-    // On teste chaque cellule de la ligne
+    let rowMatches = false;
+    
+    // Vérifie si la ligne contient le nom
     for(let c=0; c<row.length; c++) {
       const cellVal = clean(row[c]);
-      
-      // CRITÈRE : La cellule contient le mot-clé (et fait plus de 3 lettres pour éviter les faux positifs)
       if(cellVal.length >= 3 && cellVal.includes(keyword)) {
-        // C'est la bonne ligne ! On scanne TOUTE la ligne pour les codes
-        console.log(`✅ Ligne trouvée à r=${r}, c=${c} : "${row[c]}"`);
+        rowMatches = true;
+        break;
+      }
+    }
+
+    if(rowMatches) {
+      console.log(`✅ Ligne de planning trouvée à l'index ${r}`);
+      matchCount++;
+      
+      // On scanne TOUTE la ligne pour extraire les codes (N28, etc.)
+      row.forEach((cellData, colIdx) => {
+        const code = clean(cellData);
         
-        row.forEach((cellData, colIdx) => {
-          const code = clean(cellData);
-          // Si c'est un code valide ET qu'on a une date pour cette colonne
-          if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(code) && dateColumns[colIdx]) {
-            const status = codeLegend[code] || "autre";
-            const dateObj = dateColumns[colIdx];
-            
+        // Si c'est un code valide ET qu'on a une date pour cette colonne
+        if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(code) && dateColumns[colIdx]) {
+          // C'EST ICI QUE LA MAGIE OPÈRE : On utilise la légende lue EN BAS
+          let status = codeLegend[code]; 
+          
+          // Fallback si le code n'est pas dans la légende (déduction automatique)
+          if(!status) {
+            if(code.startsWith('N')) status = "nuit";
+            else if(code.startsWith('J')) status = "jour";
+            else if(code.startsWith('R')) status = "repos";
+            else status = "autre";
+            console.log(`⚠️ Code ${code} non trouvé dans la légende, déduit comme : ${status}`);
+          }
+
+          const dateObj = dateColumns[colIdx];
+          const k = keyFor(dateObj);
+          
+          // Éviter les doublons
+          if(!entries.has(k) && !foundServices.find(s => s.dateKey === k)) {
             foundServices.push({
-              dateKey: keyFor(dateObj),
+              dateKey: k,
               dateObj: dateObj,
               dayName: dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase(),
               code: code,
@@ -394,21 +431,17 @@ function processUniversalImport(rows) {
               note: `Import: ${code}`
             });
           }
-        });
-        matchFound = true;
-        break; // On a trouvé la ligne, on arrête de chercher d'autres lignes
-      }
+        }
+      });
     }
-    if(matchFound) break;
   }
 
-  if(!matchFound) {
-    console.warn("Aucun match trouvé. Vérifiez l'orthographe.");
-    return alert(`❌ Impossible de trouver "${prefs.importKeyword}" dans le fichier.\nVérifiez l'orthographe dans les Réglages.`);
+  if(matchCount === 0) {
+    return alert(`❌ Impossible de trouver "${prefs.importKeyword}" dans la grille.\nVérifiez l'orthographe dans les Réglages.`);
   }
 
   if(foundServices.length === 0) {
-    return alert("⚠️ Nom trouvé, mais aucun code (N28, etc.) détecté sur cette ligne.");
+    return alert("⚠️ Nom trouvé, mais aucun code (N28, etc.) détecté sur vos jours de travail.");
   }
 
   showImportPreview(foundServices);
@@ -419,7 +452,7 @@ function showImportPreview(services) {
   const list = $('importPreviewList');
   const summary = $('importSummary');
   list.innerHTML = '';
-  summary.textContent = `${services.length} services trouvés.`;
+  summary.textContent = `${services.length} services trouvés (Légende lue en bas du fichier).`;
   
   services.forEach(s => {
     const div = document.createElement('div');
