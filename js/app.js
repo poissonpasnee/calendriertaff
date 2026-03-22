@@ -20,9 +20,14 @@ const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const clean = (txt) => { if (!txt) return ""; return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "").trim(); };
 
-// --- MOTEUR & AUTH (Identique) ---
+// Nettoyage robuste : garde uniquement Lettres et Chiffres
+const clean = (txt) => {
+  if (!txt) return "";
+  return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+};
+
+// --- MOTEUR & AUTH ---
 function calculateMonthSalary(year, month) {
   let totalVariable = 0;
   const start = new Date(year, month, 1);
@@ -72,6 +77,8 @@ async function loadEntries() {
   entries.clear();
   data.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported || false }));
 }
+
+// --- RENDU GRILLE ---
 function renderGrid() {
   const grid = $('grid'); if(!grid) return; grid.innerHTML = ''; cellCache.clear();
   let displayYear = state.year, displayMonth = state.month;
@@ -122,74 +129,166 @@ async function saveEntry(k, patch) {
     user_id: user.id, work_date: k, status: next.status, note: next.note, custom_label: next.custom_label, imported: next.imported
   }, { onConflict: "user_id,work_date" });
   
-  if(error) { console.error("Erreur sauvegarde:", error); alert("Erreur: " + error.message); loadEntries().then(renderGrid); }
+  if(error) { console.error("Erreur Supabase:", error); alert("Erreur de synchronisation: " + error.message); }
 }
 
-// --- NOUVELLE MÉTHODE : IMPORT PAR COLLAGE ---
+// --- IMPORT AUTOMATIQUE "FORCE BRUTE" ---
 
-function triggerPasteImport() {
-  if(!user) { alert("Connectez-vous d'abord."); $('gate').classList.add('show'); return; }
-  $('pasteArea').value = '';
-  $('pastePreview').innerHTML = '';
-  $('pastePreview').style.display = 'none';
-  $('btnConfirmPaste').style.display = 'none';
-  $('backdropPaste').classList.add('show');
-  $('sheetPaste').classList.add('show');
-  setTimeout(() => $('pasteArea').focus(), 100);
-}
+function triggerImport() { $('fileInput').click(); }
 
-function processPaste() {
-  const rawText = $('pasteArea').value;
-  if(!rawText.trim()) return alert("Veuillez coller du texte d'abord.");
-
-  // On découpe par tabulation (copie Excel standard) ou par espaces multiples
-  const cells = rawText.split(/\t+/); 
-  const foundServices = [];
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if(!file) return;
   
+  const keyword = clean($('importKeyword')?.value || "");
+  if(!keyword) {
+    alert("⚠️ Veuillez entrer votre NOM dans les Réglages (roue dentée) avant d'importer.");
+    $('btnSettings').click();
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      // Lecture brute : on récupère TOUT le texte, peu importe la mise en forme
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false, cellText: true, raw: false });
+      if(!workbook.SheetNames.length) throw new Error("Fichier vide");
+      
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      // Conversion en tableau 2D complet
+      const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      
+      runAutoImport(rawData, keyword);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Erreur lors de la lecture du fichier. Assurez-vous que c'est un .xlsx valide.");
+    }
+    $('fileInput').value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function runAutoImport(rows, keyword) {
+  console.log("🚀 Démarrage import auto pour :", keyword);
+  
+  // 1. TROUVER LA LIGNE DE L'UTILISATEUR
+  let userRowIndex = -1;
+  let userRowData = [];
+  
+  for(let r=0; r<rows.length; r++) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    // On cherche le mot clé dans toute la ligne
+    if(rowText.includes(keyword) && rowText.length > 5) {
+      userRowIndex = r;
+      userRowData = rows[r];
+      console.log(`✅ Ligne utilisateur trouvée à l'index ${r}`);
+      break;
+    }
+  }
+  
+  if(userRowIndex === -1) {
+    return alert(`❌ Impossible de trouver le nom "${$('importKeyword').value}" dans le fichier.\nVérifiez l'orthographe dans les Réglages.`);
+  }
+
+  // 2. TROUVER L'EN-TÊTE DES DATES (Au-dessus de la ligne utilisateur)
+  // On cherche la ligne la plus proche au-dessus qui contient des jours de la semaine
+  let headerRowIndex = -1;
+  for(let r=userRowIndex-1; r>=0; r--) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    let dayCount = 0;
+    DAYS_FR.forEach(d => { if(rowText.includes(d)) dayCount++; });
+    if(dayCount >= 3) { // Si on trouve au moins 3 jours, c'est l'en-tête
+      headerRowIndex = r;
+      break;
+    }
+  }
+  
+  if(headerRowIndex === -1) {
+    return alert("❌ Impossible de trouver les jours de la semaine (Lundi, Mardi...) au-dessus de votre nom.");
+  }
+  
+  // 3. MAPPER LES DATES AUX COLONNES
   const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
   const currentYear = new Date().getFullYear();
-  let currentMonth = state.month; // On utilise le mois affiché dans le calendrier
+  let detectedMonth = state.month;
   
-  // On essaie de détecter le mois si présent dans le texte collé
-  const upperText = rawText.toUpperCase();
-  monthsFr.forEach((m, i) => { if(upperText.includes(m)) currentMonth = i; });
-
-  let currentDate = new Date(currentYear, currentMonth, 1);
+  // Essayer de détecter le mois dans l'en-tête
+  const headerText = rows[headerRowIndex].join(" ").toUpperCase();
+  monthsFr.forEach((m, i) => { if(headerText.includes(m)) detectedMonth = i; });
   
-  // Parcours des cellules collées
-  cells.forEach(cell => {
+  const dateMap = {}; // Map: IndexCol -> DateObj
+  const headerRow = rows[headerRowIndex];
+  const subHeaderRow = rows[headerRowIndex+1] || [];
+  
+  for(let c=0; c<Math.max(headerRow.length, subHeaderRow.length); c++) {
+    const cell1 = String(headerRow[c] || "");
+    const cell2 = String(subHeaderRow[c] || "");
+    
+    // Essayer de parser une date depuis cell1 ou cell2
+    let dateObj = null;
+    
+    // Format "23/03" ou "23/3"
+    const m1 = cell1.match(/(\d{1,2})[/\-\.](\d{1,2})/);
+    if(m1) dateObj = new Date(currentYear, parseInt(m1[2])-1, parseInt(m1[1]));
+    
+    // Format "23" seul (on suppose le mois détecté)
+    if(!dateObj && /^\d{1,2}$/.test(cell1.trim()) && detectedMonth !== -1) {
+       dateObj = new Date(currentYear, detectedMonth, parseInt(cell1.trim()));
+    }
+    
+    // Si pas trouvé dans ligne 1, essayer ligne 2
+    if(!dateObj) {
+      const m2 = cell2.match(/(\d{1,2})[/\-\.](\d{1,2})/);
+      if(m2) dateObj = new Date(currentYear, parseInt(m2[2])-1, parseInt(m2[1]));
+      if(!dateObj && /^\d{1,2}$/.test(cell2.trim()) && detectedMonth !== -1) {
+        dateObj = new Date(currentYear, detectedMonth, parseInt(cell2.trim()));
+      }
+    }
+    
+    if(dateObj && !isNaN(dateObj.getTime())) {
+      dateMap[c] = dateObj;
+    }
+  }
+  
+  // 4. EXTRAIRE LES CODES SUR LA LIGNE UTILISATEUR
+  const foundServices = [];
+  
+  userRowData.forEach((cell, colIndex) => {
     const val = clean(cell);
     
-    // 1. Est-ce une date ? (ex: "23/03" ou "23")
-    const dateMatch = val.match(/^(\d{1,2})[/\-\.]?(\d{1,2})?$/);
-    if(dateMatch) {
-      const day = parseInt(dateMatch[1]);
-      const month = dateMatch[2] ? parseInt(dateMatch[2])-1 : currentMonth;
-      currentDate = new Date(currentYear, month, day);
-      return; // On passe à la suite, on a juste mis à jour la date courante
-    }
-
-    // 2. Est-ce un code chantier ? (Lettre + Chiffre, court)
+    // Critère : Contient des lettres ET des chiffres, longueur 2 à 6
     const hasLetter = /[A-Z]/.test(val);
     const hasNumber = /[0-9]/.test(val);
-    const isShort = val.length >= 2 && val.length <= 5;
+    const isShort = val.length >= 2 && val.length <= 6;
     
     if(hasLetter && hasNumber && isShort) {
-      // C'est un code ! On l'associe à la date courante
-      let status = "autre";
-      if(val.startsWith('N')) status = "nuit";
-      else if(val.startsWith('J')) status = "jour";
-      else if(val.startsWith('R')) status = "repos";
-      else if(val.startsWith('C')) status = "conges";
+      // C'est un code potentiel (N28, J12, R3, etc.)
       
-      // Vérifier si la date est dans le bon mois affiché
-      if(currentDate.getMonth() === state.month && currentDate.getFullYear() === state.year) {
-        const k = keyFor(currentDate);
+      // Trouver la date associée : chercher la colonne de date la plus proche à gauche
+      let associatedDate = null;
+      for(let back=colIndex; back>=0; back--) {
+        if(dateMap[back]) {
+          associatedDate = dateMap[back];
+          break;
+        }
+      }
+      
+      if(associatedDate) {
+        // Déterminer le statut
+        let status = "autre";
+        if(val.startsWith('N')) status = "nuit";
+        else if(val.startsWith('J')) status = "jour";
+        else if(val.startsWith('R')) status = "repos";
+        else if(val.startsWith('C')) status = "conges";
+        
+        const k = keyFor(associatedDate);
+        // Éviter doublons
         if(!foundServices.find(s => s.dateKey === k)) {
           foundServices.push({
             dateKey: k,
-            dateObj: new Date(currentDate),
-            dayName: currentDate.toLocaleDateString('fr-FR', {weekday:'long'}),
+            dateObj: associatedDate,
+            dayName: associatedDate.toLocaleDateString('fr-FR', {weekday:'long'}),
             code: val,
             status: status,
             note: `Import: ${val}`
@@ -198,29 +297,44 @@ function processPaste() {
       }
     }
   });
-
-  if(foundServices.length === 0) {
-    return alert("Aucun code (N28, J12...) détecté dans le texte collé.\nAssurez-vous d'avoir copié la ligne contenant les codes.");
-  }
-
-  // Affichage prévisualisation
-  pendingImport = foundServices;
-  const preview = $('pastePreview');
-  preview.innerHTML = `<h3 style="font-size:14px; margin-bottom:10px;">${foundServices.length} services détectés :</h3>`;
-  foundServices.forEach(s => {
-    const div = document.createElement('div');
-    div.style.cssText = "padding:6px; border-bottom:1px solid var(--border); font-size:13px; display:flex; justify-content:space-between;";
-    div.innerHTML = `<span>${s.dayName} ${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span> <b style="color:var(--accent)">${s.code} (${s.status})</b>`;
-    preview.appendChild(div);
-  });
   
-  preview.style.display = 'block';
-  $('btnConfirmPaste').style.display = 'block';
+  if(foundServices.length === 0) {
+    return alert("⚠️ Nom trouvé, mais aucun code (type N28, J12) détecté sur votre ligne.\nVérifiez que votre ligne contient bien des codes alphanumériques.");
+  }
+  
+  showImportPreview(foundServices);
 }
 
-function confirmPasteImport() {
-  if(!user) return;
+function showImportPreview(services) {
+  pendingImport = services;
+  const list = $('importPreviewList');
+  const summary = $('importSummary');
+  if(!list || !summary) return;
+  
+  list.innerHTML = '';
+  summary.textContent = `${services.length} services trouvés automatiquement !`;
+  
+  services.forEach(s => {
+    const div = document.createElement('div');
+    div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px;";
+    div.innerHTML = `<span><b>${s.dayName}</b> ${s.dateObj.toLocaleDateString()}</span><span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--accent); border:1px solid var(--border);">${s.status.toUpperCase()} (${s.code})</span>`;
+    list.appendChild(div);
+  });
+  
+  $('backdropImport').classList.add('show');
+  $('sheetImport').classList.add('show');
+  
+  const btnConfirm = $('btnConfirmImport');
+  const btnCancel = $('btnCancelImport');
+  if(btnConfirm) btnConfirm.onclick = confirmImport;
+  if(btnCancel) btnCancel.onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
+}
+
+function confirmImport() {
+  if(!user) { alert("Connectez-vous."); $('gate').classList.add('show'); return; }
   let count = 0;
+  const batch = [];
+  
   pendingImport.forEach(item => {
     entries.set(item.dateKey, { status: item.status, note: item.note, custom_label: item.code, imported: true });
     const cell = cellCache.get(item.dateKey);
@@ -228,19 +342,19 @@ function confirmPasteImport() {
       cell.className = `day ${cell.classList.contains('out')?'out':''} ${item.status}`;
       cell.style.borderStyle = 'dashed'; cell.style.borderWidth = '2px'; cell.style.borderColor = 'var(--accent)';
     }
+    batch.push({ user_id: user.id, work_date: item.dateKey, status: item.status, note: item.note, custom_label: item.code, imported: true });
     count++;
   });
+  
   renderTotals(); renderGrid();
   
   (async () => {
-    for(const item of pendingImport) {
-      await supabase.from("work_calendar_entries").upsert({
-        user_id: user.id, work_date: item.dateKey, status: item.status, note: item.note, custom_label: item.code, imported: true
-      }, { onConflict: "user_id,work_date" });
+    for(const item of batch) {
+      await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
     }
-    alert(`✅ ${count} services importés !`);
-    $('sheetPaste').classList.remove('show');
-    $('backdropPaste').classList.remove('show');
+    alert(`✅ ${count} services importés avec succès !`);
+    $('sheetImport').classList.remove('show');
+    $('backdropImport').classList.remove('show');
   })();
 }
 
@@ -264,19 +378,11 @@ function setupEvents() {
   if($('btnApplyOther')) $('btnApplyOther').onclick = () => { const val = $('otherSelect').value; const custom = $('otherCustom').value; saveEntry(state.selected, { status: 'autre', custom_label: val==='custom'?custom:val }); closeSheet(); };
   if($('otherSelect')) $('otherSelect').onchange = (e) => { if($('otherCustom')) $('otherCustom').style.display = e.target.value==='custom'?'block':'none'; };
 
-  // --- NOUVEAU BOUTON IMPORT (Remplace l'ancien) ---
-  // On détourne le bouton d'import existant pour ouvrir la modale de collage
-  if($('btnImport')) $('btnImport').onclick = triggerPasteImport;
-  // On cache l'input fichier inutile
-  if($('fileInput')) $('fileInput').style.display = 'none';
+  if($('btnImport')) $('btnImport').onclick = triggerImport;
+  if($('fileInput')) $('fileInput').onchange = handleFileSelect;
+  if($('btnCancelImport')) $('btnCancelImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
+  if($('backdropImport')) $('backdropImport').onclick = () => { $('sheetImport').classList.remove('show'); $('backdropImport').classList.remove('show'); };
 
-  // Events Modale Collage
-  if($('btnProcessPaste')) $('btnProcessPaste').onclick = processPaste;
-  if($('btnConfirmPaste')) $('btnConfirmPaste').onclick = confirmPasteImport;
-  if($('btnCancelPaste')) $('btnCancelPaste').onclick = () => { $('sheetPaste').classList.remove('show'); $('backdropPaste').classList.remove('show'); };
-  if($('backdropPaste')) $('backdropPaste').onclick = () => { $('sheetPaste').classList.remove('show'); $('backdropPaste').classList.remove('show'); };
-
-  // Events Export (Inchangé)
   if($('btnExportXLSX')) $('btnExportXLSX').onclick = () => { const firstDay = new Date(state.year, state.month, 1); const lastDay = new Date(state.year, state.month + 1, 0); if($('exportStart')) $('exportStart').value = keyFor(firstDay); if($('exportEnd')) $('exportEnd').value = keyFor(lastDay); $('backdropExport').classList.add('show'); $('sheetExport').classList.add('show'); };
   if($('btnCloseExport')) $('btnCloseExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
   if($('backdropExport')) $('backdropExport').onclick = () => { $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show'); };
@@ -297,28 +403,54 @@ function setupEvents() {
     $('sheetExport').classList.remove('show'); $('backdropExport').classList.remove('show');
   };
 
-  // Settings
   if($('btnSettings')) $('btnSettings').onclick = (e) => { e.stopPropagation(); if($('settingsPop')) $('settingsPop').classList.toggle('show'); };
   document.onclick = () => { if($('settingsPop')) $('settingsPop').classList.remove('show'); };
   if($('settingsPop')) $('settingsPop').onclick = (e) => e.stopPropagation();
+  
   if($('themeLight')) $('themeLight').onclick = () => { prefs.theme='light'; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); applyPrefs(); };
   if($('themeDark')) $('themeDark').onclick = () => { prefs.theme='dark'; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); applyPrefs(); };
   if($('rateDay')) $('rateDay').onchange = (e) => { prefs.rateDay=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
   if($('rateNightFull')) $('rateNightFull').onchange = (e) => { prefs.rateNightFull=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
   if($('rateNightSolo')) $('rateNightSolo').onchange = (e) => { prefs.rateNightSolo=parseFloat(e.target.value)||0; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); renderTotals(); };
-  if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => { const val = $('importKeyword').value.trim(); if(val) { prefs.importKeyword = val; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); alert("✅ Nom enregistré (pour info)."); $('settingsPop').classList.remove('show'); } else alert("Entrez un nom."); };
+  
+  if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => {
+    const val = $('importKeyword').value.trim();
+    if(val) { prefs.importKeyword = val; localStorage.setItem('prefs_v2', JSON.stringify(prefs)); alert("✅ Nom enregistré. Vous pouvez maintenant importer votre fichier."); $('settingsPop').classList.remove('show'); }
+    else alert("Entrez un nom.");
+  };
 
-  // Auth
   const tabLogin = $('tabLogin'), tabSignup = $('tabSignup'), paneLogin = $('paneLogin'), paneSignup = $('paneSignup');
   if(tabLogin && tabSignup) {
     const switchToLogin = () => { paneLogin.style.display='block'; paneSignup.style.display='none'; tabLogin.classList.add('active'); tabSignup.classList.remove('active'); };
-    tabLogin.onclick = switchToLogin; tabSignup.onclick = () => { paneLogin.style.display='none'; paneSignup.style.display='block'; tabSignup.classList.add('active'); tabLogin.classList.remove('active'); };
+    tabLogin.onclick = switchToLogin;
+    tabSignup.onclick = () => { paneLogin.style.display='none'; paneSignup.style.display='block'; tabSignup.classList.add('active'); tabLogin.classList.remove('active'); };
     if($('btnBackLogin')) $('btnBackLogin').onclick = switchToLogin;
   }
-  if($('btnLogin')) $('btnLogin').onclick = async () => { const email = $('loginEmail').value, pass = $('loginPass').value, hint = $('loginHint'); if(!email || !pass) { hint.textContent = "Champs requis"; return; } hint.textContent = "Connexion..."; const { error } = await supabase.auth.signInWithPassword({ email, password: pass }); if(error) { hint.textContent = "Erreur: " + error.message; } else checkAuth(); };
-  if($('btnSignup')) $('btnSignup').onclick = async () => { const email = $('signEmail').value, pass = $('signPass').value; if(pass.length < 6) return alert("6 caractères min"); const { error } = await supabase.auth.signUp({ email, password: pass }); if(error) alert(error.message); else { alert("Compte créé !"); tabLogin.onclick(); } };
-  if($('btnReset')) $('btnReset').onclick = async () => { const email = $('loginEmail').value; if(!email) return alert("Entrez email"); await supabase.auth.resetPasswordForEmail(email); alert("Email envoyé"); };
-  if($('btnLogout')) $('btnLogout').onclick = async () => { if(prefs.confirmLogout && !confirm("Déconnexion ?")) return; await supabase.auth.signOut(); checkAuth(); };
+  
+  if($('btnLogin')) $('btnLogin').onclick = async () => {
+    const email = $('loginEmail').value, pass = $('loginPass').value, hint = $('loginHint');
+    if(!email || !pass) { hint.textContent = "Champs requis"; return; }
+    hint.textContent = "Connexion...";
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if(error) { hint.textContent = "Erreur: " + error.message; } else checkAuth();
+  };
+  if($('btnSignup')) $('btnSignup').onclick = async () => {
+    const email = $('signEmail').value, pass = $('signPass').value;
+    if(pass.length < 6) return alert("6 caractères min");
+    const { error } = await supabase.auth.signUp({ email, password: pass });
+    if(error) alert(error.message); else { alert("Compte créé ! Connectez-vous."); tabLogin.onclick(); }
+  };
+  if($('btnReset')) $('btnReset').onclick = async () => {
+    const email = $('loginEmail').value;
+    if(!email) return alert("Entrez email");
+    await supabase.auth.resetPasswordForEmail(email);
+    alert("Email de réinitialisation envoyé");
+  };
+  if($('btnLogout')) $('btnLogout').onclick = async () => {
+    if(prefs.confirmLogout && !confirm("Déconnexion ?")) return;
+    await supabase.auth.signOut();
+    checkAuth();
+  };
 }
 
 init();
