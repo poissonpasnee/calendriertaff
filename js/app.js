@@ -16,6 +16,7 @@ let prefs = {
 };
 let cellCache = new Map();
 let pendingImport = [];
+let codeLegend = {}; // Stocke la légende (N28 = Nuit)
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
@@ -245,11 +246,11 @@ async function saveEntry(k, patch) {
   }, { onConflict: "user_id,work_date" });
 }
 
-// --- IMPORT EXCEL "UNIVERSAL READER" ---
+// --- IMPORT EXCEL SPÉCIALISÉ (Structure SNCF : Nom en B, Planning en H-AB) ---
 
 function triggerImport() {
   if(!prefs.importKeyword || prefs.importKeyword.trim() === '') {
-    alert("⚠️ Veuillez configurer votre NOM (ex: MARTIN) dans les Réglages (roue dentée) > section 'Import Sécurisé'.");
+    alert("⚠️ ALERTE CONFIDENTIALITÉ : Veuillez entrer votre NOM DE FAMILLE (ex: INIZAN) dans les Réglages (roue dentée) > section 'Import Sécurisé'.\n\nCe nom reste stocké UNIQUEMENT dans votre appareil. Il n'est jamais envoyé sur Internet.");
     $('btnSettings').click();
     return;
   }
@@ -264,176 +265,213 @@ function handleFileSelect(e) {
   reader.onload = (evt) => {
     try {
       const data = new Uint8Array(evt.target.result);
-      // Lecture brute de TOUTES les cellules, sans interprétation
+      // Lecture brute
       const workbook = XLSX.read(data, { type: 'array', cellDates: false, cellText: true, sheetStubs: true });
       
       if(!workbook.SheetNames.length) throw new Error("Fichier vide");
 
-      // On prend la première feuille
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      // Conversion en tableau complet (tableau de tableaux)
+      // Conversion en tableau complet
       const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
 
-      processUniversalData(rawData);
+      processSNCFData(rawData);
     } catch (err) {
       console.error(err);
-      alert("❌ Erreur de lecture. Essayez d'enregistrer le fichier en '.xlsx' standard via Excel.");
+      alert("❌ Erreur de lecture. Assurez-vous que le fichier est un .xlsx standard.");
     }
     $('fileInput').value = '';
   };
   reader.readAsArrayBuffer(file);
 }
 
-function processUniversalData(rows) {
+function processSNCFData(rows) {
   const keyword = prefs.importKeyword.toUpperCase().trim();
-  if(keyword.length < 2) {
-    alert("Le mot-clé est trop court. Entrez au moins 3 lettres (ex: votre nom de famille).");
-    return;
-  }
+  
+  // 1. Identifier les index de colonnes (0-based)
+  // Colonne B = Index 1 (Nom)
+  // Colonne C = Index 2 (Prénom)
+  // Colonne H = Index 7 (Début du planning)
+  // Colonne AB = Index 27 (Fin du planning)
+  const COL_NOM = 1; 
+  const COL_PRENOM = 2;
+  const COL_START_PLANNING = 7; // H
+  const COL_END_PLANNING = 27;  // AB
 
-  // 1. Construire le Dictionnaire des Codes (Memo -> Type)
-  // On cherche n'importe où dans le fichier les mots "MEMO", "N°", "JOUR/NUIT"
-  const codeMap = {};
-  let inMemoSection = false;
-
-  // On scanne tout le fichier pour trouver la légende
+  // 2. Construire la Légende (Code -> Type)
+  // On cherche la section "N° / MEMO" ou "LEGENDE" n'importe où dans le fichier
+  codeLegend = {};
+  let inLegend = false;
+  
   for(let r=0; r<rows.length; r++) {
     const rowText = rows[r].join(" ").toUpperCase();
-    
-    // Détection du début de la section Mémo
-    if(rowText.includes("MEMO") || rowText.includes("N° / MEMO")) {
-      inMemoSection = true;
+    if(rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE")) {
+      inLegend = true;
       continue;
     }
-    // Si on est dans la section et qu'on trouve une ligne vide ou un nouveau titre, on arrête
-    if(inMemoSection && (rowText.trim() === "" || rowText.includes("ACTIVITÉ") || rowText.includes("TOTAL"))) {
-      // On continue car parfois la légende est longue, on s'arrêtera au prochain bloc logique ou fin de fichier
-      // Pour simplifier, on considère que tout ce qui ressemble à "CODE = TYPE" est bon à prendre
-    }
-
-    if(inMemoSection) {
-      // On cherche des motifs type "N28", "J12", "R45" suivis de "JOUR" ou "NUIT"
-      // On récupère toutes les cellules de la ligne
+    if(inLegend) {
+      // Si on rencontre une ligne vide ou un nouveau titre majeur, on peut arrêter (optionnel)
+      // On scanne les cellules pour trouver des codes (ex: N28) et leur type
       const cells = rows[r];
-      let codeCandidate = "";
-      let typeCandidate = "";
-
+      let currentCode = "";
       for(let c=0; c<cells.length; c++) {
         const cell = String(cells[c]).toUpperCase().trim();
-        // Si la cellule ressemble à un code (Lettre + Chiffre)
         if(/^[A-Z]{1,2}[0-9]{1,3}$/.test(cell)) {
-          codeCandidate = cell;
+          currentCode = cell;
+        } else if (currentCode && (cell.includes("JOUR") || cell.includes("NUIT") || cell.includes("REPOS"))) {
+          if(cell.includes("NUIT")) codeLegend[currentCode] = "nuit";
+          else if(cell.includes("JOUR")) codeLegend[currentCode] = "jour";
+          else if(cell.includes("REPOS")) codeLegend[currentCode] = "repos";
+          else codeLegend[currentCode] = "autre";
+          currentCode = ""; // Reset pour le prochain
         }
-        // Si la cellule contient JOUR ou NUIT
-        if(cell.includes("JOUR") && !cell.includes("JOURNÉE")) typeCandidate = "jour";
-        if(cell.includes("NUIT")) typeCandidate = "nuit";
-        if(cell.includes("REPOS")) typeCandidate = "repos";
-      }
-
-      if(codeCandidate && typeCandidate) {
-        codeMap[codeCandidate] = typeCandidate;
       }
     }
   }
 
-  // 2. Trouver VOTRE NOM et extraire vos services
+  // 3. Scanner les lignes de planning pour trouver VOTRE NOM
   const foundServices = [];
   const daysFr = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
   
-  // On scanne chaque ligne pour trouver le nom
-  for(let r=0; r<rows.length; r++) {
-    const row = rows[r];
-    const rowText = row.join(" ").toUpperCase();
+  // On suppose que les en-têtes de jours (Lundi, Mardi...) sont sur la ligne juste avant le premier planning ou la ligne 0/1
+  // Pour être robuste, on va chercher la ligne qui contient "LUNDI", "MARDI" etc. dans les colonnes H à AB
+  let headerRowIndex = -1;
+  let dateRow = []; // Stocke les dates si elles sont sur une ligne dédiée
+  
+  // Recherche de la ligne d'en-tête des jours (LUNDI, MARDI...)
+  for(let r=0; r<Math.min(rows.length, 20); r++) {
+    let matchCount = 0;
+    for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+      const cell = String(rows[r][c]||"").toUpperCase().trim();
+      if(daysFr.some(d => cell.includes(d))) matchCount++;
+    }
+    if(matchCount >= 3) { // Si on trouve au moins 3 jours, c'est la ligne d'en-tête
+      headerRowIndex = r;
+      break;
+    }
+  }
 
-    // Vérifie si le nom est dans cette ligne
-    if(rowText.includes(keyword)) {
-      // On a trouvé une ligne potentielle. Maintenant on cherche la DATE et le CODE.
-      
-      let dateObj = null;
-      let codeFound = "";
-      let dayName = "";
+  if(headerRowIndex === -1) {
+    alert("❌ Impossible de trouver les jours de la semaine (LUNDI, MARDI...) dans les colonnes H à AB. Vérifiez que le fichier n'est pas corrompu.");
+    return;
+  }
 
-      // Parcours des cellules de la ligne
-      for(let c=0; c<row.length; c++) {
-        const cell = String(row[c]).trim();
-        const cellUpper = cell.toUpperCase();
+  // Extraction des dates réelles si elles sont sur la ligne du dessous ou dans l'en-tête
+  // Souvent : Ligne N = "LUNDI", Ligne N+1 = "12/03" ou juste vide si c'est implicite
+  // On va supposer que la ligne d'en-tête contient "LUNDI 12" ou similaire, ou qu'on doit déduire.
+  // Pour simplifier et être robuste : on va lire la ligne d'en-tête pour avoir les JOURS, 
+  // et on espère que les DATES sont soit dans la même cellule ("LUNDI 12"), soit sur la ligne du dessous.
+  
+  let planningDates = []; // Tableau de Date objects pour chaque colonne de H à AB
+  
+  // Tentative 1 : Les dates sont dans la ligne d'en-tête (ex: "LUNDI 12/03")
+  for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+    const cell = String(rows[headerRowIndex][c]||"");
+    const dateObj = parseDateFromCell(cell);
+    planningDates[c] = dateObj;
+  }
 
-        // A. Chercher la date (ex: "12/03/2026" ou "12 mars")
-        if(!dateObj) {
-          // Test format JJ/MM/AAAA
-          const dateMatch = cell.match(/(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{2,4})/);
-          if(dateMatch) {
-            const d = new Date(`${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`);
-            if(!isNaN(d.getTime())) dateObj = d;
-          }
-          // Test format "LUNDI 12" (si Excel a gardé le texte)
-          if(!dateObj) {
-             for(let day of daysFr) {
-               if(cellUpper.includes(day)) {
-                 // Tentative d'extraction du chiffre à côté
-                 const numMatch = cell.match(/(\d{1,2})/);
-                 if(numMatch) {
-                   // On essaie de construire une date avec le mois courant ou prochain
-                   const currentMonth = new Date().getMonth();
-                   const d = new Date(2026, currentMonth, parseInt(numMatch[1])); // Année par défaut 2026 à ajuster si besoin
-                   if(!isNaN(d.getTime())) {
-                     dateObj = d;
-                     dayName = day;
-                   }
-                 }
-               }
-             }
-          }
-        }
-
-        // B. Chercher le code chantier (ex: N28)
-        if(!codeFound && /^[A-Z]{1,2}[0-9]{1,3}$/.test(cellUpper)) {
-          // Vérifier que ce n'est pas une date ou autre chose
-          if(!cellUpper.includes("LUNDI") && !cellUpper.includes("MARDI")) {
-             codeFound = cellUpper;
-          }
-        }
-        
-        // C. Chercher le jour de la semaine explicite si pas trouvé dans la date
-        if(!dayName) {
-          for(let day of daysFr) {
-            if(cellUpper.includes(day)) dayName = day;
-          }
-        }
+  // Tentative 2 : Si pas de dates trouvées, regarder la ligne du dessous (headerRowIndex + 1)
+  if(planningDates.every(d => !d)) {
+    const nextRow = rows[headerRowIndex + 1];
+    if(nextRow) {
+      for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+        const cell = String(nextRow[c]||"");
+        const dateObj = parseDateFromCell(cell);
+        if(dateObj) planningDates[c] = dateObj;
       }
+    }
+  }
+  
+  // Si toujours pas de dates, on ne peut pas importer précisément. On prévient.
+  const hasDates = planningDates.some(d => d);
 
-      // Si on a un code et une date (ou un jour), on valide
-      if(codeFound && (dateObj || dayName)) {
-        const status = codeMap[codeFound] || "autre";
+  // 4. Boucle sur les lignes de données pour trouver VOTRE NOM (Colonne B)
+  for(let r=headerRowIndex + 1; r<rows.length; r++) {
+    const row = rows[r];
+    const nomCell = String(row[COL_NOM]||"").toUpperCase().trim();
+    const prenomCell = String(row[COL_PRENOM]||"").toUpperCase().trim();
+    
+    // Vérification : Est-ce que cette ligne est pour VOUS ?
+    // On matche si le NOM correspond exactement ou contient le keyword
+    const isMe = (nomCell === keyword) || (nomCell.includes(keyword) && keyword.length > 3);
+    
+    if(isMe) {
+      // C'est votre ligne ! On scanne les colonnes H à AB
+      for(let c=COL_START_PLANNING; c<=COL_END_PLANNING; c++) {
+        const codeRaw = String(row[c]||"").trim();
+        const codeUpper = codeRaw.toUpperCase();
         
-        // Si pas de dateObj précise, on essaie de déduire l'année/mois du contexte (simplifié ici : on prend le mois en cours)
-        if(!dateObj && dayName) {
-           // Cas complexe : on a "LUNDI" et "N28" mais pas la date complète. 
-           // On ne peut pas importer sans date précise. On skip ou on demande à l'utilisateur.
-           // Pour l'instant, on skip les lignes sans date complète pour éviter les erreurs.
-           continue; 
-        }
-
-        if(dateObj) {
-          foundServices.push({
-            dateKey: keyFor(dateObj),
-            dateObj: dateObj,
-            dayName: dayName || dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase(),
-            code: codeFound,
-            status: status,
-            note: `Import: ${codeFound}`
-          });
+        // Si la cellule contient un code (ex: N28, J13)
+        if(codeUpper && /^[A-Z]{1,2}[0-9]{1,3}$/.test(codeUpper)) {
+          const status = codeLegend[codeUpper] || "autre";
+          
+          // Récupérer la date pour cette colonne
+          let dateObj = planningDates[c];
+          
+          // Si pas de date dans l'en-tête, on essaie de la deviner si le fichier a une structure régulière
+          // (C'est complexe sans modèle exact, donc on se fie à l'en-tête)
+          
+          if(dateObj) {
+            foundServices.push({
+              dateKey: keyFor(dateObj),
+              dateObj: dateObj,
+              dayName: dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase(),
+              code: codeUpper,
+              status: status,
+              note: `Import: ${codeUpper}`
+            });
+          } else {
+            console.warn(`Date manquante pour la colonne ${c} (Code: ${codeUpper})`);
+          }
         }
       }
     }
   }
 
   if(foundServices.length === 0) {
-    alert(`❌ Aucun service trouvé pour "${keyword}".\n\nVérifiez que :\n1. Votre nom est écrit exactement comme dans le fichier (ex: MARTIN).\n2. Le fichier contient bien des codes (ex: N28) et des jours.\n3. Les dates sont au format reconnu (JJ/MM/AAAA).`);
+    alert(`❌ Aucun service trouvé pour le nom "${keyword}" dans la colonne B.\n\nVérifiez :\n1. Que vous avez entré le nom EXACT comme dans la colonne B (ex: INIZAN).\n2. Que votre ligne de planning contient bien des codes (N28, etc.) dans les colonnes H à AB.`);
     return;
   }
 
   showImportPreview(foundServices);
+}
+
+// Helper pour parser une date depuis une cellule Excel (texte ou nombre)
+function parseDateFromCell(cell) {
+  if(!cell) return null;
+  const str = String(cell).trim();
+  
+  // Cas 1: Date Excel numérique (ex: 44927) - géré par raw:false normalement, mais au cas où
+  if(!isNaN(str) && str.length > 4) {
+     // C'est un serial number Excel, conversion approximative (non géré ici car cellText:true)
+     return null; 
+  }
+  
+  // Cas 2: Texte "12/03/2026" ou "12/03"
+  const dmy = str.match(/(\d{1,2})[/\-\.](\d{1,2})[/\-\.]?(\d{2,4})?/);
+  if(dmy) {
+    const day = parseInt(dmy[1]);
+    const month = parseInt(dmy[2]) - 1;
+    const year = dmy[3] ? (parseInt(dmy[3]) < 100 ? 2000 + parseInt(dmy[3]) : parseInt(dmy[3])) : new Date().getFullYear();
+    const d = new Date(year, month, day);
+    if(!isNaN(d.getTime())) return d;
+  }
+  
+  // Cas 3: Texte "LUNDI 12" ou "LUNDI 12/03"
+  // On essaie d'extraire le chiffre
+  const numMatch = str.match(/(\d{1,2})/);
+  if(numMatch) {
+     // On ne peut pas deviner le mois/année sans plus d'info, on retourne null
+     // Sauf si le mois est écrit en toutes lettres
+     const monthsFr = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+     const monthIdx = monthsFr.findIndex(m => str.toLowerCase().includes(m));
+     if(monthIdx !== -1 && numMatch) {
+        const d = new Date(new Date().getFullYear(), monthIdx, parseInt(numMatch[1]));
+        if(!isNaN(d.getTime())) return d;
+     }
+  }
+  
+  return null;
 }
 
 function showImportPreview(services) {
@@ -441,7 +479,7 @@ function showImportPreview(services) {
   const list = $('importPreviewList');
   const summary = $('importSummary');
   list.innerHTML = '';
-  summary.textContent = `${services.length} services trouvés.`;
+  summary.textContent = `${services.length} services trouvés pour "${prefs.importKeyword}".`;
   
   services.forEach(s => {
     const div = document.createElement('div');
@@ -484,7 +522,7 @@ function confirmImport() {
     for(const item of batch) {
       await supabase.from("work_calendar_entries").upsert(item, { onConflict: "user_id,work_date" });
     }
-    alert(`✅ ${count} services importés !`);
+    alert(`✅ ${count} services importés avec succès !`);
     closeImportModal();
   })();
 }
@@ -495,7 +533,7 @@ function closeImportModal() {
   pendingImport = [];
 }
 
-// --- EXPORT & EVENTS (Identiques) ---
+// --- EXPORT & EVENTS ---
 function openExportModal() {
   const firstDay = new Date(state.year, state.month, 1);
   const lastDay = new Date(state.year, state.month + 1, 0);
@@ -591,7 +629,7 @@ function setupEvents() {
   
   if($('btnSaveImportConfig')) $('btnSaveImportConfig').onclick = () => {
     const val = $('importKeyword').value.trim();
-    if(val) { prefs.importKeyword = val; savePrefs(); alert("✅ Nom enregistré localement."); $('settingsPop').classList.remove('show'); }
+    if(val) { prefs.importKeyword = val; savePrefs(); alert("✅ Nom enregistré LOCALEMENT. Il ne quittera jamais votre appareil."); $('settingsPop').classList.remove('show'); }
     else alert("Entrez un nom.");
   };
   function savePrefs() { localStorage.setItem('prefs_v2', JSON.stringify(prefs)); }
