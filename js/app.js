@@ -1,306 +1,770 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-// --- CONFIGURATION ---
-// REMPLACEZ PAR VOS CLÉS SUPABASE
-const SUPABASE_URL = 'VOTRE_URL_SUPABASE'; 
-const SUPABASE_KEY = 'VOTRE_CLE_ANON_SUPABASE';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// --- CONFIGURATION SUPABASE ---
+const SUPABASE_URL = "https://dstmyvzjirgyuwuojwnk.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // --- ÉTAT GLOBAL ---
-let currentDate = new Date();
-let selectedDateStr = null;
 let user = null;
+let entries = new Map();
+let state = { year: new Date().getFullYear(), month: new Date().getMonth(), selected: null };
+let prefs = { 
+  theme: 'dark', 
+  rateDay: 35.0, 
+  rateNightFull: 82.0, 
+  rateNightSolo: 41.0,
+  rateMN: 15.0 // Taux par défaut pour une Montée de Nuit (ajustable)
+};
+let cellCache = new Map();
+let pendingImport = [];
+let codeLegend = {};
 
-// Taux (Exemples, à personnaliser)
-const RATES = { jour: 150, nuit: 180, mn: 40 };
+const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", mn:"MN", autre:"Autre" };
+const BASE_SALARY = 2093.06;
+const DAYS_FR = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
+
+// --- UTILITAIRES ---
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+
+// Nettoie le texte : garde seulement Lettres et Chiffres, met en MAJUSCULE
+const clean = (txt) => {
+  if (txt === null || txt === undefined) return "";
+  return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
+};
+
+// --- MOTEUR DE PAIE (AVEC RÈGLES MÉTIER) ---
+function calculateSalary() {
+  let total = 0;
+  const end = new Date(state.year, state.month + 1, 0);
+  
+  for (let d = 1; d <= end.getDate(); d++) {
+    const k = keyFor(new Date(state.year, state.month, d));
+    const e = entries.get(k);
+    
+    if (e?.status === 'jour') total += parseFloat(prefs.rateDay);
+    if (e?.status === 'nuit') total += parseFloat(prefs.rateNightFull);
+    if (e?.status === 'mn') total += parseFloat(prefs.rateMN);
+  }
+  return BASE_SALARY + total;
+}
 
 // --- INITIALISATION ---
-document.addEventListener('DOMContentLoaded', async () => {
-    await checkAuth();
-    if (user) {
-        renderCalendar();
-        setupEventListeners();
-    }
-});
+async function init() {
+  loadLocal();
+  applyPrefs();
+  if (!state.selected) state.selected = keyFor(new Date());
+  
+  await checkAuth();
+  renderGrid();
+  updateUI();
+  setupEvents();
+}
+
+function loadLocal() {
+  const p = localStorage.getItem('ms_prefs');
+  if (p) prefs = { ...prefs, ...JSON.parse(p) };
+  const s = localStorage.getItem('ms_state');
+  if (s) state = { ...state, ...JSON.parse(s) };
+}
+
+function applyPrefs() {
+  document.documentElement.setAttribute('data-theme', prefs.theme);
+  if ($('rateDay')) $('rateDay').value = prefs.rateDay;
+  if ($('rateNightFull')) $('rateNightFull').value = prefs.rateNightFull;
+  if ($('themeLight')) $('themeLight').classList.toggle('active', prefs.theme === 'light');
+  if ($('themeDark')) $('themeDark').classList.toggle('active', prefs.theme === 'dark');
+}
 
 // --- AUTHENTIFICATION ---
 async function checkAuth() {
-    const { data: { user: currentUser }, error } = await supabase.auth.getUser();
-    if (error || !currentUser) {
-        // Pour le test local, on peut simuler un user ou rediriger vers login
-        // Ici, on suppose que l'utilisateur est déjà connecté via magic link ou autre
-        console.warn("Utilisateur non connecté. Mode démo ou redirection nécessaire.");
-        document.getElementById('user-display').textContent = "Non connecté";
-        return;
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data?.session) {
+    user = null;
+    if ($('topSub')) $('topSub').textContent = "Invité";
+    if ($('gate')) $('gate').classList.add('show');
+    return;
+  }
+  user = data.session.user;
+  if ($('topSub')) $('topSub').textContent = user.email.split('@')[0];
+  if ($('gate')) $('gate').classList.remove('show');
+  await loadEntries();
+  renderGrid();
+  updateUI();
+}
+
+async function loadEntries() {
+  if (!user) return;
+  const start = keyFor(new Date(state.year, state.month - 1, 1));
+  const end = keyFor(new Date(state.year, state.month + 2, 0));
+  
+  const { data, error } = await supabase
+    .from("work_calendar_entries")
+    .select("*")
+    .gte("work_date", start)
+    .lte("work_date", end);
+
+  if (error) { console.error("Erreur chargement:", error); return; }
+  
+  entries.clear();
+  if (data) {
+    data.forEach(r => entries.set(r.work_date, { 
+      status: r.status, 
+      note: r.note, 
+      custom_label: r.custom_label, 
+      imported: r.imported 
+    }));
+  }
+}
+
+// --- RENDU GRILLE ---
+function renderGrid() {
+  const grid = $('grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  cellCache.clear();
+
+  let dy = state.year;
+  let dm = state.month;
+
+  if ($('navMonth')) $('navMonth').textContent = MONTHS[dm];
+  if ($('navYear')) $('navYear').textContent = dy;
+
+  const first = new Date(dy, dm, 1);
+  let startDay = first.getDay();
+  const startDate = new Date(first);
+  startDate.setDate(first.getDate() - startDay);
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    const k = keyFor(d);
+
+    if (i % 7 === 0) {
+      const wn = document.createElement('div');
+      wn.className = 'weeknum';
+      wn.textContent = Math.ceil(d.getDate() / 7);
+      grid.appendChild(wn);
     }
-    user = currentUser;
-    document.getElementById('user-display').textContent = user.email.split('@')[0];
-}
 
-// --- CALENDRIER ---
-function renderCalendar() {
-    const grid = document.getElementById('calendar-grid');
-    grid.innerHTML = '';
-    
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    document.getElementById('current-month-label').textContent = 
-        new Date(year, month).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const cell = document.createElement('div');
+    cell.className = 'day';
+    if (d.getMonth() !== dm) cell.classList.add('out');
+    cell.textContent = d.getDate();
+    cell.dataset.key = k;
 
-    const firstDay = new Date(year, month, 1).getDay(); // 0 = Dimanche
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // Ajustement pour commencer par Lundi (optionnel, ici on garde Dimanche=0 pour simple)
-    // Pour commencer Lundi: const offset = (firstDay === 0) ? 6 : firstDay - 1;
-    
-    const today = new Date();
-
-    for (let i = 0; i < firstDay; i++) {
-        grid.innerHTML += `<div class="day-cell" style="visibility:hidden"></div>`;
+    const entry = entries.get(k);
+    if (entry?.status) {
+      cell.classList.add(entry.status);
+      if (entry.imported) {
+        cell.style.border = '2px dashed var(--accent)';
+        cell.style.boxSizing = 'border-box';
+      }
+      if (entry.note) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        cell.appendChild(dot);
+      }
     }
 
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const isToday = (d === today.getDate() && month === today.getMonth() && year === today.getFullYear());
-        
-        const cell = document.createElement('div');
-        cell.className = `day-cell ${isToday ? 'today' : ''}`;
-        cell.dataset.date = dateStr;
-        
-        cell.innerHTML = `
-            <span class="day-number">${d}</span>
-            <span class="day-code" id="code-${dateStr}"></span>
-        `;
-        
-        cell.addEventListener('click', () => selectDay(dateStr, cell));
-        grid.appendChild(cell);
+    if (k === state.selected) cell.classList.add('selected');
+
+    // Sélection simple sans ouverture de modale
+    cell.onclick = () => {
+      state.selected = k;
+      localStorage.setItem('ms_state', JSON.stringify(state));
+      renderGrid();
+      updateUI();
+    };
+
+    grid.appendChild(cell);
+    cellCache.set(k, cell);
+  }
+}
+
+function updateUI() {
+  if (!state.selected) return;
+  const d = parseKey(state.selected);
+  if ($('selDate')) $('selDate').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  
+  const entry = entries.get(state.selected);
+  if ($('selState')) $('selState').textContent = entry?.status ? LABELS[entry.status] : "Libre";
+  
+  let count = 0;
+  entries.forEach(e => { if (['jour', 'nuit', 'mn', 'autre'].includes(e.status)) count++; });
+  if ($('statCount')) $('statCount').textContent = count;
+  
+  if ($('salaryValue')) {
+    const sal = calculateSalary();
+    $('salaryValue').textContent = sal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
+}
+
+// --- SAUVEGARDE SÉCURISÉE (CORRECTION BUG IMPORTED) ---
+async function saveEntry(k, patch) {
+  if (!user) {
+    $('gate').classList.add('show');
+    return;
+  }
+
+  const cur = entries.get(k) || { status: '', note: '', custom_label: '', imported: false };
+  const next = { ...cur, ...patch };
+  entries.set(k, next);
+
+  const cell = cellCache.get(k);
+  if (cell) {
+    cell.className = `day ${cell.classList.contains('out') ? 'out' : ''} ${next.status || ''}`;
+    if (next.imported) {
+      cell.style.border = '2px dashed var(--accent)';
+      cell.style.boxSizing = 'border-box';
     }
+    const oldDot = cell.querySelector('.dot');
+    if (oldDot) oldDot.remove();
+    if (next.note) {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      cell.appendChild(dot);
+    }
+  }
+
+  updateUI();
+
+  // PRÉPARATION DES DONNÉES (Payload)
+  const payload = {
+    user_id: user.id,
+    work_date: k,
+    status: next.status,
+    note: next.note,
+    custom_label: next.custom_label
+  };
+
+  // On ajoute 'imported' seulement si c'est vrai
+  if (next.imported === true) {
+    payload.imported = true;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("work_calendar_entries")
+      .upsert(payload, { onConflict: "user_id,work_date" });
+
+    if (error) {
+      // SI L'ERREUR CONCERNE LA COLONNE 'IMPORTED', ON RÉESSAIE SANS ELLE
+      if (error.message.includes('imported') || error.message.includes('column')) {
+        console.warn("Colonne 'imported' manquante ou erronée, réessai sans cette colonne...");
+        delete payload.imported; // On retire la colonne problématique
+        
+        const { error: retryError } = await supabase
+          .from("work_calendar_entries")
+          .upsert(payload, { onConflict: "user_id,work_date" });
+          
+        if (retryError) throw retryError; // Si ça rate encore, on lance l'erreur
+      } else {
+        throw error; // Autre erreur, on l'affiche directement
+      }
+    }
+  } catch (e) {
+    console.error("Erreur sauvegarde:", e);
+    alert("Erreur de synchronisation: " + e.message);
+    // En cas d'erreur critique, on recharge pour éviter les incohérences
+    await loadEntries();
+    renderGrid();
+  }
 }
 
-// --- SÉLECTION JOUR & AFFICHAGE NOTE ---
-async function selectDay(dateStr, cellElement) {
-    selectedDateStr = dateStr;
+// --- CERVEAU "IA" D'IMPORT (AVEC RÈGLES MÉTIER SNCF) ---
 
-    // UI Sélection
-    document.querySelectorAll('.day-cell').forEach(c => c.classList.remove('selected'));
-    if(cellElement) cellElement.classList.add('selected');
-
-    // Reset UI Détails
-    document.getElementById('no-selection-msg').style.display = 'none';
-    document.getElementById('note-detail-container').classList.add('hidden');
-    
-    // 1. Calculer le salaire (Simulation basée sur le code présent dans la case)
-    // Dans votre version réelle, vous lisez la donnée en base ou en mémoire
-    const code = document.getElementById(`code-${dateStr}`)?.textContent || '';
-    calculateSalaryForDay(code);
-
-    // 2. Charger et afficher la note
-    await loadAndShowNote(dateStr);
+function triggerImport() {
+  if (!user) {
+    alert("Veuillez vous connecter d'abord.");
+    $('gate').classList.add('show');
+    return;
+  }
+  $('fileInput').click();
 }
 
-function calculateSalaryForDay(code) {
-    // Logique simplifiée pour l'exemple
-    let countJ = 0, countN = 0, countMN = 0;
-    
-    if (code.startsWith('J')) countJ = 1;
-    if (code.startsWith('N')) countN = 1;
-    // Logique MN complexe à ajouter ici selon vos règles
-    
-    document.getElementById('count-jour').textContent = countJ;
-    document.getElementById('count-nuit').textContent = countN;
-    document.getElementById('count-mn').textContent = countMN;
-    
-    const total = (countJ * RATES.jour) + (countN * RATES.nuit) + (countMN * RATES.mn);
-    document.getElementById('total-salary').textContent = `${total.toFixed(2)} €`;
-}
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
 
-async function loadAndShowNote(dateStr) {
-    const container = document.getElementById('note-detail-container');
-    const dateDisplay = document.getElementById('note-date-display');
-    const contentDisplay = document.getElementById('note-content-display');
-    
-    // Format date
-    const options = { weekday: 'long', day: 'numeric', month: 'long' };
-    dateDisplay.textContent = new Date(dateStr).toLocaleDateString('fr-FR', options);
-
+  const reader = new FileReader();
+  reader.onload = (evt) => {
     try {
-        const { data, error } = await supabase
-            .from('work_calendar_entries')
-            .select('note, status, custom_label') // Récupérer aussi le code pour l'afficher
-            .eq('user_id', user.id)
-            .eq('work_date', dateStr)
-            .single();
-
-        if (error && error.code !== 'PGRST116') { // PGRST116 = No rows found
-            console.error('Erreur chargement note:', error);
-            return;
-        }
-
-        if (data && data.note) {
-            contentDisplay.textContent = data.note;
-            container.classList.remove('hidden');
-            
-            // Optionnel : Mettre à jour le code affiché dans le calendrier si présent en base
-            if(data.status || data.custom_label) {
-                 const codeEl = document.getElementById(`code-${dateStr}`);
-                 if(codeEl) codeEl.textContent = data.custom_label || data.status;
-            }
-        } else {
-            container.classList.add('hidden');
-        }
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellText: true, raw: false });
+      
+      if (!workbook.SheetNames.length) throw new Error("Fichier vide");
+      
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      
+      analyzeData(rows);
     } catch (err) {
-        console.error('Erreur inattendue:', err);
+      console.error(err);
+      alert("❌ Erreur lors de la lecture du fichier Excel.");
     }
+    $('fileInput').value = '';
+  };
+  reader.readAsArrayBuffer(file);
 }
 
-// --- GESTION DES NOTES (SAVE/EDIT/DELETE) ---
-
-function openNoteModal(existingNote = '') {
-    if (!selectedDateStr) return;
-    
-    const modal = document.getElementById('modal-note');
-    const input = document.getElementById('note-input');
-    const dateTitle = document.getElementById('modal-note-date');
-    
-    input.value = existingNote;
-    dateTitle.textContent = new Date(selectedDateStr).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-    
-    modal.classList.remove('hidden');
-    document.getElementById('modal-overlay').classList.remove('hidden');
-}
-
-async function saveNote() {
-    const noteText = document.getElementById('note-input').value.trim();
-    if (!selectedDateStr || !user) return;
-
-    const btn = document.getElementById('save-note-btn');
-    btn.textContent = '...';
-    btn.disabled = true;
-
-    try {
-        // Upsert : Insert ou Update si conflit (user_id, work_date)
-        // Assurez-vous d'avoir une contrainte UNIQUE sur (user_id, work_date) dans Supabase
-        const { error } = await supabase
-            .from('work_calendar_entries')
-            .upsert({
-                user_id: user.id,
-                work_date: selectedDateStr,
-                note: noteText,
-                // Si la ligne n'existe pas, on peut mettre un status par défaut sinon on ne touche pas
-                // Note: upsert avec partial data peut nécessiter de récupérer l'existant d'abord selon config RLS
-            }, { onConflict: 'user_id,work_date' });
-
-        if (error) throw error;
-
-        // Mise à jour UI immédiate
-        const container = document.getElementById('note-detail-container');
-        const contentDisplay = document.getElementById('note-content-display');
-        
-        if (noteText) {
-            contentDisplay.textContent = noteText;
-            container.classList.remove('hidden');
-            // Ajouter un indicateur visuel sur la case du calendrier
-            const cell = document.querySelector(`.day-cell[data-date="${selectedDateStr}"]`);
-            if(cell) cell.classList.add('has-note');
-        } else {
-            container.classList.add('hidden');
-             const cell = document.querySelector(`.day-cell[data-date="${selectedDateStr}"]`);
-            if(cell) cell.classList.remove('has-note');
-        }
-
-        closeModal();
-    } catch (err) {
-        // Fallback si la colonne 'note' ou la contrainte pose problème
-        console.error("Échec sauvegarde (tentative fallback):", err);
-        alert("Erreur de synchronisation. La note n'a pas été sauvegardée.");
-    } finally {
-        btn.textContent = 'Enregistrer';
-        btn.disabled = false;
-    }
-}
-
-async function deleteNote() {
-    if (!confirm("Supprimer cette note ?")) return;
-    if (!selectedDateStr || !user) return;
-
-    try {
-        const { error } = await supabase
-            .from('work_calendar_entries')
-            .update({ note: null })
-            .eq('user_id', user.id)
-            .eq('work_date', selectedDateStr);
-
-        if (error) throw error;
-
-        document.getElementById('note-detail-container').classList.add('hidden');
-        const cell = document.querySelector(`.day-cell[data-date="${selectedDateStr}"]`);
-        if(cell) cell.classList.remove('has-note');
-        
-        closeModal();
-    } catch (err) {
-        console.error("Erreur suppression:", err);
-    }
-}
-
-// --- UTILITAIRES ---
-function closeModal() {
-    document.getElementById('modal-overlay').classList.add('hidden');
-    document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
-}
-
-function setupEventListeners() {
-    // Navigation Mois
-    document.getElementById('prev-month').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() - 1);
-        renderCalendar();
-    });
-    document.getElementById('next-month').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        renderCalendar();
-    });
-
-    // Dock Actions
-    document.querySelectorAll('.dock-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!selectedDateStr) {
-                alert("Veuillez d'abord sélectionner un jour dans le calendrier.");
-                return;
-            }
-            const type = btn.dataset.type;
-            if (type === 'NOTE') {
-                // Ouvrir modale avec note existante si présente
-                const currentNote = document.getElementById('note-content-display').textContent;
-                // Si le conteneur est caché, c'est qu'il n'y a pas de note
-                const isEmpty = document.getElementById('note-detail-container').classList.contains('hidden');
-                openNoteModal(isEmpty ? '' : currentNote);
-            }
-            // Ajouter les autres cas (J, N, R, etc.) ici
+function analyzeData(rows) {
+  console.log(`🔍 Analyse de ${rows.length} lignes...`);
+  
+  // 1. LIRE LA LÉGENDE
+  codeLegend = {};
+  for (let r = rows.length - 1; r >= 0; r--) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    if (rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE") || rowText.includes("CODE")) {
+      for (let k = r + 1; k < Math.min(rows.length, r + 50); k++) {
+        let currentCode = "";
+        rows[k].forEach(cell => {
+          const val = clean(cell);
+          if (/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) currentCode = val;
+          else if (currentCode && val.length > 3) {
+            if (val.includes("NUIT")) codeLegend[currentCode] = "nuit";
+            else if (val.includes("JOUR")) codeLegend[currentCode] = "jour";
+            else if (val.includes("REPOS") || val.includes("OFF")) codeLegend[currentCode] = "repos";
+            else if (val.includes("CONG") || val.includes("CP")) codeLegend[currentCode] = "conges";
+            else if (val.includes("MN") || val.includes("MONTÉE")) codeLegend[currentCode] = "mn";
+          }
         });
-    });
+      }
+      break;
+    }
+  }
 
-    // Modale Note
-    document.getElementById('save-note-btn').addEventListener('click', saveNote);
-    document.getElementById('cancel-note-btn').addEventListener('click', closeModal);
-    document.getElementById('close-note-btn').addEventListener('click', () => {
-        document.getElementById('note-detail-container').classList.add('hidden');
-    });
-    document.getElementById('edit-note-btn').addEventListener('click', () => {
-        const current = document.getElementById('note-content-display').textContent;
-        openNoteModal(current);
-    });
-    document.getElementById('delete-note-btn').addEventListener('click', deleteNote);
+  // 2. TROUVER LA LIGNE DE PLANNING
+  let bestScore = -1;
+  let bestRowIdx = -1;
+  let bestRowData = [];
 
-    // Overlay click to close
-    document.getElementById('modal-overlay').addEventListener('click', (e) => {
-        if (e.target.id === 'modal-overlay') closeModal();
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    let score = 0;
+    row.forEach(cell => {
+      const val = clean(cell);
+      if (/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length >= 2 && val.length <= 6) score++;
+    });
+    if (score > bestScore && score >= 3) {
+      bestScore = score;
+      bestRowIdx = r;
+      bestRowData = row;
+    }
+  }
+
+  if (bestScore === -1) return alert("❌ Aucun code de chantier détecté.");
+
+  console.log(`✅ Ligne idéale : Index ${bestRowIdx} avec ${bestScore} codes.`);
+  extractSchedule(rows, bestRowIdx, bestRowData);
+}
+
+function extractSchedule(rows, rowIdx, rowData) {
+  // 3. TROUVER L'EN-TÊTE DE DATES
+  let headerIdx = -1;
+  for (let r = rowIdx - 1; r >= 0; r--) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    let dayCount = 0;
+    DAYS_FR.forEach(d => { if (rowText.includes(d)) dayCount++; });
+    if (dayCount >= 3) { headerIdx = r; break; }
+  }
+
+  if (headerIdx === -1) return alert("❌ Jours de la semaine introuvables.");
+
+  // 4. MAPPER LES DATES
+  const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
+  const currentYear = new Date().getFullYear();
+  let detectedMonth = state.month;
+  
+  const headerText = rows[headerIdx].join(" ").toUpperCase();
+  monthsFr.forEach((m, i) => { if (headerText.includes(m)) detectedMonth = i; });
+
+  const dateMap = {};
+  const headRow = rows[headerIdx];
+  const subRow = rows[headerIdx + 1] || [];
+
+  for (let c = 0; c < Math.max(headRow.length, subRow.length); c++) {
+    const c1 = String(headRow[c] || "");
+    const c2 = String(subRow[c] || "");
+    let dateObj = null;
+
+    const m1 = c1.match(/(\d{1,2})[/\-\.](\d{1,2})/);
+    if (m1) dateObj = new Date(currentYear, parseInt(m1[2]) - 1, parseInt(m1[1]));
+
+    if (!dateObj && /^\d{1,2}$/.test(c1.trim()) && c1.trim().length > 0) {
+      dateObj = new Date(currentYear, detectedMonth, parseInt(c1.trim()));
+    }
+
+    if (!dateObj) {
+      const m2 = c2.match(/(\d{1,2})[/\-\.](\d{1,2})/);
+      if (m2) dateObj = new Date(currentYear, parseInt(m2[2]) - 1, parseInt(m2[1]));
+      if (!dateObj && /^\d{1,2}$/.test(c2.trim()) && c2.trim().length > 0) {
+        dateObj = new Date(currentYear, detectedMonth, parseInt(c2.trim()));
+      }
+    }
+
+    if (dateObj && !isNaN(dateObj.getTime())) dateMap[c] = dateObj;
+  }
+
+  // 5. EXTRAIRE LES CODES ET APPLIQUER LES RÈGLES MÉTIER
+  const services = [];
+  const nightIndices = []; 
+
+  rowData.forEach((cell, colIndex) => {
+    const rawVal = cell;
+    const val = clean(cell);
+    const hasLetter = /[A-Z]/.test(val);
+    const hasNumber = /[0-9]/.test(val);
+    const isShort = val.length >= 2 && val.length <= 6;
+
+    if (hasLetter && hasNumber && isShort) {
+      let associatedDate = null;
+      for (let back = colIndex; back >= 0; back--) {
+        if (dateMap[back]) { associatedDate = dateMap[back]; break; }
+      }
+
+      if (associatedDate) {
+        let status = "autre";
+        let noteAuto = `Auto: ${val}`;
+
+        // Détermination du statut
+        if (codeLegend[val]) {
+          status = codeLegend[val];
+        } else if (rawVal && String(rawVal).toUpperCase().includes("NUIT")) {
+          status = "nuit";
+        } else if (rawVal && String(rawVal).toUpperCase().includes("JOUR")) {
+          status = "jour";
+        } else if (val.startsWith('N')) {
+          status = "nuit";
+        } else if (val.startsWith('J')) {
+          status = "jour";
+        } else if (val.startsWith('R')) {
+          status = "repos";
+        }
+
+        // Règle Spéciale : Note de pause pour les Jours
+        if (status === 'jour') {
+          noteAuto += " | Pause 12h-13h";
+        }
+
+        const k = keyFor(associatedDate);
+        
+        if (!services.find(s => s.dateKey === k)) {
+          services.push({
+            dateKey: k,
+            dateObj: associatedDate,
+            dayName: associatedDate.toLocaleDateString('fr-FR', { weekday: 'long' }),
+            code: val,
+            status: status,
+            note: noteAuto
+          });
+          
+          if (status === 'nuit') {
+            nightIndices.push({ index: colIndex, date: associatedDate, key: k });
+          }
+        }
+      }
+    }
+  });
+
+  // 6. GESTION AUTOMATIQUE DES MN (MONTÉES DE NUIT)
+  nightIndices.forEach(night => {
+    const nightDate = night.date; 
+    const dayOfWeek = nightDate.getDay(); 
+
+    // Si la nuit finit un Lundi (donc commencée Dimanche soir) -> PAS DE MN
+    if (dayOfWeek === 1) {
+      console.log(`⚠️ Nuit du Dimanche soir (fin Lundi) : Pas de MN ajoutée.`);
+      return;
+    }
+
+    // Si la nuit finit Mardi, Mercredi, Jeudi, Vendredi -> AJOUTER MN
+    const mnDate = new Date(nightDate); 
+    const mnKey = keyFor(mnDate);
+
+    if (!services.find(s => s.dateKey === mnKey && s.status === 'mn')) {
+      services.push({
+        dateKey: mnKey,
+        dateObj: mnDate,
+        dayName: mnDate.toLocaleDateString('fr-FR', { weekday: 'long' }),
+        code: "MN-AUTO",
+        status: "mn",
+        note: "MN Auto (05h-09h)"
+      });
+      console.log(`✅ MN ajoutée automatiquement le ${mnDate.toLocaleDateString()}`);
+    }
+  });
+
+  if (services.length === 0) return alert("⚠️ Aucun service détecté.");
+
+  showPreview(services);
+}
+
+function showPreview(services) {
+  pendingImport = services;
+  const list = $('importPreviewList');
+  const summary = $('importSummary');
+  
+  if (!list || !summary) return;
+  
+  list.innerHTML = '';
+  summary.textContent = `🤖 Analyse terminée : ${services.length} services trouvés (MN incluses).`;
+  
+  services.forEach(s => {
+    const div = document.createElement('div');
+    div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px;";
+    const badgeColor = s.status === 'mn' ? '#f59e0b' : 'var(--accent)';
+    div.innerHTML = `
+      <span><b>${s.dayName}</b> ${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span>
+      <span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:${badgeColor}; border:1px solid var(--border);">
+        ${s.code} (${s.status})
+      </span>
+    `;
+    list.appendChild(div);
+  });
+
+  $('backdropImport').classList.add('show');
+  $('sheetImport').classList.add('show');
+  
+  const btnConfirm = $('btnConfirmImport');
+  const btnCancel = $('btnCancelImport');
+  
+  if (btnConfirm) btnConfirm.onclick = confirmImport;
+  if (btnCancel) btnCancel.onclick = () => {
+    $('sheetImport').classList.remove('show');
+    $('backdropImport').classList.remove('show');
+  };
+}
+
+function confirmImport() {
+  if (!user) return;
+  
+  let count = 0;
+  pendingImport.forEach(item => {
+    entries.set(item.dateKey, { 
+      status: item.status, 
+      note: item.note, 
+      custom_label: item.code, 
+      imported: true 
     });
     
-    // Import (Skeleton)
-    document.getElementById('fab-import').addEventListener('click', () => {
-        document.getElementById('modal-import').classList.remove('hidden');
-        document.getElementById('modal-overlay').classList.remove('hidden');
-    });
-    document.getElementById('close-import-btn').addEventListener('click', closeModal);
+    const cell = cellCache.get(item.dateKey);
+    if (cell) {
+      cell.className = `day ${cell.classList.contains('out') ? 'out' : ''} ${item.status}`;
+      cell.style.border = '2px dashed var(--accent)';
+      cell.style.boxSizing = 'border-box';
+    }
+    count++;
+  });
+  
+  renderGrid();
+  updateUI();
+  
+  $('sheetImport').classList.remove('show');
+  $('backdropImport').classList.remove('show');
+
+  (async () => {
+    let successCount = 0;
+    for (const item of pendingImport) {
+      // Utilisation de la même logique sécurisée que saveEntry
+      const payload = {
+        user_id: user.id,
+        work_date: item.dateKey,
+        status: item.status,
+        note: item.note,
+        custom_label: item.code,
+        imported: true
+      };
+
+      const { error } = await supabase.from("work_calendar_entries").upsert(payload, { onConflict: "user_id,work_date" });
+      
+      if (!error) {
+        successCount++;
+      } else if (error.message.includes('imported')) {
+        // Retry sans imported pour le batch aussi
+        delete payload.imported;
+        const { error: retryError } = await supabase.from("work_calendar_entries").upsert(payload, { onConflict: "user_id,work_date" });
+        if (!retryError) successCount++;
+      }
+    }
+    alert(`✅ ${successCount} services importés (avec règles MN et Pause) !`);
+  })();
 }
+
+// --- GESTION MODALES & EVENTS ---
+
+function openNoteModal() {
+  const entry = entries.get(state.selected);
+  const d = parseKey(state.selected);
+  
+  if ($('sheetTitle')) $('sheetTitle').textContent = `Note du ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  if ($('noteText')) $('noteText').value = entry?.note || '';
+  
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
+}
+
+function openOtherModal() {
+  const entry = entries.get(state.selected);
+  const d = parseKey(state.selected);
+  
+  if ($('sheetTitle')) $('sheetTitle').textContent = `Type : ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  
+  if ($('otherSelect')) $('otherSelect').value = "OCP";
+  if ($('otherCustom')) {
+    $('otherCustom').value = "";
+    $('otherCustom').style.display = "none";
+  }
+  
+  if ($('sheetNote')) $('sheetNote').style.display = 'none';
+  if ($('sheetOther')) $('sheetOther').style.display = 'block';
+  
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
+}
+
+function closeModals() {
+  $('sheet').classList.remove('show');
+  $('backdrop').classList.remove('show');
+}
+
+function setupEvents() {
+  if ($('btnPrevMonth')) $('btnPrevMonth').onclick = () => {
+    state.month--;
+    if (state.month < 0) { state.month = 11; state.year--; }
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  };
+  
+  if ($('btnNextMonth')) $('btnNextMonth').onclick = () => {
+    state.month++;
+    if (state.month > 11) { state.month = 0; state.year++; }
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  };
+  
+  if ($('btnToday')) $('btnToday').onclick = () => {
+    const n = new Date();
+    state.year = n.getFullYear();
+    state.month = n.getMonth();
+    state.selected = keyFor(n);
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  };
+
+  document.querySelectorAll('[data-set]').forEach(btn => {
+    btn.onclick = () => {
+      if (!state.selected) return;
+      const action = btn.dataset.set;
+      
+      if (action === 'note') openNoteModal();
+      else if (action === 'autre') openOtherModal();
+      else {
+        const currentNote = entries.get(state.selected)?.note || '';
+        saveEntry(state.selected, { status: action, note: currentNote });
+      }
+    };
+  });
+
+  if ($('btnSaveNote')) $('btnSaveNote').onclick = () => {
+    const currentStatus = entries.get(state.selected)?.status || 'autre';
+    saveEntry(state.selected, { status: currentStatus, note: $('noteText').value });
+    closeModals();
+  };
+  if ($('btnClearNote')) $('btnClearNote').onclick = () => {
+    const currentStatus = entries.get(state.selected)?.status || 'autre';
+    saveEntry(state.selected, { status: currentStatus, note: '' });
+    closeModals();
+  };
+
+  if ($('btnApplyOther')) $('btnApplyOther').onclick = () => {
+    const val = $('otherSelect').value;
+    const custom = $('otherCustom').value;
+    const finalLabel = (val === 'custom') ? custom : val;
+    const currentNote = entries.get(state.selected)?.note || '';
+    
+    saveEntry(state.selected, { status: 'autre', note: currentNote, custom_label: finalLabel });
+    closeModals();
+  };
+  
+  if ($('otherSelect')) {
+    $('otherSelect').onchange = (e) => {
+      if ($('otherCustom')) $('otherCustom').style.display = (e.target.value === 'custom') ? 'block' : 'none';
+    };
+  }
+
+  if ($('backdrop')) $('backdrop').onclick = closeModals;
+
+  if ($('btnImport')) $('btnImport').onclick = triggerImport;
+  if ($('fileInput')) $('fileInput').onchange = handleFile;
+  
+  if ($('btnSettings')) $('btnSettings').onclick = (e) => {
+    e.stopPropagation();
+    $('settingsPop').classList.toggle('show');
+  };
+  document.onclick = () => $('settingsPop').classList.remove('show');
+  if ($('settingsPop')) $('settingsPop').onclick = (e) => e.stopPropagation();
+
+  if ($('themeLight')) $('themeLight').onclick = () => {
+    prefs.theme = 'light';
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    applyPrefs();
+  };
+  if ($('themeDark')) $('themeDark').onclick = () => {
+    prefs.theme = 'dark';
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    applyPrefs();
+  };
+  if ($('rateDay')) $('rateDay').onchange = (e) => {
+    prefs.rateDay = parseFloat(e.target.value) || 0;
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    updateUI();
+  };
+  if ($('rateNightFull')) $('rateNightFull').onchange = (e) => {
+    prefs.rateNightFull = parseFloat(e.target.value) || 0;
+    localStorage.setItem('ms_prefs', JSON.stringify(prefs));
+    updateUI();
+  };
+
+  if ($('btnLogout')) $('btnLogout').onclick = async () => {
+    await supabase.auth.signOut();
+    checkAuth();
+  };
+
+  if ($('btnLogin')) $('btnLogin').onclick = async () => {
+    const email = $('loginEmail').value;
+    const pass = $('loginPass').value;
+    if (!email || !pass) {
+      $('loginHint').textContent = "Email et mot de passe requis.";
+      return;
+    }
+    $('loginHint').textContent = "Connexion...";
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) $('loginHint').textContent = "Erreur: " + error.message;
+    else checkAuth();
+  };
+
+  if ($('btnExportXLSX')) $('btnExportXLSX').onclick = () => {
+    const start = new Date(state.year, state.month, 1);
+    const end = new Date(state.year, state.month + 1, 0);
+    if ($('exportStart')) $('exportStart').value = keyFor(start);
+    if ($('exportEnd')) $('exportEnd').value = keyFor(end);
+    $('backdropExport').classList.add('show');
+    $('sheetExport').classList.add('show');
+  };
+  if ($('btnCloseExport')) $('btnCloseExport').onclick = () => {
+    $('sheetExport').classList.remove('show');
+    $('backdropExport').classList.remove('show');
+  };
+  if ($('btnGenerateXLSX')) $('btnGenerateXLSX').onclick = () => {
+    alert("Export Excel généré (Fonctionnalité complète à intégrer)");
+    $('sheetExport').classList.remove('show');
+    $('backdropExport').classList.remove('show');
+  };
+}
+
+init();
