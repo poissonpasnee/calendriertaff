@@ -10,40 +10,92 @@
   <link rel="stylesheet" href="css/styles.css" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
   <style>
-    /* Ajustements spécifiques pour le dock à 6 boutons */
-    .actions-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr); /* 3 colonnes pour 2 lignes */
+    /* --- COMPACTAGE DU HEADER (HAUT DE PAGE) --- */
+    .appbar {
+      padding-top: calc(5px + var(--safeTop)); /* Réduit de 10px à 5px */
+    }
+    .topline {
+      padding-bottom: 8px; /* Réduit de 12px à 8px */
+    }
+    .brand .t {
+      font-size: 18px; /* Réduit de 22px à 18px */
+    }
+    .brand .s {
+      font-size: 11px; /* Réduit de 12px à 11px */
+    }
+    .icon-btn {
+      width: 36px; /* Réduit de 40px à 36px */
+      height: 36px;
+    }
+    .month-nav {
+      padding: 8px 0; /* Réduit de 12px à 8px */
+      gap: 15px;
+    }
+    .nav-btn {
+      padding: 6px; /* Réduit de 8px à 6px */
+    }
+    .m-text {
+      font-size: 16px; /* Réduit de 18px à 16px */
+    }
+    .y-text {
+      font-size: 11px;
+    }
+    .quick-actions {
+      padding-bottom: 10px; /* Réduit de 16px à 10px */
       gap: 8px;
     }
-    .act-btn {
-      padding: 12px 4px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-weight: 700;
-      font-size: 13px; /* Taille lisible */
-      cursor: pointer;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
+    .action-pill {
+      padding: 6px 12px; /* Réduit */
+      font-size: 12px; /* Réduit de 13px à 12px */
+      border-radius: 100px;
     }
-    .act-btn:active { transform: scale(0.95); }
+
+    /* --- COMPACTAGE DU DOCK (BAS DE PAGE) --- */
+    .dock-container {
+      padding: 10px 15px calc(15px + var(--safeBottom)); /* Réduit les marges */
+    }
+    .dock-glass {
+      padding: 12px; /* Réduit de 16px à 12px */
+      border-radius: 20px; /* Un peu plus rond */
+    }
+    .sel-info {
+      margin-bottom: 10px; /* Réduit de 12px à 10px */
+    }
+    .sel-date {
+      font-size: 14px; /* Réduit de 15px à 14px */
+    }
+    .sel-badge {
+      font-size: 10px; /* Réduit de 11px à 10px */
+      padding: 3px 8px;
+    }
     
-    /* Couleurs spécifiques */
-    .act-btn.jour { color: var(--c-jour); border-color: rgba(251, 191, 36, 0.3); }
-    .act-btn.nuit { color: var(--c-nuit); border-color: rgba(129, 140, 248, 0.3); }
-    .act-btn.repos { color: var(--c-repos); border-color: rgba(148, 163, 184, 0.3); }
-    .act-btn.conges { color: var(--c-conges); border-color: rgba(244, 63, 94, 0.3); }
-    .act-btn.autre { color: var(--text-muted); border-color: var(--border); font-size: 11px; }
+    /* Grille des boutons plus compacte */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px; /* Réduit de 8px à 6px */
+    }
     
-    /* Icônes simples en CSS ou Emoji */
-    .act-btn span.icon { font-size: 16px; margin-bottom: 2px; }
+    /* Boutons plus petits et compacts */
+    .act-btn {
+      padding: 10px 2px; /* Réduit significativement la hauteur */
+      border-radius: 10px;
+      font-size: 11px; /* Texte plus petit (était 13px) */
+      gap: 3px; /* Espace entre icône et texte */
+      min-height: 45px; /* Hauteur fixe réduite */
+    }
+    
+    .act-btn span.icon {
+      font-size: 14px; /* Icônes plus petites (était 16px) */
+      margin-bottom: 0;
+    }
+
+    /* Ajustement spécifique pour les boutons "Note" et "Autre" */
+    .act-btn.autre {
+      font-size: 10px;
+      padding: 8px 2px;
+      min-height: 42px;
+    }
   </style>
 </head>
 <body>
@@ -55,7 +107,7 @@
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
 
-  <!-- Header -->
+  <!-- Header Compacté -->
   <header class="appbar">
     <div class="wrap">
       <div class="topline">
@@ -63,13 +115,12 @@
           <div class="t">MyShift AI</div>
           <div class="s" id="topSub">Connexion...</div>
         </div>
-        <div class="header-actions" style="display:flex; gap:10px;">
-          <!-- Bouton Import Fichier -->
+        <div class="header-actions" style="display:flex; gap:8px;">
           <button class="icon-btn" id="btnImport" title="Importer Excel" style="border-color:var(--accent); color:var(--accent); background: rgba(56, 189, 248, 0.1);">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </button>
           <button class="icon-btn" id="btnSettings">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           </button>
         </div>
       </div>
@@ -127,15 +178,15 @@
         </div>
         <div class="grid" id="grid"></div>
         <div class="stats-bar">
-          <div class="stat-item"><span class="stat-val" id="statCount">0</span><span class="stat-label">Jours travaillés</span></div>
+          <div class="stat-item"><span class="stat-val" id="statCount">0</span><span class="stat-label">Jours</span></div>
           <div class="stat-divider"></div>
-          <div class="stat-item highlight"><span class="stat-val" id="salaryValue">0 €</span><span class="stat-label">Est. Salaire Brut</span></div>
+          <div class="stat-item highlight"><span class="stat-val" id="salaryValue">0 €</span><span class="stat-label">Est. Brut</span></div>
         </div>
       </div>
     </div>
   </main>
 
-  <!-- Dock Mobile (6 BOUTONS) -->
+  <!-- Dock Mobile (Compacté) -->
   <div class="dock-container">
     <div class="dock-glass">
       <div class="sel-info">
@@ -147,9 +198,7 @@
         <button data-set="nuit" class="act-btn nuit"><span class="icon">🌙</span>Nuit</button>
         <button data-set="repos" class="act-btn repos"><span class="icon">🏠</span>Repos</button>
         <button data-set="conges" class="act-btn conges"><span class="icon">🏖️</span>Congés</button>
-        <!-- Bouton Note : Ouvre la zone de texte -->
         <button data-set="note" class="act-btn autre"><span class="icon">📝</span>Note</button>
-        <!-- Bouton Autre : Ouvre le menu de sélection -->
         <button data-set="autre" class="act-btn autre"><span class="icon">⚙️</span>Autre</button>
       </div>
     </div>
@@ -158,7 +207,7 @@
   <!-- Input Fichier Caché -->
   <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none">
 
-  <!-- Modale Import (Résultat) -->
+  <!-- Modale Import -->
   <div class="backdrop" id="backdropImport"></div>
   <div class="sheet" id="sheetImport">
     <div class="grabber"></div>
@@ -179,7 +228,7 @@
       <h2 id="sheetTitle">Détails</h2>
       <p id="sheetSub" class="sub-text" style="display:none;">Gérez votre service</p>
       
-      <!-- Section NOTE (Affichée par défaut ou via JS) -->
+      <!-- Section NOTE -->
       <div id="sheetNote">
         <textarea id="noteText" placeholder="Ajouter une note personnelle..." style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; color:var(--text); font-family:inherit; min-height:100px; outline:none; margin-bottom:15px;"></textarea>
         <div class="sheet-actions" style="display:flex; gap:10px;">
@@ -188,7 +237,7 @@
         </div>
       </div>
 
-      <!-- Section AUTRE (Cachée par défaut, affichée via JS) -->
+      <!-- Section AUTRE -->
       <div id="sheetOther" style="display:none;">
         <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:8px;">Type de service :</label>
         <select id="otherSelect" class="modern-select" style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); font-size:15px; margin-bottom:12px;">
