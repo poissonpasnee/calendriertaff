@@ -9,13 +9,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 let user = null;
 let entries = new Map();
 let state = { year: new Date().getFullYear(), month: new Date().getMonth(), selected: null };
-let prefs = { theme: 'dark', rateDay: 35.0, rateNightFull: 82.0, rateNightSolo: 41.0 };
+let prefs = { 
+  theme: 'dark', 
+  rateDay: 35.0, 
+  rateNightFull: 82.0, 
+  rateNightSolo: 41.0,
+  rateMN: 15.0 // Taux estimé pour une Montée de Nuit (à ajuster dans les réglages si besoin)
+};
 let cellCache = new Map();
 let pendingImport = [];
-let codeLegend = {}; // Stockera la légende lue dans l'Excel
+let codeLegend = {};
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
+const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", mn:"MN", autre:"Autre" };
 const BASE_SALARY = 2093.06;
 const DAYS_FR = ["DIMANCHE", "LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"];
 
@@ -25,21 +31,23 @@ const pad = (n) => String(n).padStart(2, '0');
 const keyFor = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseKey = (k) => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 
-// Nettoie le texte : garde seulement Lettres et Chiffres, met en MAJUSCULE
 const clean = (txt) => {
   if (txt === null || txt === undefined) return "";
   return String(txt).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/g, "");
 };
 
-// --- MOTEUR DE PAIE ---
+// --- MOTEUR DE PAIE (AVEC RÈGLES MÉTIER) ---
 function calculateSalary() {
   let total = 0;
   const end = new Date(state.year, state.month + 1, 0);
+  
   for (let d = 1; d <= end.getDate(); d++) {
     const k = keyFor(new Date(state.year, state.month, d));
     const e = entries.get(k);
+    
     if (e?.status === 'jour') total += parseFloat(prefs.rateDay);
     if (e?.status === 'nuit') total += parseFloat(prefs.rateNightFull);
+    if (e?.status === 'mn') total += parseFloat(prefs.rateMN);
   }
   return BASE_SALARY + total;
 }
@@ -164,7 +172,6 @@ function renderGrid() {
 
     if (k === state.selected) cell.classList.add('selected');
 
-    // CORRECTION : Clic simple sélectionne juste la case, n'ouvre rien
     cell.onclick = () => {
       state.selected = k;
       localStorage.setItem('ms_state', JSON.stringify(state));
@@ -185,9 +192,8 @@ function updateUI() {
   const entry = entries.get(state.selected);
   if ($('selState')) $('selState').textContent = entry?.status ? LABELS[entry.status] : "Libre";
   
-  // Stats
   let count = 0;
-  entries.forEach(e => { if (['jour', 'nuit', 'autre'].includes(e.status)) count++; });
+  entries.forEach(e => { if (['jour', 'nuit', 'mn', 'autre'].includes(e.status)) count++; });
   if ($('statCount')) $('statCount').textContent = count;
   
   if ($('salaryValue')) {
@@ -214,7 +220,6 @@ async function saveEntry(k, patch) {
       cell.style.border = '2px dashed var(--accent)';
       cell.style.boxSizing = 'border-box';
     }
-    // Gestion point note
     const oldDot = cell.querySelector('.dot');
     if (oldDot) oldDot.remove();
     if (next.note) {
@@ -226,7 +231,6 @@ async function saveEntry(k, patch) {
 
   updateUI();
 
-  // Envoi Supabase
   try {
     const { error } = await supabase.from("work_calendar_entries").upsert({
       user_id: user.id,
@@ -246,7 +250,7 @@ async function saveEntry(k, patch) {
   }
 }
 
-// --- CERVEAU "IA" D'IMPORT (AVEC LECTURE LÉGENDE) ---
+// --- CERVEAU "IA" D'IMPORT (AVEC RÈGLES MÉTIER SNCF) ---
 
 function triggerImport() {
   if (!user) {
@@ -285,40 +289,30 @@ function handleFile(e) {
 function analyzeData(rows) {
   console.log(`🔍 Analyse de ${rows.length} lignes...`);
   
-  // 1. LIRE LA LÉGENDE EN BAS DU FICHIER (MEMO / N° /)
+  // 1. LIRE LA LÉGENDE
   codeLegend = {};
-  let legendFound = false;
-  // On scanne de la fin vers le début pour trouver la section légende
   for (let r = rows.length - 1; r >= 0; r--) {
     const rowText = rows[r].join(" ").toUpperCase();
     if (rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE") || rowText.includes("CODE")) {
-      // On lit les lignes suivantes (qui sont techniquement après dans le fichier, donc index > r)
-      // Mais comme on boucle à l'envers, on regarde les lignes r+1 à la fin
       for (let k = r + 1; k < Math.min(rows.length, r + 50); k++) {
         let currentCode = "";
         rows[k].forEach(cell => {
           const val = clean(cell);
-          // Si c'est un code (ex: N28)
-          if (/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) {
-            currentCode = val;
-          } 
-          // Si c'est une description et qu'on a un code en attente
+          if (/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) currentCode = val;
           else if (currentCode && val.length > 3) {
             if (val.includes("NUIT")) codeLegend[currentCode] = "nuit";
             else if (val.includes("JOUR")) codeLegend[currentCode] = "jour";
             else if (val.includes("REPOS") || val.includes("OFF")) codeLegend[currentCode] = "repos";
             else if (val.includes("CONG") || val.includes("CP")) codeLegend[currentCode] = "conges";
-            else if (val.includes("IND")) codeLegend[currentCode] = "nuit"; // Exemple spécifique
+            else if (val.includes("MN") || val.includes("MONTÉE")) codeLegend[currentCode] = "mn";
           }
         });
       }
-      legendFound = true;
-      console.log("✅ Légende détectée :", codeLegend);
       break;
     }
   }
 
-  // 2. TROUVER LA LIGNE DE PLANNING (CELLE AVEC LE PLUS DE CODES)
+  // 2. TROUVER LA LIGNE DE PLANNING
   let bestScore = -1;
   let bestRowIdx = -1;
   let bestRowData = [];
@@ -326,16 +320,10 @@ function analyzeData(rows) {
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     let score = 0;
-    
     row.forEach(cell => {
       const val = clean(cell);
-      const hasLetter = /[A-Z]/.test(val);
-      const hasNumber = /[0-9]/.test(val);
-      const isShort = val.length >= 2 && val.length <= 6;
-      
-      if (hasLetter && hasNumber && isShort) score++;
+      if (/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length >= 2 && val.length <= 6) score++;
     });
-
     if (score > bestScore && score >= 3) {
       bestScore = score;
       bestRowIdx = r;
@@ -343,11 +331,9 @@ function analyzeData(rows) {
     }
   }
 
-  if (bestScore === -1) {
-    return alert("❌ Aucun code de chantier (type N28, J12, 36IND...) détecté dans le fichier.");
-  }
+  if (bestScore === -1) return alert("❌ Aucun code de chantier détecté.");
 
-  console.log(`✅ Ligne idéale trouvée : Index ${bestRowIdx} avec ${bestScore} codes.`);
+  console.log(`✅ Ligne idéale : Index ${bestRowIdx} avec ${bestScore} codes.`);
   extractSchedule(rows, bestRowIdx, bestRowData);
 }
 
@@ -358,15 +344,10 @@ function extractSchedule(rows, rowIdx, rowData) {
     const rowText = rows[r].join(" ").toUpperCase();
     let dayCount = 0;
     DAYS_FR.forEach(d => { if (rowText.includes(d)) dayCount++; });
-    if (dayCount >= 3) {
-      headerIdx = r;
-      break;
-    }
+    if (dayCount >= 3) { headerIdx = r; break; }
   }
 
-  if (headerIdx === -1) {
-    return alert("❌ Impossible de trouver les jours de la semaine au-dessus de votre ligne.");
-  }
+  if (headerIdx === -1) return alert("❌ Jours de la semaine introuvables.");
 
   // 4. MAPPER LES DATES
   const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
@@ -400,14 +381,13 @@ function extractSchedule(rows, rowIdx, rowData) {
       }
     }
 
-    if (dateObj && !isNaN(dateObj.getTime())) {
-      dateMap[c] = dateObj;
-    }
+    if (dateObj && !isNaN(dateObj.getTime())) dateMap[c] = dateObj;
   }
 
-  // 5. EXTRAIRE LES CODES ET DÉTERMINER LE STATUT
+  // 5. EXTRAIRE LES CODES ET APPLIQUER LES RÈGLES MÉTIER
   const services = [];
-  
+  const nightIndices = []; // Pour stocker les indices des nuits détectées
+
   rowData.forEach((cell, colIndex) => {
     const rawVal = cell;
     const val = clean(cell);
@@ -416,35 +396,33 @@ function extractSchedule(rows, rowIdx, rowData) {
     const isShort = val.length >= 2 && val.length <= 6;
 
     if (hasLetter && hasNumber && isShort) {
-      // Chercher la date associée
       let associatedDate = null;
       for (let back = colIndex; back >= 0; back--) {
-        if (dateMap[back]) {
-          associatedDate = dateMap[back];
-          break;
-        }
+        if (dateMap[back]) { associatedDate = dateMap[back]; break; }
       }
 
       if (associatedDate) {
-        // LOGIQUE DE DÉTERMINATION DU STATUT
         let status = "autre";
-        
-        // 1. Vérifier dans la légende lue (Priorité 1)
+        let noteAuto = `Auto: ${val}`;
+
+        // Détermination du statut
         if (codeLegend[val]) {
           status = codeLegend[val];
-        } 
-        // 2. Vérifier dans le texte brut de la cellule (Priorité 2)
-        else if (rawVal && String(rawVal).toUpperCase().includes("NUIT")) status = "nuit";
-        else if (rawVal && String(rawVal).toUpperCase().includes("JOUR")) status = "jour";
-        else if (rawVal && String(rawVal).toUpperCase().includes("REPOS")) status = "repos";
-        else if (rawVal && String(rawVal).toUpperCase().includes("CONG")) status = "conges";
-        // 3. Déduction par la première lettre (Priorité 3)
-        else {
-          if (val.startsWith('N')) status = "nuit";
-          else if (val.startsWith('J')) status = "jour";
-          else if (val.startsWith('R')) status = "repos";
-          else if (val.startsWith('C') || val.startsWith('CP')) status = "conges";
-          else if (val.startsWith('IND')) status = "nuit"; // Cas spécifique IND
+        } else if (rawVal && String(rawVal).toUpperCase().includes("NUIT")) {
+          status = "nuit";
+        } else if (rawVal && String(rawVal).toUpperCase().includes("JOUR")) {
+          status = "jour";
+        } else if (val.startsWith('N')) {
+          status = "nuit";
+        } else if (val.startsWith('J')) {
+          status = "jour";
+        } else if (val.startsWith('R')) {
+          status = "repos";
+        }
+
+        // Règle Spéciale : Note de pause pour les Jours
+        if (status === 'jour') {
+          noteAuto += " | Pause 12h-13h";
         }
 
         const k = keyFor(associatedDate);
@@ -456,16 +434,51 @@ function extractSchedule(rows, rowIdx, rowData) {
             dayName: associatedDate.toLocaleDateString('fr-FR', { weekday: 'long' }),
             code: val,
             status: status,
-            note: `Auto: ${val}`
+            note: noteAuto
           });
+          
+          if (status === 'nuit') {
+            nightIndices.push({ index: colIndex, date: associatedDate, key: k });
+          }
         }
       }
     }
   });
 
-  if (services.length === 0) {
-    return alert("⚠️ Codes détectés, mais aucune date correspondante trouvée.");
-  }
+  // 6. GESTION AUTOMATIQUE DES MN (MONTÉES DE NUIT)
+  // Règle : Pas de MN si la nuit est après un Dimanche. MN sinon.
+  nightIndices.forEach(night => {
+    const nightDate = night.date; // La date de fin de nuit (ex: Lundi matin)
+    const dayOfWeek = nightDate.getDay(); // 1 = Lundi, 2 = Mardi, etc.
+
+    // Si la nuit finit un Lundi (donc commencée Dimanche soir) -> PAS DE MN
+    if (dayOfWeek === 1) {
+      console.log(`⚠️ Nuit du Dimanche soir (fin Lundi) : Pas de MN ajoutée.`);
+      return;
+    }
+
+    // Si la nuit finit Mardi, Mercredi, Jeudi, Vendredi -> AJOUTER MN
+    // La MN a lieu le matin même de la fin de nuit (ou la veille selon convention, ici on met le matin de la fin)
+    // Ex: Nuit finissant Mardi 06h00 -> MN le Mardi 05h00-09h00.
+    
+    const mnDate = new Date(nightDate); // Même jour que la fin de nuit
+    const mnKey = keyFor(mnDate);
+
+    // Vérifier si une MN n'existe pas déjà
+    if (!services.find(s => s.dateKey === mnKey && s.status === 'mn')) {
+      services.push({
+        dateKey: mnKey,
+        dateObj: mnDate,
+        dayName: mnDate.toLocaleDateString('fr-FR', { weekday: 'long' }),
+        code: "MN-AUTO",
+        status: "mn",
+        note: "MN Auto (05h-09h)"
+      });
+      console.log(`✅ MN ajoutée automatiquement le ${mnDate.toLocaleDateString()}`);
+    }
+  });
+
+  if (services.length === 0) return alert("⚠️ Aucun service détecté.");
 
   showPreview(services);
 }
@@ -478,14 +491,15 @@ function showPreview(services) {
   if (!list || !summary) return;
   
   list.innerHTML = '';
-  summary.textContent = `🤖 Analyse terminée : ${services.length} services trouvés.`;
+  summary.textContent = `🤖 Analyse terminée : ${services.length} services trouvés (MN incluses).`;
   
   services.forEach(s => {
     const div = document.createElement('div');
     div.style.cssText = "padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px;";
+    const badgeColor = s.status === 'mn' ? '#f59e0b' : 'var(--accent)';
     div.innerHTML = `
       <span><b>${s.dayName}</b> ${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span>
-      <span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:var(--accent); border:1px solid var(--border);">
+      <span style="background:var(--surface); padding:4px 8px; border-radius:6px; font-weight:700; color:${badgeColor}; border:1px solid var(--border);">
         ${s.code} (${s.status})
       </span>
     `;
@@ -546,13 +560,12 @@ function confirmImport() {
       
       if (!error) successCount++;
     }
-    alert(`✅ ${successCount} services importés !`);
+    alert(`✅ ${successCount} services importés (avec règles MN et Pause) !`);
   })();
 }
 
 // --- GESTION MODALES & EVENTS ---
 
-// Ouverture modale NOTE uniquement
 function openNoteModal() {
   const entry = entries.get(state.selected);
   const d = parseKey(state.selected);
@@ -564,27 +577,23 @@ function openNoteModal() {
   $('sheet').classList.add('show');
 }
 
-// Ouverture modale AUTRE uniquement
 function openOtherModal() {
   const entry = entries.get(state.selected);
   const d = parseKey(state.selected);
   
-  if ($('sheetTitle')) $('sheetTitle').textContent = `Type de service : ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  if ($('sheetTitle')) $('sheetTitle').textContent = `Type : ${d.getDate()} ${MONTHS[d.getMonth()]}`;
   
-  // Reset select
   if ($('otherSelect')) $('otherSelect').value = "OCP";
   if ($('otherCustom')) {
     $('otherCustom').value = "";
     $('otherCustom').style.display = "none";
   }
   
-  $('backdrop').classList.add('show');
-  $('sheet').classList.add('show');
-  // On affiche la section "Autre" et on cache la section "Note"
-  // Note: Dans le HTML fourni précédemment, il faut s'assurer que la structure permet cela.
-  // Ici on suppose que le JS gère l'affichage via les IDs sheetNote et sheetOther
   if ($('sheetNote')) $('sheetNote').style.display = 'none';
   if ($('sheetOther')) $('sheetOther').style.display = 'block';
+  
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
 }
 
 function closeModals() {
@@ -593,7 +602,6 @@ function closeModals() {
 }
 
 function setupEvents() {
-  // Navigation
   if ($('btnPrevMonth')) $('btnPrevMonth').onclick = () => {
     state.month--;
     if (state.month < 0) { state.month = 11; state.year--; }
@@ -617,26 +625,20 @@ function setupEvents() {
     loadEntries().then(() => { renderGrid(); updateUI(); });
   };
 
-  // Actions Dock (CORRIGÉ : Pas d'ouverture automatique)
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.onclick = () => {
       if (!state.selected) return;
-      
       const action = btn.dataset.set;
       
-      if (action === 'note') {
-        openNoteModal();
-      } else if (action === 'autre') {
-        openOtherModal();
-      } else {
-        // Action directe (Jour, Nuit, Repos, Congés)
+      if (action === 'note') openNoteModal();
+      else if (action === 'autre') openOtherModal();
+      else {
         const currentNote = entries.get(state.selected)?.note || '';
         saveEntry(state.selected, { status: action, note: currentNote });
       }
     };
   });
 
-  // Gestion Modale Note
   if ($('btnSaveNote')) $('btnSaveNote').onclick = () => {
     const currentStatus = entries.get(state.selected)?.status || 'autre';
     saveEntry(state.selected, { status: currentStatus, note: $('noteText').value });
@@ -648,7 +650,6 @@ function setupEvents() {
     closeModals();
   };
 
-  // Gestion Modale Autre
   if ($('btnApplyOther')) $('btnApplyOther').onclick = () => {
     const val = $('otherSelect').value;
     const custom = $('otherCustom').value;
@@ -661,20 +662,15 @@ function setupEvents() {
   
   if ($('otherSelect')) {
     $('otherSelect').onchange = (e) => {
-      if ($('otherCustom')) {
-        $('otherCustom').style.display = (e.target.value === 'custom') ? 'block' : 'none';
-      }
+      if ($('otherCustom')) $('otherCustom').style.display = (e.target.value === 'custom') ? 'block' : 'none';
     };
   }
 
-  // Fermeture backdrop
   if ($('backdrop')) $('backdrop').onclick = closeModals;
 
-  // Import
   if ($('btnImport')) $('btnImport').onclick = triggerImport;
   if ($('fileInput')) $('fileInput').onchange = handleFile;
   
-  // Paramètres
   if ($('btnSettings')) $('btnSettings').onclick = (e) => {
     e.stopPropagation();
     $('settingsPop').classList.toggle('show');
@@ -703,13 +699,11 @@ function setupEvents() {
     updateUI();
   };
 
-  // Logout
   if ($('btnLogout')) $('btnLogout').onclick = async () => {
     await supabase.auth.signOut();
     checkAuth();
   };
 
-  // Login
   if ($('btnLogin')) $('btnLogin').onclick = async () => {
     const email = $('loginEmail').value;
     const pass = $('loginPass').value;
@@ -719,14 +713,10 @@ function setupEvents() {
     }
     $('loginHint').textContent = "Connexion...";
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) {
-      $('loginHint').textContent = "Erreur: " + error.message;
-    } else {
-      checkAuth();
-    }
+    if (error) $('loginHint').textContent = "Erreur: " + error.message;
+    else checkAuth();
   };
 
-  // Export
   if ($('btnExportXLSX')) $('btnExportXLSX').onclick = () => {
     const start = new Date(state.year, state.month, 1);
     const end = new Date(state.year, state.month + 1, 0);
@@ -746,5 +736,4 @@ function setupEvents() {
   };
 }
 
-// Lancement
 init();
