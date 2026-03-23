@@ -14,7 +14,7 @@ let prefs = {
   rateDay: 35.0, 
   rateNightFull: 82.0, 
   rateNightSolo: 41.0,
-  rateMN: 15.0 // Taux estimé pour une Montée de Nuit (à ajuster dans les réglages si besoin)
+  rateMN: 15.0 // Taux pour Montée de Nuit
 };
 let cellCache = new Map();
 let pendingImport = [];
@@ -202,7 +202,7 @@ function updateUI() {
   }
 }
 
-// --- SAUVEGARDE ---
+// --- SAUVEGARDE SÉCURISÉE (CORRECTION BUG IMPORTED) ---
 async function saveEntry(k, patch) {
   if (!user) {
     $('gate').classList.add('show');
@@ -231,20 +231,44 @@ async function saveEntry(k, patch) {
 
   updateUI();
 
-  try {
-    const { error } = await supabase.from("work_calendar_entries").upsert({
-      user_id: user.id,
-      work_date: k,
-      status: next.status,
-      note: next.note,
-      custom_label: next.custom_label,
-      imported: next.imported
-    }, { onConflict: "user_id,work_date" });
+  // PRÉPARATION DES DONNÉES (Payload)
+  const payload = {
+    user_id: user.id,
+    work_date: k,
+    status: next.status,
+    note: next.note,
+    custom_label: next.custom_label
+  };
 
-    if (error) throw error;
+  // On ajoute 'imported' seulement si c'est vrai
+  if (next.imported === true) {
+    payload.imported = true;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("work_calendar_entries")
+      .upsert(payload, { onConflict: "user_id,work_date" });
+
+    if (error) {
+      // SI L'ERREUR CONCERNE LA COLONNE 'IMPORTED', ON RÉESSAIE SANS ELLE
+      if (error.message.includes('imported') || error.message.includes('column')) {
+        console.warn("Colonne 'imported' manquante ou erronée, réessai sans cette colonne...");
+        delete payload.imported; // On retire la colonne problématique
+        
+        const { error: retryError } = await supabase
+          .from("work_calendar_entries")
+          .upsert(payload, { onConflict: "user_id,work_date" });
+          
+        if (retryError) throw retryError; // Si ça rate encore, on lance l'erreur
+      } else {
+        throw error; // Autre erreur, on l'affiche directement
+      }
+    }
   } catch (e) {
     console.error("Erreur sauvegarde:", e);
     alert("Erreur de synchronisation: " + e.message);
+    // En cas d'erreur critique, on recharge pour éviter les incohérences
     await loadEntries();
     renderGrid();
   }
@@ -386,7 +410,7 @@ function extractSchedule(rows, rowIdx, rowData) {
 
   // 5. EXTRAIRE LES CODES ET APPLIQUER LES RÈGLES MÉTIER
   const services = [];
-  const nightIndices = []; // Pour stocker les indices des nuits détectées
+  const nightIndices = []; 
 
   rowData.forEach((cell, colIndex) => {
     const rawVal = cell;
@@ -446,10 +470,9 @@ function extractSchedule(rows, rowIdx, rowData) {
   });
 
   // 6. GESTION AUTOMATIQUE DES MN (MONTÉES DE NUIT)
-  // Règle : Pas de MN si la nuit est après un Dimanche. MN sinon.
   nightIndices.forEach(night => {
-    const nightDate = night.date; // La date de fin de nuit (ex: Lundi matin)
-    const dayOfWeek = nightDate.getDay(); // 1 = Lundi, 2 = Mardi, etc.
+    const nightDate = night.date; 
+    const dayOfWeek = nightDate.getDay(); 
 
     // Si la nuit finit un Lundi (donc commencée Dimanche soir) -> PAS DE MN
     if (dayOfWeek === 1) {
@@ -458,13 +481,9 @@ function extractSchedule(rows, rowIdx, rowData) {
     }
 
     // Si la nuit finit Mardi, Mercredi, Jeudi, Vendredi -> AJOUTER MN
-    // La MN a lieu le matin même de la fin de nuit (ou la veille selon convention, ici on met le matin de la fin)
-    // Ex: Nuit finissant Mardi 06h00 -> MN le Mardi 05h00-09h00.
-    
-    const mnDate = new Date(nightDate); // Même jour que la fin de nuit
+    const mnDate = new Date(nightDate); 
     const mnKey = keyFor(mnDate);
 
-    // Vérifier si une MN n'existe pas déjà
     if (!services.find(s => s.dateKey === mnKey && s.status === 'mn')) {
       services.push({
         dateKey: mnKey,
@@ -549,16 +568,26 @@ function confirmImport() {
   (async () => {
     let successCount = 0;
     for (const item of pendingImport) {
-      const { error } = await supabase.from("work_calendar_entries").upsert({
+      // Utilisation de la même logique sécurisée que saveEntry
+      const payload = {
         user_id: user.id,
         work_date: item.dateKey,
         status: item.status,
         note: item.note,
         custom_label: item.code,
         imported: true
-      }, { onConflict: "user_id,work_date" });
+      };
+
+      const { error } = await supabase.from("work_calendar_entries").upsert(payload, { onConflict: "user_id,work_date" });
       
-      if (!error) successCount++;
+      if (!error) {
+        successCount++;
+      } else if (error.message.includes('imported')) {
+        // Retry sans imported pour le batch aussi
+        delete payload.imported;
+        const { error: retryError } = await supabase.from("work_calendar_entries").upsert(payload, { onConflict: "user_id,work_date" });
+        if (!retryError) successCount++;
+      }
     }
     alert(`✅ ${successCount} services importés (avec règles MN et Pause) !`);
   })();
