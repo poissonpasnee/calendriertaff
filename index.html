@@ -1,297 +1,137 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=0" />
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#0f172a">
-  <title>MyShift AI • Planning Auto</title>
-  <link rel="stylesheet" href="css/styles.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
-  <style>
-    /* --- COMPACTAGE DU HEADER (HAUT DE PAGE) --- */
-    .appbar {
-      padding-top: calc(5px + var(--safeTop)); /* Réduit de 10px à 5px */
-    }
-    .topline {
-      padding-bottom: 8px; /* Réduit de 12px à 8px */
-    }
-    .brand .t {
-      font-size: 18px; /* Réduit de 22px à 18px */
-    }
-    .brand .s {
-      font-size: 11px; /* Réduit de 12px à 11px */
-    }
-    .icon-btn {
-      width: 36px; /* Réduit de 40px à 36px */
-      height: 36px;
-    }
-    .month-nav {
-      padding: 8px 0; /* Réduit de 12px à 8px */
-      gap: 15px;
-    }
-    .nav-btn {
-      padding: 6px; /* Réduit de 8px à 6px */
-    }
-    .m-text {
-      font-size: 16px; /* Réduit de 18px à 16px */
-    }
-    .y-text {
-      font-size: 11px;
-    }
-    .quick-actions {
-      padding-bottom: 10px; /* Réduit de 16px à 10px */
-      gap: 8px;
-    }
-    .action-pill {
-      padding: 6px 12px; /* Réduit */
-      font-size: 12px; /* Réduit de 13px à 12px */
-      border-radius: 100px;
-    }
-
-    /* --- COMPACTAGE DU DOCK (BAS DE PAGE) --- */
-    .dock-container {
-      padding: 10px 15px calc(15px + var(--safeBottom)); /* Réduit les marges */
-    }
-    .dock-glass {
-      padding: 12px; /* Réduit de 16px à 12px */
-      border-radius: 20px; /* Un peu plus rond */
-    }
-    .sel-info {
-      margin-bottom: 10px; /* Réduit de 12px à 10px */
-    }
-    .sel-date {
-      font-size: 14px; /* Réduit de 15px à 14px */
-    }
-    .sel-badge {
-      font-size: 10px; /* Réduit de 11px à 10px */
-      padding: 3px 8px;
-    }
-    
-    /* Grille des boutons plus compacte */
-    .actions-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px; /* Réduit de 8px à 6px */
-    }
-    
-    /* Boutons plus petits et compacts */
-    .act-btn {
-      padding: 10px 2px; /* Réduit significativement la hauteur */
-      border-radius: 10px;
-      font-size: 11px; /* Texte plus petit (était 13px) */
-      gap: 3px; /* Espace entre icône et texte */
-      min-height: 45px; /* Hauteur fixe réduite */
-    }
-    
-    .act-btn span.icon {
-      font-size: 14px; /* Icônes plus petites (était 16px) */
-      margin-bottom: 0;
-    }
-
-    /* Ajustement spécifique pour les boutons "Note" et "Autre" */
-    .act-btn.autre {
-      font-size: 10px;
-      padding: 8px 2px;
-      min-height: 42px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MyShift AI - Planning Ferroviaire</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS pour Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <!-- Arrière-plan animé -->
-  <div class="ambient-bg">
-    <div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div>
-  </div>
 
-  <!-- Toast Notification -->
-  <div class="toast" id="toast"></div>
-
-  <!-- Header Compacté -->
-  <header class="appbar">
-    <div class="wrap">
-      <div class="topline">
-        <div class="brand">
-          <div class="t">MyShift AI</div>
-          <div class="s" id="topSub">Connexion...</div>
+    <!-- HEADER -->
+    <header class="glass-header">
+        <div class="header-content">
+            <h1>MyShift AI</h1>
+            <div class="user-info">
+                <span id="user-display">Chargement...</span>
+                <button id="logout-btn" class="icon-btn" title="Déconnexion">🚪</button>
+            </div>
         </div>
-        <div class="header-actions" style="display:flex; gap:8px;">
-          <button class="icon-btn" id="btnImport" title="Importer Excel" style="border-color:var(--accent); color:var(--accent); background: rgba(56, 189, 248, 0.1);">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-          </button>
-          <button class="icon-btn" id="btnSettings">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          </button>
+        <div class="month-nav">
+            <button id="prev-month">‹</button>
+            <span id="current-month-label">Mois Année</span>
+            <button id="next-month">›</button>
         </div>
-      </div>
+    </header>
 
-      <!-- Paramètres -->
-      <div class="settings-pop" id="settingsPop">
-        <div class="pop-header">Paramètres</div>
-        <div class="setting-group">
-          <label>Apparence</label>
-          <div class="seg-control">
-            <button id="themeLight" class="seg-btn">Clair</button>
-            <button id="themeDark" class="seg-btn active">Sombre</button>
-          </div>
-        </div>
-        <div class="divider"></div>
-        <div class="setting-group">
-          <label style="color:var(--accent);">💰 Simulation Paie</label>
-          <div class="input-row"><span>Jour</span><input type="number" id="rateDay" value="35" step="0.1"></div>
-          <div class="input-row"><span>Nuit (GD)</span><input type="number" id="rateNightFull" value="82" step="0.1"></div>
-          <div class="input-row"><span>Nuit (Seule)</span><input type="number" id="rateNightSolo" value="41" step="0.1"></div>
-        </div>
-        <div class="divider"></div>
-        <div class="setting-group">
-          <label style="color:var(--accent);">👤 Compte</label>
-          <button id="btnLogout" class="btn-full ghost" style="font-size:12px; padding:8px;">Se déconnecter</button>
-        </div>
-      </div>
-
-      <!-- Navigation Mois -->
-      <div class="month-nav">
-        <button class="nav-btn" id="btnPrevMonth">‹</button>
-        <div class="month-display">
-          <span id="navMonth" class="m-text">Janvier</span>
-          <span id="navYear" class="y-text">2026</span>
-        </div>
-        <button class="nav-btn" id="btnNextMonth">›</button>
-      </div>
-
-      <!-- Actions Rapides -->
-      <div class="quick-actions">
-        <button id="btnToday" class="action-pill primary">Aujourd'hui</button>
-        <button id="btnExportXLSX" class="action-pill">📥 Export</button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Contenu Principal -->
-  <main>
-    <div class="wrap">
-      <div class="calendar-card">
-        <div class="calendar-head">
-          <div class="sem-label">Sem</div>
-          <div id="h0">D/L</div><div id="h1">L/M</div><div id="h2">M/M</div>
-          <div id="h3">M/J</div><div id="h4">J/V</div><div id="h5">V/S</div><div id="h6">S/D</div>
-        </div>
-        <div class="grid" id="grid"></div>
-        <div class="stats-bar">
-          <div class="stat-item"><span class="stat-val" id="statCount">0</span><span class="stat-label">Jours</span></div>
-          <div class="stat-divider"></div>
-          <div class="stat-item highlight"><span class="stat-val" id="salaryValue">0 €</span><span class="stat-label">Est. Brut</span></div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Dock Mobile (Compacté) -->
-  <div class="dock-container">
-    <div class="dock-glass">
-      <div class="sel-info">
-        <div class="sel-date" id="selDate">Sélectionnez une date</div>
-        <div class="sel-badge" id="selState">Libre</div>
-      </div>
-      <div class="actions-grid">
-        <button data-set="jour" class="act-btn jour"><span class="icon">☀️</span>Jour</button>
-        <button data-set="nuit" class="act-btn nuit"><span class="icon">🌙</span>Nuit</button>
-        <button data-set="repos" class="act-btn repos"><span class="icon">🏠</span>Repos</button>
-        <button data-set="conges" class="act-btn conges"><span class="icon">🏖️</span>Congés</button>
-        <button data-set="note" class="act-btn autre"><span class="icon">📝</span>Note</button>
-        <button data-set="autre" class="act-btn autre"><span class="icon">⚙️</span>Autre</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Input Fichier Caché -->
-  <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none">
-
-  <!-- Modale Import -->
-  <div class="backdrop" id="backdropImport"></div>
-  <div class="sheet" id="sheetImport">
-    <div class="grabber"></div>
-    <div class="sheet-content">
-      <h2>🤖 Analyse Terminée</h2>
-      <p class="sub-text" id="importSummary">Je vérifie les données...</p>
-      <div id="importPreviewList" style="max-height:200px; overflow-y:auto; margin-bottom:20px; background:var(--surface); border-radius:12px; padding:10px; border:1px solid var(--border);"></div>
-      <button id="btnConfirmImport" class="btn-full primary large">✅ Valider et Importer</button>
-      <button id="btnCancelImport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
-    </div>
-  </div>
-
-  <!-- Modale Unique (Note OU Autre) -->
-  <div class="backdrop" id="backdrop"></div>
-  <div class="sheet" id="sheet">
-    <div class="grabber"></div>
-    <div class="sheet-content">
-      <h2 id="sheetTitle">Détails</h2>
-      <p id="sheetSub" class="sub-text" style="display:none;">Gérez votre service</p>
-      
-      <!-- Section NOTE -->
-      <div id="sheetNote">
-        <textarea id="noteText" placeholder="Ajouter une note personnelle..." style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; color:var(--text); font-family:inherit; min-height:100px; outline:none; margin-bottom:15px;"></textarea>
-        <div class="sheet-actions" style="display:flex; gap:10px;">
-          <button id="btnSaveNote" class="btn-full primary">Enregistrer</button>
-          <button id="btnClearNote" class="btn-full ghost">Effacer</button>
-        </div>
-      </div>
-
-      <!-- Section AUTRE -->
-      <div id="sheetOther" style="display:none;">
-        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:8px;">Type de service :</label>
-        <select id="otherSelect" class="modern-select" style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); font-size:15px; margin-bottom:12px;">
-          <option value="OCP">OCP (Opération Commerciale)</option>
-          <option value="Férié">Férié</option>
-          <option value="AST">AST (Astreinte)</option>
-          <option value="custom">Personnalisé...</option>
-        </select>
-        <input id="otherCustom" type="text" placeholder="Votre libellé personnalisé" style="display:none; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); margin-bottom:15px;">
+    <!-- MAIN CONTENT -->
+    <main class="container">
         
-        <button id="btnApplyOther" class="btn-full primary" style="margin-top:10px;">Valider</button>
-        <button id="btnCloseOther" class="btn-full ghost" style="margin-top:8px;">Annuler</button>
-      </div>
-    </div>
-  </div>
+        <!-- CALENDAR GRID -->
+        <div id="calendar-grid" class="calendar-grid">
+            <!-- Généré par JS -->
+        </div>
 
-  <!-- Modale Export -->
-  <div class="backdrop" id="backdropExport"></div>
-  <div class="sheet" id="sheetExport">
-    <div class="grabber"></div>
-    <div class="sheet-content">
-      <h2>Exporter les données</h2>
-      <p class="sub-text">Générez un rapport Excel complet</p>
-      <div class="date-range" style="display:flex; gap:10px; margin:15px 0;">
-        <div style="flex:1"><label>Du</label><input type="date" id="exportStart" style="width:100%; background:var(--surface); border:1px solid var(--border); padding:8px; color:var(--text); border-radius:8px;"></div>
-        <div style="flex:1"><label>Au</label><input type="date" id="exportEnd" style="width:100%; background:var(--surface); border:1px solid var(--border); padding:8px; color:var(--text); border-radius:8px;"></div>
-      </div>
-      <button id="btnGenerateXLSX" class="btn-full primary large">📥 Télécharger</button>
-      <button id="btnCloseExport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
-    </div>
-  </div>
+        <!-- SALARY & NOTE SECTION -->
+        <section id="details-section" class="glass-panel">
+            <h2>Récapitulatif</h2>
+            
+            <!-- Calcul Salaire -->
+            <div class="salary-card">
+                <div class="salary-row">
+                    <span>Services Jour:</span>
+                    <span id="count-jour">0</span>
+                </div>
+                <div class="salary-row">
+                    <span>Services Nuit:</span>
+                    <span id="count-nuit">0</span>
+                </div>
+                <div class="salary-row">
+                    <span>Montées de Nuit (MN):</span>
+                    <span id="count-mn">0</span>
+                </div>
+                <div class="salary-row total">
+                    <span>Estimation Net:</span>
+                    <span id="total-salary">0.00 €</span>
+                </div>
+            </div>
 
-  <!-- Login Gate -->
-  <div class="gate" id="gate">
-    <div class="gate-card">
-      <div class="gate-logo">MyShift AI</div>
-      <h2>Connexion</h2>
-      <p class="gate-sub">Gérez votre planning automatiquement.</p>
-      <div class="input-group" style="text-align:left; margin-bottom:15px;">
-        <label>Email</label>
-        <input type="email" id="loginEmail" placeholder="vous@exemple.com" style="width:100%; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text);">
-      </div>
-      <div class="input-group" style="text-align:left; margin-bottom:20px;">
-        <label>Mot de passe</label>
-        <input type="password" id="loginPass" placeholder="••••••" style="width:100%; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text);">
-      </div>
-      <button id="btnLogin" class="btn-full primary large">Entrer</button>
-      <div id="loginHint" style="color:#f43f5e; font-size:12px; margin-top:10px;"></div>
-      <button id="tabSignup" style="background:none; border:none; color:var(--text-muted); margin-top:15px; text-decoration:underline; cursor:pointer;">Créer un compte</button>
-    </div>
-  </div>
+            <!-- NOUVEAU : Zone de Note Contextuelle -->
+            <div id="note-detail-container" class="note-detail hidden">
+                <div class="note-header">
+                    <span class="note-date-label">Note du <span id="note-date-display"></span></span>
+                    <button id="close-note-btn" class="icon-btn-small" aria-label="Fermer">✕</button>
+                </div>
+                <p id="note-content-display" class="note-text"></p>
+                <div class="note-actions">
+                    <button id="edit-note-btn" class="btn-small btn-secondary">Modifier</button>
+                    <button id="delete-note-btn" class="btn-small btn-danger">Supprimer</button>
+                </div>
+            </div>
+            
+            <!-- Message si aucune sélection -->
+            <div id="no-selection-msg" class="placeholder-text">
+                Sélectionnez un jour pour voir les détails et les notes.
+            </div>
+        </section>
 
-  <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script type="module" src="js/app.js"></script>
+        <!-- BOUTON FLOTTANT IMPORT -->
+        <button id="fab-import" class="fab" title="Importer Excel">
+            📂
+        </button>
+
+    </main>
+
+    <!-- DOCK NAVIGATION (MOBILE) -->
+    <nav class="dock-nav">
+        <button class="dock-btn" data-type="J">☀️ Jour</button>
+        <button class="dock-btn" data-type="N">🌙 Nuit</button>
+        <button class="dock-btn" data-type="R">🏠 Repos</button>
+        <button class="dock-btn" data-type="C">✈️ Congés</button>
+        <button class="dock-btn" data-type="NOTE">📝 Note</button>
+        <button class="dock-btn" data-type="AUTRE">⚙️ Autre</button>
+    </nav>
+
+    <!-- MODALES (Note / Autre / Import) -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <!-- Modale Note -->
+        <div id="modal-note" class="modal hidden">
+            <h3>Ajouter / Modifier une note</h3>
+            <p class="modal-subtitle" id="modal-note-date"></p>
+            <textarea id="note-input" placeholder="Ex: Retard prévu, échange avec Martin..."></textarea>
+            <div class="modal-actions">
+                <button id="cancel-note-btn" class="btn-secondary">Annuler</button>
+                <button id="save-note-btn" class="btn-primary">Enregistrer</button>
+            </div>
+        </div>
+
+        <!-- Modale Autre (Type personnalisé) -->
+        <div id="modal-autre" class="modal hidden">
+            <h3>Type de service personnalisé</h3>
+            <input type="text" id="autre-input" placeholder="Ex: Formation, Astreinte...">
+            <div class="modal-actions">
+                <button id="cancel-autre-btn" class="btn-secondary">Annuler</button>
+                <button id="save-autre-btn" class="btn-primary">Valider</button>
+            </div>
+        </div>
+
+        <!-- Modale Import -->
+        <div id="modal-import" class="modal hidden">
+            <h3>Importer le planning Excel</h3>
+            <p>Glissez-déposez votre fichier ou cliquez pour sélectionner.</p>
+            <input type="file" id="excel-input" accept=".xlsx, .xls" style="display:none">
+            <button id="trigger-file-input" class="btn-primary">Choisir un fichier</button>
+            <div id="import-status" class="import-status"></div>
+            <div class="modal-actions">
+                <button id="close-import-btn" class="btn-secondary">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>
