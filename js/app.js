@@ -12,6 +12,7 @@ let state = { year: new Date().getFullYear(), month: new Date().getMonth(), sele
 let prefs = { theme: 'dark', rateDay: 35.0, rateNightFull: 82.0, rateNightSolo: 41.0 };
 let cellCache = new Map();
 let pendingImport = [];
+let codeLegend = {}; // Stockera la légende lue dans l'Excel
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const LABELS = { jour:"Jour", nuit:"Nuit", repos:"Repos", conges:"Congés", autre:"Autre" };
@@ -137,7 +138,7 @@ function renderGrid() {
     if (i % 7 === 0) {
       const wn = document.createElement('div');
       wn.className = 'weeknum';
-      wn.textContent = Math.ceil(d.getDate() / 7); // Approx semaine
+      wn.textContent = Math.ceil(d.getDate() / 7);
       grid.appendChild(wn);
     }
 
@@ -163,13 +164,12 @@ function renderGrid() {
 
     if (k === state.selected) cell.classList.add('selected');
 
+    // CORRECTION : Clic simple sélectionne juste la case, n'ouvre rien
     cell.onclick = () => {
       state.selected = k;
       localStorage.setItem('ms_state', JSON.stringify(state));
       renderGrid();
       updateUI();
-      // Ouvrir modale note automatiquement si on veut, ou laisser les boutons du bas
-      openNoteModal(); 
     };
 
     grid.appendChild(cell);
@@ -241,13 +241,12 @@ async function saveEntry(k, patch) {
   } catch (e) {
     console.error("Erreur sauvegarde:", e);
     alert("Erreur de synchronisation: " + e.message);
-    // Recharger pour rétablir l'état cohérent
     await loadEntries();
     renderGrid();
   }
 }
 
-// --- CERVEAU "IA" D'IMPORT ---
+// --- CERVEAU "IA" D'IMPORT (AVEC LECTURE LÉGENDE) ---
 
 function triggerImport() {
   if (!user) {
@@ -286,28 +285,57 @@ function handleFile(e) {
 function analyzeData(rows) {
   console.log(`🔍 Analyse de ${rows.length} lignes...`);
   
+  // 1. LIRE LA LÉGENDE EN BAS DU FICHIER (MEMO / N° /)
+  codeLegend = {};
+  let legendFound = false;
+  // On scanne de la fin vers le début pour trouver la section légende
+  for (let r = rows.length - 1; r >= 0; r--) {
+    const rowText = rows[r].join(" ").toUpperCase();
+    if (rowText.includes("MEMO") || rowText.includes("N° /") || rowText.includes("LÉGENDE") || rowText.includes("CODE")) {
+      // On lit les lignes suivantes (qui sont techniquement après dans le fichier, donc index > r)
+      // Mais comme on boucle à l'envers, on regarde les lignes r+1 à la fin
+      for (let k = r + 1; k < Math.min(rows.length, r + 50); k++) {
+        let currentCode = "";
+        rows[k].forEach(cell => {
+          const val = clean(cell);
+          // Si c'est un code (ex: N28)
+          if (/^[A-Z]{1,2}[0-9]{1,3}$/.test(val)) {
+            currentCode = val;
+          } 
+          // Si c'est une description et qu'on a un code en attente
+          else if (currentCode && val.length > 3) {
+            if (val.includes("NUIT")) codeLegend[currentCode] = "nuit";
+            else if (val.includes("JOUR")) codeLegend[currentCode] = "jour";
+            else if (val.includes("REPOS") || val.includes("OFF")) codeLegend[currentCode] = "repos";
+            else if (val.includes("CONG") || val.includes("CP")) codeLegend[currentCode] = "conges";
+            else if (val.includes("IND")) codeLegend[currentCode] = "nuit"; // Exemple spécifique
+          }
+        });
+      }
+      legendFound = true;
+      console.log("✅ Légende détectée :", codeLegend);
+      break;
+    }
+  }
+
+  // 2. TROUVER LA LIGNE DE PLANNING (CELLE AVEC LE PLUS DE CODES)
   let bestScore = -1;
   let bestRowIdx = -1;
   let bestRowData = [];
 
-  // 1. SCANNER TOUTES LES LIGNES POUR TROUVER CELLE AVEC LE PLUS DE CODES
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     let score = 0;
     
     row.forEach(cell => {
       const val = clean(cell);
-      // Critère : Contient Lettre + Chiffre, longueur 2 à 6 (ex: N28, J12, R3, CS45)
       const hasLetter = /[A-Z]/.test(val);
       const hasNumber = /[0-9]/.test(val);
       const isShort = val.length >= 2 && val.length <= 6;
       
-      if (hasLetter && hasNumber && isShort) {
-        score++;
-      }
+      if (hasLetter && hasNumber && isShort) score++;
     });
 
-    // On ignore les lignes avec trop peu de codes (probablement en-têtes ou bruit)
     if (score > bestScore && score >= 3) {
       bestScore = score;
       bestRowIdx = r;
@@ -316,7 +344,7 @@ function analyzeData(rows) {
   }
 
   if (bestScore === -1) {
-    return alert("❌ Aucun code de chantier (type N28, J12, R3) détecté dans le fichier.\nAssurez-vous d'importer le bon fichier de planning.");
+    return alert("❌ Aucun code de chantier (type N28, J12, 36IND...) détecté dans le fichier.");
   }
 
   console.log(`✅ Ligne idéale trouvée : Index ${bestRowIdx} avec ${bestScore} codes.`);
@@ -324,13 +352,12 @@ function analyzeData(rows) {
 }
 
 function extractSchedule(rows, rowIdx, rowData) {
-  // 2. TROUVER L'EN-TÊTE DE DATES (Au-dessus de la ligne trouvée)
+  // 3. TROUVER L'EN-TÊTE DE DATES
   let headerIdx = -1;
   for (let r = rowIdx - 1; r >= 0; r--) {
     const rowText = rows[r].join(" ").toUpperCase();
     let dayCount = 0;
     DAYS_FR.forEach(d => { if (rowText.includes(d)) dayCount++; });
-    
     if (dayCount >= 3) {
       headerIdx = r;
       break;
@@ -338,41 +365,36 @@ function extractSchedule(rows, rowIdx, rowData) {
   }
 
   if (headerIdx === -1) {
-    return alert("❌ Impossible de trouver les jours de la semaine (Lundi, Mardi...) au-dessus de votre ligne de planning.");
+    return alert("❌ Impossible de trouver les jours de la semaine au-dessus de votre ligne.");
   }
 
-  // 3. MAPPER LES DATES AUX COLONNES
+  // 4. MAPPER LES DATES
   const monthsFr = ["JANVIER","FÉVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOÛT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DÉCEMBRE"];
   const currentYear = new Date().getFullYear();
-  let detectedMonth = state.month; // Par défaut le mois affiché
+  let detectedMonth = state.month;
   
-  // Essayer de détecter le mois dans l'en-tête
   const headerText = rows[headerIdx].join(" ").toUpperCase();
   monthsFr.forEach((m, i) => { if (headerText.includes(m)) detectedMonth = i; });
 
-  const dateMap = {}; // Map: IndexCol -> DateObj
+  const dateMap = {};
   const headRow = rows[headerIdx];
-  const subRow = rows[headerIdx + 1] || []; // Parfois la date est sur la ligne du dessous
+  const subRow = rows[headerIdx + 1] || [];
 
   for (let c = 0; c < Math.max(headRow.length, subRow.length); c++) {
     const c1 = String(headRow[c] || "");
     const c2 = String(subRow[c] || "");
     let dateObj = null;
 
-    // Essai format "23/03" ou "23/3"
     const m1 = c1.match(/(\d{1,2})[/\-\.](\d{1,2})/);
     if (m1) dateObj = new Date(currentYear, parseInt(m1[2]) - 1, parseInt(m1[1]));
 
-    // Essai format "23" seul (on utilise le mois détecté)
     if (!dateObj && /^\d{1,2}$/.test(c1.trim()) && c1.trim().length > 0) {
       dateObj = new Date(currentYear, detectedMonth, parseInt(c1.trim()));
     }
 
-    // Si pas trouvé, essayer ligne du dessous
     if (!dateObj) {
       const m2 = c2.match(/(\d{1,2})[/\-\.](\d{1,2})/);
       if (m2) dateObj = new Date(currentYear, parseInt(m2[2]) - 1, parseInt(m2[1]));
-      
       if (!dateObj && /^\d{1,2}$/.test(c2.trim()) && c2.trim().length > 0) {
         dateObj = new Date(currentYear, detectedMonth, parseInt(c2.trim()));
       }
@@ -383,17 +405,18 @@ function extractSchedule(rows, rowIdx, rowData) {
     }
   }
 
-  // 4. EXTRAIRE LES CODES DE LA LIGNE UTILISATEUR
+  // 5. EXTRAIRE LES CODES ET DÉTERMINER LE STATUT
   const services = [];
   
   rowData.forEach((cell, colIndex) => {
+    const rawVal = cell;
     const val = clean(cell);
     const hasLetter = /[A-Z]/.test(val);
     const hasNumber = /[0-9]/.test(val);
     const isShort = val.length >= 2 && val.length <= 6;
 
     if (hasLetter && hasNumber && isShort) {
-      // C'est un code ! Chercher la date associée (la plus proche à gauche)
+      // Chercher la date associée
       let associatedDate = null;
       for (let back = colIndex; back >= 0; back--) {
         if (dateMap[back]) {
@@ -403,16 +426,29 @@ function extractSchedule(rows, rowIdx, rowData) {
       }
 
       if (associatedDate) {
-        // Déterminer le statut selon la première lettre
+        // LOGIQUE DE DÉTERMINATION DU STATUT
         let status = "autre";
-        if (val.startsWith('N')) status = "nuit";
-        else if (val.startsWith('J')) status = "jour";
-        else if (val.startsWith('R')) status = "repos";
-        else if (val.startsWith('C') || val.startsWith('CP')) status = "conges";
+        
+        // 1. Vérifier dans la légende lue (Priorité 1)
+        if (codeLegend[val]) {
+          status = codeLegend[val];
+        } 
+        // 2. Vérifier dans le texte brut de la cellule (Priorité 2)
+        else if (rawVal && String(rawVal).toUpperCase().includes("NUIT")) status = "nuit";
+        else if (rawVal && String(rawVal).toUpperCase().includes("JOUR")) status = "jour";
+        else if (rawVal && String(rawVal).toUpperCase().includes("REPOS")) status = "repos";
+        else if (rawVal && String(rawVal).toUpperCase().includes("CONG")) status = "conges";
+        // 3. Déduction par la première lettre (Priorité 3)
+        else {
+          if (val.startsWith('N')) status = "nuit";
+          else if (val.startsWith('J')) status = "jour";
+          else if (val.startsWith('R')) status = "repos";
+          else if (val.startsWith('C') || val.startsWith('CP')) status = "conges";
+          else if (val.startsWith('IND')) status = "nuit"; // Cas spécifique IND
+        }
 
         const k = keyFor(associatedDate);
         
-        // Éviter doublons pour la même date
         if (!services.find(s => s.dateKey === k)) {
           services.push({
             dateKey: k,
@@ -428,7 +464,7 @@ function extractSchedule(rows, rowIdx, rowData) {
   });
 
   if (services.length === 0) {
-    return alert("⚠️ Codes détectés, mais aucune date correspondante n'a pu être associée dans le mois affiché.");
+    return alert("⚠️ Codes détectés, mais aucune date correspondante trouvée.");
   }
 
   showPreview(services);
@@ -442,7 +478,7 @@ function showPreview(services) {
   if (!list || !summary) return;
   
   list.innerHTML = '';
-  summary.textContent = `🤖 Analyse terminée : ${services.length} services trouvés automatiquement.`;
+  summary.textContent = `🤖 Analyse terminée : ${services.length} services trouvés.`;
   
   services.forEach(s => {
     const div = document.createElement('div');
@@ -459,19 +495,14 @@ function showPreview(services) {
   $('backdropImport').classList.add('show');
   $('sheetImport').classList.add('show');
   
-  // Attacher les événements aux boutons
   const btnConfirm = $('btnConfirmImport');
   const btnCancel = $('btnCancelImport');
   
-  if (btnConfirm) {
-    btnConfirm.onclick = confirmImport;
-  }
-  if (btnCancel) {
-    btnCancel.onclick = () => {
-      $('sheetImport').classList.remove('show');
-      $('backdropImport').classList.remove('show');
-    };
-  }
+  if (btnConfirm) btnConfirm.onclick = confirmImport;
+  if (btnCancel) btnCancel.onclick = () => {
+    $('sheetImport').classList.remove('show');
+    $('backdropImport').classList.remove('show');
+  };
 }
 
 function confirmImport() {
@@ -498,11 +529,9 @@ function confirmImport() {
   renderGrid();
   updateUI();
   
-  // Fermer modale
   $('sheetImport').classList.remove('show');
   $('backdropImport').classList.remove('show');
 
-  // Sauvegarde Batch
   (async () => {
     let successCount = 0;
     for (const item of pendingImport) {
@@ -517,25 +546,48 @@ function confirmImport() {
       
       if (!error) successCount++;
     }
-    
-    alert(`✅ ${successCount} services importés avec succès !`);
+    alert(`✅ ${successCount} services importés !`);
   })();
 }
 
 // --- GESTION MODALES & EVENTS ---
 
+// Ouverture modale NOTE uniquement
 function openNoteModal() {
   const entry = entries.get(state.selected);
   const d = parseKey(state.selected);
   
-  if ($('sheetTitle')) $('sheetTitle').textContent = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  if ($('sheetTitle')) $('sheetTitle').textContent = `Note du ${d.getDate()} ${MONTHS[d.getMonth()]}`;
   if ($('noteText')) $('noteText').value = entry?.note || '';
   
   $('backdrop').classList.add('show');
   $('sheet').classList.add('show');
 }
 
-function closeNoteModal() {
+// Ouverture modale AUTRE uniquement
+function openOtherModal() {
+  const entry = entries.get(state.selected);
+  const d = parseKey(state.selected);
+  
+  if ($('sheetTitle')) $('sheetTitle').textContent = `Type de service : ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  
+  // Reset select
+  if ($('otherSelect')) $('otherSelect').value = "OCP";
+  if ($('otherCustom')) {
+    $('otherCustom').value = "";
+    $('otherCustom').style.display = "none";
+  }
+  
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
+  // On affiche la section "Autre" et on cache la section "Note"
+  // Note: Dans le HTML fourni précédemment, il faut s'assurer que la structure permet cela.
+  // Ici on suppose que le JS gère l'affichage via les IDs sheetNote et sheetOther
+  if ($('sheetNote')) $('sheetNote').style.display = 'none';
+  if ($('sheetOther')) $('sheetOther').style.display = 'block';
+}
+
+function closeModals() {
   $('sheet').classList.remove('show');
   $('backdrop').classList.remove('show');
 }
@@ -565,26 +617,58 @@ function setupEvents() {
     loadEntries().then(() => { renderGrid(); updateUI(); });
   };
 
-  // Actions Dock
+  // Actions Dock (CORRIGÉ : Pas d'ouverture automatique)
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.onclick = () => {
       if (!state.selected) return;
-      saveEntry(state.selected, { status: btn.dataset.set, note: entries.get(state.selected)?.note || '' });
-      closeNoteModal();
+      
+      const action = btn.dataset.set;
+      
+      if (action === 'note') {
+        openNoteModal();
+      } else if (action === 'autre') {
+        openOtherModal();
+      } else {
+        // Action directe (Jour, Nuit, Repos, Congés)
+        const currentNote = entries.get(state.selected)?.note || '';
+        saveEntry(state.selected, { status: action, note: currentNote });
+      }
     };
   });
 
-  // Modale Note
+  // Gestion Modale Note
   if ($('btnSaveNote')) $('btnSaveNote').onclick = () => {
-    saveEntry(state.selected, { note: $('noteText').value });
-    closeNoteModal();
+    const currentStatus = entries.get(state.selected)?.status || 'autre';
+    saveEntry(state.selected, { status: currentStatus, note: $('noteText').value });
+    closeModals();
   };
   if ($('btnClearNote')) $('btnClearNote').onclick = () => {
-    saveEntry(state.selected, { note: '' });
-    closeNoteModal();
+    const currentStatus = entries.get(state.selected)?.status || 'autre';
+    saveEntry(state.selected, { status: currentStatus, note: '' });
+    closeModals();
   };
-  // Fermeture backdrop note
-  if ($('backdrop')) $('backdrop').onclick = closeNoteModal;
+
+  // Gestion Modale Autre
+  if ($('btnApplyOther')) $('btnApplyOther').onclick = () => {
+    const val = $('otherSelect').value;
+    const custom = $('otherCustom').value;
+    const finalLabel = (val === 'custom') ? custom : val;
+    const currentNote = entries.get(state.selected)?.note || '';
+    
+    saveEntry(state.selected, { status: 'autre', note: currentNote, custom_label: finalLabel });
+    closeModals();
+  };
+  
+  if ($('otherSelect')) {
+    $('otherSelect').onchange = (e) => {
+      if ($('otherCustom')) {
+        $('otherCustom').style.display = (e.target.value === 'custom') ? 'block' : 'none';
+      }
+    };
+  }
+
+  // Fermeture backdrop
+  if ($('backdrop')) $('backdrop').onclick = closeModals;
 
   // Import
   if ($('btnImport')) $('btnImport').onclick = triggerImport;
@@ -641,10 +725,6 @@ function setupEvents() {
       checkAuth();
     }
   };
-  
-  if ($('tabSignup')) $('tabSignup').onclick = () => {
-    alert("Fonctionnalité d'inscription à venir. Veuillez contacter l'admin.");
-  };
 
   // Export
   if ($('btnExportXLSX')) $('btnExportXLSX').onclick = () => {
@@ -660,7 +740,6 @@ function setupEvents() {
     $('backdropExport').classList.remove('show');
   };
   if ($('btnGenerateXLSX')) $('btnGenerateXLSX').onclick = () => {
-    // Logique d'export simplifiée pour l'exemple
     alert("Export Excel généré (Fonctionnalité complète à intégrer)");
     $('sheetExport').classList.remove('show');
     $('backdropExport').classList.remove('show');
