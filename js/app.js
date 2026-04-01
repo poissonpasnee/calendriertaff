@@ -239,19 +239,16 @@ function renderGrid() {
   grid.innerHTML = '';
   cellCache.clear();
 
-  // Mise à jour du titre du mois
   $$('navMonth') && ($$('navMonth').textContent = MONTHS[state.month]);
   $$('navYear')  && ($$('navYear').textContent  = state.year);
 
   // Mise à jour des en-têtes (Di/Lu, Lu/Ma, etc.)
-  // On garde la première cellule pour "Sem", puis les 7 jours
   const headerChildren = header.children;
   for (let i = 1; i < headerChildren.length; i++) {
     headerChildren[i].textContent = DAY_HEADERS[i-1];
   }
 
   const first    = new Date(state.year, state.month, 1);
-  // Décalage pour commencer Lundi (0=Dim -> 6, 1=Lun -> 0)
   let startOffset = (first.getDay() + 6) % 7;
   const startDate = new Date(first);
   startDate.setDate(1 - startOffset);
@@ -261,7 +258,6 @@ function renderGrid() {
     d.setDate(startDate.getDate() + i);
     const k = keyFor(d);
 
-    // Numéro de semaine
     if (i % 7 === 0) {
       const wn = getISOWeek(d);
       const wnEl = document.createElement('div');
@@ -424,7 +420,7 @@ function openStats() {
 }
 
 // ═══════════════════════════════════════════════════════
-// EXPORT EXCEL (NOUVEAU)
+// EXPORT EXCEL
 // ═══════════════════════════════════════════════════════
 async function exportCalendar() {
   if (!user) { showToast("Connectez-vous pour exporter"); return; }
@@ -434,7 +430,6 @@ async function exportCalendar() {
   const end = new Date(state.year, state.month + 1, 0);
   const data = [];
   
-  // En-têtes du fichier Excel
   data.push(["MyShift AI - Export", "", "", "", ""]);
   data.push(["Agent", prefs.agentName || user.email, "", "Mois", `$${MONTHS[state.month]} $${state.year}`]);
   data.push(["", "", "", "", ""]);
@@ -472,12 +467,10 @@ async function exportCalendar() {
   data.push(["Primes estimées", totalBonus + " €", "", "", ""]);
   data.push(["TOTAL ESTIMÉ", (BASE_SALARY + totalBonus) + " €", "", "", ""]);
 
-  // Création du fichier Excel
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Planning");
   
-  // Nom du fichier : MyShift_Export_Janvier_2026.xlsx
   const filename = `MyShift_Export_$${MONTHS[state.month]}_$${state.year}.xlsx`;
   
   XLSX.writeFile(wb, filename);
@@ -877,4 +870,23 @@ function setupEvents() {
     confirmImport();
   });
   $('btnCancelImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
-  $('backdrop
+  $('backdropImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
+
+  // EXPORT
+  $('btnExport')?.addEventListener('click', exportCalendar);
+
+  // PARAMÈTRES
+  $('btnSettings')?.addEventListener('click', e => { 
+    e.stopPropagation(); 
+    const panel = $('settingsPop');
+    if(panel) panel.classList.toggle('show');
+  });
+  
+  $('btnCloseSettings')?.addEventListener('click', () => {
+      const panel = $('settingsPop');
+      if(panel) panel.classList.remove('show');
+  });
+  
+  $('settingsPop')?.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => {
+      const panel = $('settingsPop
