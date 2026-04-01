@@ -46,11 +46,13 @@ function calculateSalary() {
 }
 
 async function init() {
+  console.log("🚀 Init...");
   loadLocal(); applyPrefs();
   if (!state.selected) state.selected = keyFor(new Date());
   setupPWA();
   await checkAuth();
   renderGrid(); updateUI(); setupEvents();
+  console.log("✅ Ready");
 }
 
 function loadLocal() {
@@ -103,18 +105,19 @@ async function loadEntries() {
   const start = keyFor(new Date(state.year, state.month - 1, 1));
   const end = keyFor(new Date(state.year, state.month + 2, 0));
   const { data, error } = await supabase.from("work_calendar_entries").select("*").gte("work_date", start).lte("work_date", end);
-  if (error) return;
+  if (error) { console.error("Erreur chargement:", error); return; }
   entries.clear();
   data?.forEach(r => entries.set(r.work_date, { status: r.status, note: r.note, custom_label: r.custom_label, imported: r.imported }));
+  renderGrid(); updateUI();
 }
 function renderGrid() {
-  const grid = $('grid'), header = $('.calendar-head'); if (!grid || !header) return;
+  const grid = $('grid'), header = $('.calendar-head');
+  if (!grid || !header) { console.error("Grille introuvable"); return; }
   grid.innerHTML = ''; cellCache.clear();
   $('navMonth') && ($('navMonth').textContent = MONTHS[state.month]);
   $('navYear') && ($('navYear').textContent = state.year);
-  
   const hChildren = header.children;
-  for (let i = 1; i < hChildren.length; i++) hChildren[i].textContent = DAY_HEADERS[i-1];
+  for (let i = 1; i < hChildren.length; i++) if(hChildren[i]) hChildren[i].textContent = DAY_HEADERS[i-1];
 
   const first = new Date(state.year, state.month, 1);
   let offset = (first.getDay() + 6) % 7;
@@ -123,23 +126,17 @@ function renderGrid() {
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = keyFor(d);
-    if (i % 7 === 0) {
-      const wnEl = document.createElement('div'); wnEl.className = 'weeknum'; wnEl.textContent = getISOWeek(d); grid.appendChild(wnEl);
-    }
+    if (i % 7 === 0) { const wnEl = document.createElement('div'); wnEl.className = 'weeknum'; wnEl.textContent = getISOWeek(d); grid.appendChild(wnEl); }
     const cell = document.createElement('div'); cell.className = 'day';
-    if (d.getMonth() !== state.month) cell.classList.add('out');
+    if (d.getMonth() !== state.month) { cell.classList.add('out'); cell.style.opacity = '0.3'; }
     if (k === keyFor(new Date())) cell.classList.add('today');
     cell.dataset.key = k;
     const entry = entries.get(k);
     if (entry?.status) { cell.classList.add(entry.status); if (entry.imported) cell.classList.add('imported'); }
-    
     const num = document.createElement('span'); num.className = 'day-num'; num.textContent = d.getDate(); cell.appendChild(num);
-    if (entry?.status && entry.status !== 'repos') {
-      const lbl = document.createElement('span'); lbl.className = 'day-label'; lbl.textContent = entry.custom_label || STATUS_LABELS[entry.status]; cell.appendChild(lbl);
-    }
+    if (entry?.status && entry.status !== 'repos') { const lbl = document.createElement('span'); lbl.className = 'day-label'; lbl.textContent = entry.custom_label || STATUS_LABELS[entry.status]; cell.appendChild(lbl); }
     if (entry?.note) { const dot = document.createElement('div'); dot.className = 'dot'; cell.appendChild(dot); }
     if (k === state.selected) cell.classList.add('selected');
-    
     cell.onclick = () => { state.selected = k; localStorage.setItem('ms_state', JSON.stringify(state)); cellCache.forEach((c, ck) => c.classList.toggle('selected', ck === k)); updateDockInfo(); };
     grid.appendChild(cell); cellCache.set(k, cell);
   }
@@ -157,18 +154,16 @@ function updateUI() { updateDockInfo(); updateStats(); }
 function updateDockInfo() {
   if (!state.selected) return;
   const d = parseKey(state.selected), entry = entries.get(state.selected);
-  $('selDate') && ($('selDate').textContent = `${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][(d.getDay()+6)%7]} ${d.getDate()} ${MONTHS[d.getMonth()]}`);
+  const days = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  $('selDate') && ($('selDate').textContent = `${days[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`);
   const badge = $('selState');
   if (badge) { const s = entry?.status; badge.textContent = s ? `${STATUS_EMOJI[s]} ${STATUS_LABELS[s]}` : "Libre"; badge.className = `sel-badge ${s||''}`; }
 }
 function updateStats() {
   let j=0,n=0,r=0,m=0,c=0; const end = new Date(state.year, state.month+1, 0);
-  for (let d=1; d<=end.getDate(); d++) {
-    const e = entries.get(keyFor(new Date(state.year, state.month, d))); if(!e) continue;
-    if(e.status==='jour') j++; if(e.status==='nuit') n++; if(e.status==='repos') r++; if(e.status==='mn') m++; if(e.status==='conges') c++;
-  }
+  for (let d=1; d<=end.getDate(); d++) { const e = entries.get(keyFor(new Date(state.year, state.month, d))); if(!e) continue; if(e.status==='jour') j++; if(e.status==='nuit') n++; if(e.status==='repos') r++; if(e.status==='mn') m++; if(e.status==='conges') c++; }
   $('statJour') && ($('statJour').textContent=j); $('statNuit') && ($('statNuit').textContent=n); $('statRepos') && ($('statRepos').textContent=r);
-  $('salaryValue') && ($('salaryValue').textContent = calculateSalary().toLocaleString('fr-FR', {minimumFractionDigits:2}) + ' €');
+  $('salaryValue') && ($('salaryValue').textContent = calculateSalary().toLocaleString('fr-FR',{minimumFractionDigits:2}) + ' €');
 }
 
 function openStats() {
@@ -202,6 +197,7 @@ async function exportCalendar() {
   XLSX.writeFile(wb, `MyShift_${MONTHS[state.month]}_${state.year}.xlsx`);
   showToast("✅ Téléchargé");
 }
+
 async function saveEntry(k, patch) {
   if (!user) { const g=$('gate'); if(g){g.style.display='grid';setTimeout(()=>g.classList.add('show'),50);} return; }
   const cur = entries.get(k) || {status:'',note:'',custom_label:'',imported:false}, next = {...cur, ...patch};
@@ -218,135 +214,225 @@ async function saveEntry(k, patch) {
   updateUI(); showToast(patch.status===null?"🗑️ Effacé":"✅ Enregistré");
   try {
     if (patch.status===null) await supabase.from("work_calendar_entries").delete().eq('user_id',user.id).eq('work_date',k);
-    else {
-      const p = {user_id:user.id, work_date:k, status:next.status, note:next.note, custom_label:next.custom_label};
-      if(next.imported) p.imported=true;
-      let {error} = await supabase.from("work_calendar_entries").upsert(p, {onConflict:"user_id,work_date"});
-      if(error && error.message.includes('imported')) { delete p.imported; await supabase.from("work_calendar_entries").upsert(p, {onConflict:"user_id,work_date"}); }
-    }
+    else { const p = {user_id:user.id, work_date:k, status:next.status, note:next.note, custom_label:next.custom_label}; if(next.imported) p.imported=true; let {error} = await supabase.from("work_calendar_entries").upsert(p, {onConflict:"user_id,work_date"}); if(error && error.message.includes('imported')) { delete p.imported; await supabase.from("work_calendar_entries").upsert(p, {onConflict:"user_id,work_date"}); } }
   } catch(e) { showToast("⚠️ Erreur sync"); await loadEntries(); renderGrid(); }
 }
-
-// IMPORT
-function triggerImport() { if(!user){showToast("Connectez-vous");const g=$('gate');if(g){g.style.display='grid';setTimeout(()=>g.classList.add('show'),50);}return;} $('fileInput').click(); }
-function handleFile(e) {
-  const file = e.target.files[0]; if(!file) return; $('fileInput').value='';
-  const reader = new FileReader();
-  reader.onload = evt => {
-    try {
-      const wb = XLSX.read(new Uint8Array(evt.target.result), {type:'array',cellText:true});
-      if(!wb.SheetNames.length) throw new Error("Vide");
-      let best=null, score=-1;
-      wb.SheetNames.forEach(n => { const r=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1}); const s=r.reduce((a,b)=>a+b.filter(c=>String(c).trim()).length,0); if(s>score){score=s;best=r;} });
-      importAnalyze(best);
-    } catch(err) { showToast("❌ Erreur Excel"); }
-  };
-  reader.readAsArrayBuffer(file);
-}
-function importAnalyze(rows) {
-  const dateRows = findDateRows(rows); if(!dateRows.length){showToast("❌ Pas de dates");return;}
-  const agents = detectAgents(rows, dateRows); if(!agents.length){showToast("❌ Pas d'agent");return;}
-  let target = null;
-  if(prefs.agentName) { const s=normalize(prefs.agentName); target=agents.find(a=>normalize(a.name).includes(s)); }
-  showImportPreview(target?buildServicesForAgent(target,dateRows,rows):[], agents, target?target.name:null);
-}
-function findDateRows(rows) {
-  const res=[]; rows.forEach((row, idx) => {
-    const map={}, cnt=0;
-    row.forEach((cell, c) => {
-      const v=String(cell).trim(), m=v.match(/^(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?$/);
-      if(m) { const d=parseInt(m[1]), mo=parseInt(m[2])-1, y=m[3]?(m[3].length==2?2000+parseInt(m[3]):parseInt(m[3])):state.year; if(d>=1&&d<=31&&mo>=0&&mo<=11){map[c]=new Date(y,mo,d);cnt++;} }
-      else if(/^\d{1,2}$/.test(v)) { const n=parseInt(v); if(n>=1&&n<=31){map[c]={dayOnly:n};cnt++;} }
-    });
-    if(cnt>=5) res.push({rowIdx:idx, dateMap:map, count:cnt});
-  }); return res;
-}
-function detectAgents(rows, dateRows) {
-  const agents=[], dIdx=new Set(dateRows.map(d=>d.rowIdx));
-  rows.forEach((row, idx) => { if(dIdx.has(idx))return; row.forEach(cell => { const v=String(cell).trim(); if(v.length<4)return; const w=v.split(/\s+/).filter(x=>/^[A-Za-zÀ-ÿ\-]{2,}$/.test(x)); if(w.length>=2&&w.length<=4&&!agents.find(a=>normalize(a.name)===normalize(v))) agents.push({name:v,rowIdx:idx,isUpper:v===v.toUpperCase()}); }); });
-  return agents.sort((a,b)=>(b.isUpper?1:0)-(a.isUpper?1:0));
-}
-function buildServicesForAgent(agent, dateRows, rows) {
-  const rel = dateRows.filter(d=>d.rowIdx<=agent.rowIdx).sort((a,b)=>b.rowIdx-a.rowIdx)[0]; if(!rel) return [];
-  const month = resolveMonth(rows, rel.rowIdx);
-  const cmap = {}; Object.entries(rel.dateMap).forEach(([c,v])=>{cmap[parseInt(c)]=(v instanceof Date)?v:new Date(state.year,month,v.dayOnly);});
-  const svcs=[], used=new Set();
-  for(let i=0;i<=3;i++) { const r=rows[agent.rowIdx+i]; if(!r)continue; r.forEach((cell,c) => { const raw=String(cell).trim(); if(!raw)return; let d=cmap[c]; if(!d) for(let k=c;k>=0;k--) if(cmap[k]){d=cmap[k];break;} if(!d)return; const k=keyFor(d); if(used.has(k))return; const st=interpretCode(raw); if(!st)return; used.add(k); svcs.push({dateKey:k,dateObj:d,dayName:d.toLocaleDateString('fr-FR',{weekday:'long'}),code:raw.toUpperCase(),status:st,note:`Import:${raw}`}); }); }
-  applyMNRules(svcs); return svcs.sort((a,b)=>a.dateKey.localeCompare(b.dateKey));
-}
-function resolveMonth(rows, idx) { const ms=["JANVIER","FEVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOUT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DECEMBRE"]; for(let i=Math.max(0,idx-10);i<=Math.min(rows.length-1,idx+5);i++) { const t=normalize(rows[i].join(" ")); for(let j=0;j<12;j++) if(t.includes(ms[j])) return j; } return state.month; }
-function interpretCode(raw) { const v=clean(raw), u=normalize(raw); if(!v)return null; if(u.includes("NUIT"))return "nuit"; if(u.includes("JOUR"))return "jour"; if(u.includes("REPOS")||u.includes("OFF"))return "repos"; if(u.includes("CONG")||u==="CP")return "conges"; if(u.includes("MN"))return "mn"; if(v==="N")return "nuit"; if(v==="J")return "jour"; if(v==="R")return "repos"; if(/^[NJR]\d+$/.test(v)) return v.startsWith('N')?"nuit":v.startsWith('J')?"jour":"repos"; if(/^[NJR]/.test(v)&&v.length<=6) return v.startsWith('N')?"nuit":v.startsWith('J')?"jour":"repos"; if(/[A-Z]/.test(v)&&/[0-9]/.test(v)) return "autre"; return null; }
-function applyMNRules(svcs) { svcs.filter(s=>s.status==="nuit").forEach(s => { const d=parseKey(s.dateKey); if(d.getDay()===1)return; if(!svcs.find(x=>x.dateKey===s.dateKey&&x.status==="mn")) svcs.push({dateKey:s.dateKey,dateObj:d,dayName:"Lun",code:"AUTO",status:"mn",note:"MN Auto"}); }); }
-function similarity(a,b) { const sA=new Set(a.split('')),sB=new Set(b.split('')),i=[...sA].filter(c=>sB.has(c)).length,u=new Set([...sA,...sB]).size; return u?i/u:0; }
-
 function showImportPreview(svcs, agents, sel) {
-  pendingImport = svcs; const pick=$('agentPicker'), sec=$('agentPickerSection');
-  if(pick&&sec) { pick.innerHTML=agents.map(a=>`<option value="${a.name}" ${sel===a.name?'selected':''}>${a.name}</option>`).join(''); sec.style.display='block'; pick.onchange=()=>{const ag=agents.find(x=>x.name===pick.value); if(ag&&window._importRows){pendingImport=buildServicesForAgent(ag,window._importDateRows,window._importRows);renderPreviewList(pendingImport);updateImportSummary(pendingImport);}}; }
-  renderPreviewList(svcs); updateImportSummary(svcs);
-  $('backdropImport')?.classList.add('show'); $('sheetImport')?.classList.add('show');
+  pendingImport = svcs;
+  const pick = $('agentPicker'), sec = $('agentPickerSection');
+  if (pick && sec) {
+    pick.innerHTML = agents.map(a => `<option value="${a.name}" ${sel === a.name ? 'selected' : ''}>${a.name}</option>`).join('');
+    sec.style.display = 'block';
+    pick.onchange = () => {
+      const ag = agents.find(x => x.name === pick.value);
+      if (ag && window._importRows) {
+        pendingImport = buildServicesForAgent(ag, window._importDateRows, window._importRows);
+        renderPreviewList(pendingImport);
+        updateImportSummary(pendingImport);
+      }
+    };
+  }
+  renderPreviewList(svcs);
+  updateImportSummary(svcs);
+  $('backdropImport')?.classList.add('show');
+  $('sheetImport')?.classList.add('show');
 }
-function renderPreviewList(svcs) { const l=$('importPreviewList'); if(!l)return; if(!svcs.length){l.innerHTML='<div class="preview-empty">Sélectionnez un agent</div>';return;} l.innerHTML=svcs.map(s=>`<div class="preview-row ${s.status}"><div class="preview-date"><span class="preview-day">${s.dayName.slice(0,3)}</span><span class="preview-num">${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span></div><div class="preview-code">${s.code}</div><div class="preview-status">${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div></div>`).join(''); }
-function updateImportSummary(svcs) { const j=svcs.filter(s=>s.status==='jour').length,n=svcs.filter(s=>s.status==='nuit').length,r=svcs.filter(s=>s.status==='repos').length,m=svcs.filter(s=>s.status==='mn').length; $('importSummary')&&($('importSummary').textContent=`${svcs.length} svc — ☀️${j} 🌙${n} 🌅${m} 🏠${r}`); }
-function confirmImport() { if(!user||!pendingImport.length)return; pendingImport.forEach(it=>entries.set(it.dateKey,{status:it.status,note:it.note,custom_label:it.code,imported:true})); $('sheetImport')?.classList.remove('show'); $('backdropImport')?.classList.remove('show'); renderGrid(); updateUI(); showToast(`✅ ${pendingImport.length} importés`); (async()=>{ for(const it of pendingImport){const p={user_id:user.id,work_date:it.dateKey,status:it.status,note:it.note,custom_label:it.code,imported:true}; let{error}=await supabase.from("work_calendar_entries").upsert(p,{onConflict:"user_id,work_date"}); if(error&&error.message.includes('imported')){delete p.imported;await supabase.from("work_calendar_entries").upsert(p,{onConflict:"user_id,work_date"});} } })(); }
+
+function renderPreviewList(svcs) {
+  const l = $('importPreviewList');
+  if (!l) return;
+  if (!svcs.length) { l.innerHTML = '<div class="preview-empty">Sélectionnez un agent</div>'; return; }
+  l.innerHTML = svcs.map(s => `<div class="preview-row ${s.status}"><div class="preview-date"><span class="preview-day">${s.dayName.slice(0,3)}</span><span class="preview-num">${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span></div><div class="preview-code">${s.code}</div><div class="preview-status">${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div></div>`).join('');
+}
+
+function updateImportSummary(svcs) {
+  const j = svcs.filter(s => s.status === 'jour').length;
+  const n = svcs.filter(s => s.status === 'nuit').length;
+  const r = svcs.filter(s => s.status === 'repos').length;
+  const m = svcs.filter(s => s.status === 'mn').length;
+  $('importSummary') && ($('importSummary').textContent = `${svcs.length} svc — ☀️${j} 🌙${n} 🌅${m} 🏠${r}`);
+}
+
+function confirmImport() {
+  if (!user || !pendingImport.length) return;
+  pendingImport.forEach(it => entries.set(it.dateKey, { status: it.status, note: it.note, custom_label: it.code, imported: true }));
+  $('sheetImport')?.classList.remove('show');
+  $('backdropImport')?.classList.remove('show');
+  renderGrid(); updateUI();
+  showToast(`✅ ${pendingImport.length} importés`);
+  (async () => {
+    for (const it of pendingImport) {
+      const p = { user_id: user.id, work_date: it.dateKey, status: it.status, note: it.note, custom_label: it.code, imported: true };
+      let { error } = await supabase.from("work_calendar_entries").upsert(p, { onConflict: "user_id,work_date" });
+      if (error && error.message.includes('imported')) { delete p.imported; await supabase.from("work_calendar_entries").upsert(p, { onConflict: "user_id,work_date" }); }
+    }
+  })();
+}
 
 // MODALES & EVENTS
-function openNoteModal() { const e=entries.get(state.selected), d=parseKey(state.selected); $('sheetTitle').textContent=`Note — ${d.getDate()} ${MONTHS[d.getMonth()]}`; $('noteText').value=e?.note||''; $('sheetNote').style.display='block'; $('sheetOther').style.display='none'; $('backdrop')?.classList.add('show'); $('sheet')?.classList.add('show'); }
-function openOtherModal() { const d=parseKey(state.selected); $('sheetTitle').textContent=`Autre — ${d.getDate()} ${MONTHS[d.getMonth()]}`; $('otherSelect').value="OCP"; $('otherCustom').style.display='none'; $('sheetNote').style.display='none'; $('sheetOther').style.display='block'; $('backdrop')?.classList.add('show'); $('sheet')?.classList.add('show'); }
-function closeModal(b,s) { $(b)?.classList.remove('show'); $(s)?.classList.remove('show'); }
+function openNoteModal() {
+  const e = entries.get(state.selected), d = parseKey(state.selected);
+  $('sheetTitle').textContent = `Note — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $('noteText').value = e?.note || '';
+  $('sheetNote').style.display = 'block';
+  $('sheetOther').style.display = 'none';
+  $('backdrop')?.classList.add('show');
+  $('sheet')?.classList.add('show');
+}
+
+function openOtherModal() {
+  const d = parseKey(state.selected);
+  $('sheetTitle').textContent = `Autre — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $('otherSelect').value = "OCP";
+  $('otherCustom').style.display = 'none';
+  $('sheetNote').style.display = 'none';
+  $('sheetOther').style.display = 'block';
+  $('backdrop')?.classList.add('show');
+  $('sheet')?.classList.add('show');
+}
+
+function closeModal(b, s) { $(b)?.classList.remove('show'); $(s)?.classList.remove('show'); }
 
 function setupEvents() {
-  $('btnPrevMonth')?.addEventListener('click', ()=>changeMonth(-1));
-  $('btnNextMonth')?.addEventListener('click', ()=>changeMonth(1));
-  $('btnToday')?.addEventListener('click', ()=>{ const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n); localStorage.setItem('ms_state',JSON.stringify(state)); loadEntries().then(()=>{renderGrid();updateUI();}); });
+  // Navigation Mois
+  const btnPrev = $('btnPrevMonth');
+  const btnNext = $('btnNextMonth');
+  if (btnPrev) btnPrev.addEventListener('click', () => changeMonth(-1));
+  if (btnNext) btnNext.addEventListener('click', () => changeMonth(1));
+
+  $('btnToday')?.addEventListener('click', () => {
+    const n = new Date();
+    state.year = n.getFullYear();
+    state.month = n.getMonth();
+    state.selected = keyFor(n);
+    localStorage.setItem('ms_state', JSON.stringify(state));
+    loadEntries().then(() => { renderGrid(); updateUI(); });
+  });
+
   $('btnStats')?.addEventListener('click', openStats);
-  $('btnCloseStats')?.addEventListener('click', ()=>closeModal('backdropStats','sheetStats'));
-  $('backdropStats')?.addEventListener('click', ()=>closeModal('backdropStats','sheetStats'));
+  $('btnCloseStats')?.addEventListener('click', () => closeModal('backdropStats', 'sheetStats'));
+  $('backdropStats')?.addEventListener('click', () => closeModal('backdropStats', 'sheetStats'));
 
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.addEventListener('click', () => {
-      if(!state.selected) return; const act=btn.dataset.set;
-      if(act==='note'){openNoteModal();return;} if(act==='autre'){openOtherModal();return;} if(act==='reset'){saveEntry(state.selected,{status:null});return;}
-      saveEntry(state.selected, {status:act, note:entries.get(state.selected)?.note||''});
+      if (!state.selected) return;
+      const act = btn.dataset.set;
+      if (act === 'note') { openNoteModal(); return; }
+      if (act === 'autre') { openOtherModal(); return; }
+      if (act === 'reset') { saveEntry(state.selected, { status: null }); return; }
+      saveEntry(state.selected, { status: act, note: entries.get(state.selected)?.note || '' });
     });
   });
 
-  $('btnSaveNote')?.addEventListener('click', ()=>{ saveEntry(state.selected,{status:entries.get(state.selected)?.status||'autre',note:$('noteText').value}); closeModal('backdrop','sheet'); });
-  $('btnClearNote')?.addEventListener('click', ()=>{ saveEntry(state.selected,{status:entries.get(state.selected)?.status||'autre',note:''}); closeModal('backdrop','sheet'); });
-  $('backdrop')?.addEventListener('click', ()=>closeModal('backdrop','sheet'));
-  $('otherSelect')?.addEventListener('change', e=>$('otherCustom').style.display=e.target.value==='custom'?'block':'none');
-  $('btnApplyOther')?.addEventListener('click', ()=>{ const v=$('otherSelect').value,c=$('otherCustom').value; saveEntry(state.selected,{status:'autre',note:entries.get(state.selected)?.note||'',custom_label:v==='custom'?c:v}); closeModal('backdrop','sheet'); });
-  $('btnCloseOther')?.addEventListener('click', ()=>closeModal('backdrop','sheet'));
+  $('btnSaveNote')?.addEventListener('click', () => {
+    saveEntry(state.selected, { status: entries.get(state.selected)?.status || 'autre', note: $('noteText').value });
+    closeModal('backdrop', 'sheet');
+  });
+  $('btnClearNote')?.addEventListener('click', () => {
+    saveEntry(state.selected, { status: entries.get(state.selected)?.status || 'autre', note: '' });
+    closeModal('backdrop', 'sheet');
+  });
+  $('backdrop')?.addEventListener('click', () => closeModal('backdrop', 'sheet'));
+
+  $('otherSelect')?.addEventListener('change', e => $('otherCustom').style.display = e.target.value === 'custom' ? 'block' : 'none');
+  $('btnApplyOther')?.addEventListener('click', () => {
+    const v = $('otherSelect').value, c = $('otherCustom').value;
+    saveEntry(state.selected, { status: 'autre', note: entries.get(state.selected)?.note || '', custom_label: v === 'custom' ? c : v });
+    closeModal('backdrop', 'sheet');
+  });
+  $('btnCloseOther')?.addEventListener('click', () => closeModal('backdrop', 'sheet'));
 
   $('btnImport')?.addEventListener('click', triggerImport);
-  $('fileInput')?.addEventListener('change', e=>{ handleFile(e); if(!e.target.files[0])return; const reader=new FileReader(); reader.onload=ev=>{ const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'}); let best=null,score=-1; wb.SheetNames.forEach(n=>{const r=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1});const s=r.reduce((a,b)=>a+b.filter(c=>String(c).trim()).length,0);if(s>score){score=s;best=r;}}); window._importRows=best; window._importDateRows=findDateRows(best); }; reader.readAsArrayBuffer(e.target.files[0]); });
-  $('btnConfirmImport')?.addEventListener('click', ()=>{ const p=$('agentPicker'); if(p&&window._importRows){const ags=detectAgents(window._importRows,window._importDateRows||[]);const ag=ags.find(a=>a.name===p.value);if(ag)pendingImport=buildServicesForAgent(ag,window._importDateRows,window._importRows);} confirmImport(); });
-  $('btnCancelImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
-  $('backdropImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
+  $('fileInput')?.addEventListener('change', e => {
+    handleFile(e);
+    if (!e.target.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+      let best = null, score = -1;
+      wb.SheetNames.forEach(n => {
+        const r = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1 });
+        const s = r.reduce((a, b) => a + b.filter(c => String(c).trim()).length, 0);
+        if (s > score) { score = s; best = r; }
+      });
+      window._importRows = best;
+      window._importDateRows = findDateRows(best);
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+  });
+  $('btnConfirmImport')?.addEventListener('click', () => {
+    const p = $('agentPicker');
+    if (p && window._importRows) {
+      const ags = detectAgents(window._importRows, window._importDateRows || []);
+      const ag = ags.find(a => a.name === p.value);
+      if (ag) pendingImport = buildServicesForAgent(ag, window._importDateRows, window._importRows);
+    }
+    confirmImport();
+  });
+  $('btnCancelImport')?.addEventListener('click', () => closeModal('backdropImport', 'sheetImport'));
+  $('backdropImport')?.addEventListener('click', () => closeModal('backdropImport', 'sheetImport'));
 
   $('btnExport')?.addEventListener('click', exportCalendar);
 
-  $('btnSettings')?.addEventListener('click', e=>{e.stopPropagation();$('settingsPop')?.classList.toggle('show');});
-  $('btnCloseSettings')?.addEventListener('click', ()=>$('settingsPop')?.classList.remove('show'));
-  $('settingsPop')?.addEventListener('click', e=>e.stopPropagation());
-  document.addEventListener('click', ()=>{const p=$('settingsPop');if(p&&p.classList.contains('show'))p.classList.remove('show');});
+  // Paramètres
+  $('btnSettings')?.addEventListener('click', e => { e.stopPropagation(); $('settingsPop')?.classList.toggle('show'); });
+  $('btnCloseSettings')?.addEventListener('click', () => $('settingsPop')?.classList.remove('show'));
+  $('settingsPop')?.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => { const p = $('settingsPop'); if (p && p.classList.contains('show')) p.classList.remove('show'); });
 
-  $('themeLight')?.addEventListener('click', ()=>{prefs.theme='light';savePrefs();applyPrefs();});
-  $('themeDark')?.addEventListener('click', ()=>{prefs.theme='dark';savePrefs();applyPrefs();});
-  $('agentName')?.addEventListener('change', e=>{prefs.agentName=e.target.value.trim();savePrefs();if($('topSub'))$('topSub').textContent=prefs.agentName||user?.email.split('@')[0];showToast("✅ Nom enregistré");});
-  $('agentMatricule')?.addEventListener('change', e=>{prefs.agentMatricule=e.target.value.trim();savePrefs();});
-  ['rateDay','rateNightFull','rateNightSolo','rateMN'].forEach(id=>{$(id)?.addEventListener('change',e=>{prefs[id]=parseFloat(e.target.value)||0;savePrefs();updateUI();});});
-  
-  $('btnResetRates')?.addEventListener('click', ()=>{if(confirm("Réinitialiser les taux ?")){prefs.rateDay=35;prefs.rateNightFull=82;prefs.rateNightSolo=41;prefs.rateMN=15;savePrefs();applyPrefs();updateUI();showToast("✅ Taux réinitialisés");}});
-  $('btnClearData')?.addEventListener('click', async ()=>{if(confirm("⚠️ Effacer TOUTES les données ?")){if(confirm("Vraiment ? Irréversible.")){entries.clear();if(user)await supabase.from("work_calendar_entries").delete().eq('user_id',user.id);renderGrid();updateUI();showToast("🗑️ Effacé");$('settingsPop')?.classList.remove('show');}}});
+  $('themeLight')?.addEventListener('click', () => { prefs.theme = 'light'; savePrefs(); applyPrefs(); });
+  $('themeDark')?.addEventListener('click', () => { prefs.theme = 'dark'; savePrefs(); applyPrefs(); });
+  $('agentName')?.addEventListener('change', e => { prefs.agentName = e.target.value.trim(); savePrefs(); if ($('topSub')) $('topSub').textContent = prefs.agentName || user?.email.split('@')[0]; showToast("✅ Nom enregistré"); });
+  $('agentMatricule')?.addEventListener('change', e => { prefs.agentMatricule = e.target.value.trim(); savePrefs(); });
+  ['rateDay', 'rateNightFull', 'rateNightSolo', 'rateMN'].forEach(id => { $(id)?.addEventListener('change', e => { prefs[id] = parseFloat(e.target.value) || 0; savePrefs(); updateUI(); }); });
 
-  $('btnLogin')?.addEventListener('click', async ()=>{const em=$('loginEmail').value,pw=$('loginPass').value;if(!em||!pw){$('loginHint').textContent="Champs requis";return;}$('loginHint').textContent="Connexion...";const{error}=await supabase.auth.signInWithPassword({email:em,password:pw});if(error)$('loginHint').textContent="❌ "+error.message;else checkAuth();});
-  $('btnSignup')?.addEventListener('click', async ()=>{const em=$('signupEmail').value,pw=$('signupPass').value;if(!em||!pw){$('signupHint').textContent="Requis";return;}if(pw.length<6){$('signupHint').textContent="6 car. min";return;}$('signupHint').textContent="Création...";const{error}=await supabase.auth.signUp({email:em,password:pw});if(error)$('signupHint').textContent="❌ "+error.message;else $('signupHint').textContent="✅ Vérifiez emails";});
-  $('tabSignup')?.addEventListener('click', ()=>{$('formLogin').style.display='none';$('formSignup').style.display='block';});
-  $('tabLogin')?.addEventListener('click', ()=>{$('formSignup').style.display='none';$('formLogin').style.display='block';});
-  $('btnLogout')?.addEventListener('click', async ()=>{await supabase.auth.signOut();user=null;entries.clear();checkAuth();renderGrid();});
-  ['loginEmail','loginPass','signupEmail','signupPass'].forEach(id=>{$(id)?.addEventListener('keydown',e=>{if(e.key==='Enter')$('btnLogin')?.click();});});
+  $('btnResetRates')?.addEventListener('click', () => {
+    if (confirm("Réinitialiser les taux ?")) {
+      prefs.rateDay = 35; prefs.rateNightFull = 82; prefs.rateNightSolo = 41; prefs.rateMN = 15;
+      savePrefs(); applyPrefs(); updateUI(); showToast("✅ Taux réinitialisés");
+    }
+  });
+
+  $('btnClearData')?.addEventListener('click', async () => {
+    if (confirm("⚠️ Effacer TOUTES les données ?")) {
+      if (confirm("Vraiment ? Irréversible.")) {
+        entries.clear();
+        if (user) await supabase.from("work_calendar_entries").delete().eq('user_id', user.id);
+        renderGrid(); updateUI(); showToast("🗑️ Effacé");
+        $('settingsPop')?.classList.remove('show');
+      }
+    }
+  });
+
+  // Auth
+  $('btnLogin')?.addEventListener('click', async () => {
+    const em = $('loginEmail').value, pw = $('loginPass').value;
+    if (!em || !pw) { $('loginHint').textContent = "Champs requis"; return; }
+    $('loginHint').textContent = "Connexion...";
+    const { error } = await supabase.auth.signInWithPassword({ email: em, password: pw });
+    if (error) $('loginHint').textContent = "❌ " + error.message; else checkAuth();
+  });
+  $('btnSignup')?.addEventListener('click', async () => {
+    const em = $('signupEmail').value, pw = $('signupPass').value;
+    if (!em || !pw) { $('signupHint').textContent = "Requis"; return; }
+    if (pw.length < 6) { $('signupHint').textContent = "6 car. min"; return; }
+    $('signupHint').textContent = "Création...";
+    const { error } = await supabase.auth.signUp({ email: em, password: pw });
+    if (error) $('signupHint').textContent = "❌ " + error.message; else $('signupHint').textContent = "✅ Vérifiez emails";
+  });
+  $('tabSignup')?.addEventListener('click', () => { $('formLogin').style.display = 'none'; $('formSignup').style.display = 'block'; });
+  $('tabLogin')?.addEventListener('click', () => { $('formSignup').style.display = 'none'; $('formLogin').style.display = 'block'; });
+  $('btnLogout')?.addEventListener('click', async () => { await supabase.auth.signOut(); user = null; entries.clear(); checkAuth(); renderGrid(); });
+  ['loginEmail', 'loginPass', 'signupEmail', 'signupPass'].forEach(id => { $(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') $('btnLogin')?.click(); }); });
 }
 
-function changeMonth(d) { state.month+=d; if(state.month<0){state.month=11;state.year--;} if(state.month>11){state.month=0;state.year++;} localStorage.setItem('ms_state',JSON.stringify(state)); loadEntries().then(()=>{renderGrid();updateUI();}); }
+function changeMonth(d) {
+  state.month += d;
+  if (state.month < 0) { state.month = 11; state.year--; }
+  if (state.month > 11) { state.month = 0; state.year++; }
+  localStorage.setItem('ms_state', JSON.stringify(state));
+  loadEntries().then(() => { renderGrid(); updateUI(); });
+}
 
+// LANCEMENT
 init();
