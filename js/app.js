@@ -61,7 +61,7 @@ const STATUS_EMOJI = {
 // ═══════════════════════════════════════════════════════
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
-const keyFor = d => `$${d.getFullYear()}-$${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const keyFor = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 
 const normalize = txt => {
@@ -101,26 +101,19 @@ function calculateSalary() {
 }
 
 // ═══════════════════════════════════════════════════════
-// INIT
+// INITIALISATION
 // ═══════════════════════════════════════════════════════
 async function init() {
-  console.log("🚀 Initialisation de l'application...");
+  console.log("🚀 Initialisation...");
   loadLocal();
   applyPrefs();
   if (!state.selected) state.selected = keyFor(new Date());
   setupPWA();
-  
-  // On s'assure que le DOM est bien chargé avant de vérifier l'auth
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', checkAuth);
-  } else {
-    await checkAuth();
-  }
-  
+  await checkAuth();
   renderGrid();
   updateUI();
   setupEvents();
-  console.log("✅ Initialisation terminée.");
+  console.log("✅ Prêt.");
 }
 
 function loadLocal() {
@@ -140,12 +133,12 @@ function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
   $('themeLight')?.classList.toggle('active', prefs.theme === 'light');
   $('themeDark')?.classList.toggle('active',  prefs.theme === 'dark');
-  if ($$('agentName'))       $$('agentName').value       = prefs.agentName || '';
-  if ($$('agentMatricule'))  $$('agentMatricule').value  = prefs.agentMatricule || '';
-  if ($$('rateDay'))       $$('rateDay').value       = prefs.rateDay;
-  if ($$('rateNightFull')) $$('rateNightFull').value  = prefs.rateNightFull;
-  if ($$('rateNightSolo')) $$('rateNightSolo').value  = prefs.rateNightSolo;
-  if ($$('rateMN'))        $$('rateMN').value         = prefs.rateMN;
+  if ($('agentName'))       $('agentName').value       = prefs.agentName || '';
+  if ($('agentMatricule'))  $('agentMatricule').value  = prefs.agentMatricule || '';
+  if ($('rateDay'))       $('rateDay').value       = prefs.rateDay;
+  if ($('rateNightFull')) $('rateNightFull').value  = prefs.rateNightFull;
+  if ($('rateNightSolo')) $('rateNightSolo').value  = prefs.rateNightSolo;
+  if ($('rateMN'))        $('rateMN').value         = prefs.rateMN;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -172,53 +165,45 @@ function setupPWA() {
 }
 
 // ═══════════════════════════════════════════════════════
-// AUTHENTIFICATION (CORRIGÉE)
+// AUTHENTIFICATION
 // ═══════════════════════════════════════════════════════
 async function checkAuth() {
-  console.log("🔐 Vérification de l'authentification...");
-  const gateElement = $('gate');
-  
-  if (!gateElement) {
-    console.error("❌ ERREUR CRITIQUE: L'élément #gate est introuvable dans le HTML !");
-    return;
-  }
+  console.log("🔐 Vérification auth...");
+  const gate = $('gate');
+  if (!gate) { console.error("Gate introuvable"); return; }
 
   try {
     const { data, error } = await supabase.auth.getSession();
     
     if (error || !data?.session) {
-      console.log("🔒 Utilisateur non connecté. Affichage de la modale.");
+      console.log("🔒 Non connecté. Affichage login.");
       user = null;
       const topSub = $('topSub');
       if (topSub) topSub.textContent = "Invité";
       
-      // Force l'affichage de la modale
-      gateElement.classList.add('show');
-      gateElement.style.display = 'grid'; // S'assure que le display est correct
+      // FORCE L'AFFICHAGE
+      gate.style.display = 'grid';
+      // Petit délai pour permettre la transition CSS
+      setTimeout(() => gate.classList.add('show'), 10);
       return;
     }
 
-    console.log("✅ Utilisateur connecté:", data.session.user.email);
+    console.log("✅ Connecté:", data.session.user.email);
     user = data.session.user;
     const topSub = $('topSub');
     if (topSub) topSub.textContent = prefs.agentName || user.email.split('@')[0];
     
-    // S'assure que la modale est cachée si connecté
-    gateElement.classList.remove('show');
+    gate.classList.remove('show');
     setTimeout(() => {
-        if (!gateElement.classList.contains('show')) {
-            gateElement.style.display = 'none';
-        }
+        if (!gate.classList.contains('show')) gate.style.display = 'none';
     }, 300);
 
     await loadEntries();
-    
   } catch (err) {
-    console.error("⚠️ Erreur lors de la vérification auth:", err);
-    // En cas d'erreur, on affiche quand même la modale pour ne pas bloquer
+    console.error("⚠️ Erreur auth:", err);
     user = null;
-    gateElement.classList.add('show');
-    gateElement.style.display = 'grid';
+    gate.style.display = 'grid';
+    setTimeout(() => gate.classList.add('show'), 10);
   }
 }
 
@@ -252,8 +237,8 @@ function renderGrid() {
   grid.innerHTML = '';
   cellCache.clear();
 
-  $$('navMonth') && ($$('navMonth').textContent = MONTHS[state.month]);
-  $$('navYear')  && ($$('navYear').textContent  = state.year);
+  $('navMonth') && ($('navMonth').textContent = MONTHS[state.month]);
+  $('navYear')  && ($('navYear').textContent  = state.year);
 
   const first    = new Date(state.year, state.month, 1);
   let startOffset = (first.getDay() + 6) % 7;
@@ -330,7 +315,7 @@ function getISOWeek(date) {
 }
 
 // ═══════════════════════════════════════════════════════
-// MISE À JOUR UI
+// UI UPDATES
 // ═══════════════════════════════════════════════════════
 function updateUI() {
   updateDockInfo();
@@ -342,13 +327,13 @@ function updateDockInfo() {
   const d = parseKey(state.selected);
   const entry = entries.get(state.selected);
 
-  $$('selDate') && ($$('selDate').textContent =
-    `$${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][(d.getDay()+6)%7]} $${d.getDate()} ${MONTHS[d.getMonth()]}`);
+  $('selDate') && ($('selDate').textContent =
+    `${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][(d.getDay()+6)%7]} ${d.getDate()} ${MONTHS[d.getMonth()]}`);
 
   const badge = $('selState');
   if (badge) {
     const s = entry?.status;
-    badge.textContent = s ? `$${STATUS_EMOJI[s] || ''} $${STATUS_LABELS[s] || s}` : "Libre";
+    badge.textContent = s ? `${STATUS_EMOJI[s] || ''} ${STATUS_LABELS[s] || s}` : "Libre";
     badge.className = `sel-badge ${s || ''}`;
   }
 }
@@ -366,17 +351,17 @@ function updateStats() {
     if (e.status === 'conges') conges++;
   }
 
-  $$('statJour')  && ($$('statJour').textContent  = jour);
-  $$('statNuit')  && ($$('statNuit').textContent  = nuit);
-  $$('statRepos') && ($$('statRepos').textContent = repos);
+  $('statJour')  && ($('statJour').textContent  = jour);
+  $('statNuit')  && ($('statNuit').textContent  = nuit);
+  $('statRepos') && ($('statRepos').textContent = repos);
 
   const sal = calculateSalary();
-  $$('salaryValue') && ($$('salaryValue').textContent =
+  $('salaryValue') && ($('salaryValue').textContent =
     sal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
 }
 
 // ═══════════════════════════════════════════════════════
-// MODALE STATS
+// STATS MODAL
 // ═══════════════════════════════════════════════════════
 function openStats() {
   const end = new Date(state.year, state.month + 1, 0);
@@ -387,7 +372,7 @@ function openStats() {
     if (e?.status && counts[e.status] !== undefined) counts[e.status]++;
   }
 
-  $$('statsMonthLabel') && ($$('statsMonthLabel').textContent = `$${MONTHS[state.month]} $${state.year}`);
+  $('statsMonthLabel') && ($('statsMonthLabel').textContent = `${MONTHS[state.month]} ${state.year}`);
 
   const content = $('statsContent');
   if (!content) return;
@@ -402,7 +387,7 @@ function openStats() {
           <span class="stats-emoji">${STATUS_EMOJI[k] || '📌'}</span>
           <span class="stats-name">${STATUS_LABELS[k] || k}</span>
           <span class="stats-count">${v}</span>
-          <div class="stats-bar-mini"><div class="stats-bar-fill $${k}" style="width:$${end.getDate() ? (v/end.getDate()*100).toFixed(0) : 0}%"></div></div>
+          <div class="stats-bar-mini"><div class="stats-bar-fill ${k}" style="width:${end.getDate() ? (v/end.getDate()*100).toFixed(0) : 0}%"></div></div>
         </div>
       `).join('')}
     </div>
@@ -427,15 +412,12 @@ function openStats() {
 }
 
 // ═══════════════════════════════════════════════════════
-// SAUVEGARDE ENTRÉE
+// SAUVEGARDE
 // ═══════════════════════════════════════════════════════
 async function saveEntry(k, patch) {
   if (!user) { 
     const gate = $('gate');
-    if(gate) {
-        gate.classList.add('show');
-        gate.style.display = 'grid';
-    }
+    if(gate) { gate.style.display = 'grid'; setTimeout(() => gate.classList.add('show'), 10); }
     return; 
   }
 
@@ -478,33 +460,27 @@ async function saveEntry(k, patch) {
   }
 
   updateUI();
-  showToast(patch.status === null ? "🗑️ Entrée effacée" : `✅ ${STATUS_LABELS[next.status] || 'Enregistré'}`);
+  showToast(patch.status === null ? "🗑️ Effacé" : `✅ ${STATUS_LABELS[next.status] || 'OK'}`);
 
   try {
     if (patch.status === null) {
-      await supabase.from("work_calendar_entries")
-        .delete()
-        .eq('user_id', user.id)
-        .eq('work_date', k);
+      await supabase.from("work_calendar_entries").delete().eq('user_id', user.id).eq('work_date', k);
     } else {
       const payload = { user_id:user.id, work_date:k, status:next.status, note:next.note, custom_label:next.custom_label };
       if (next.imported === true) payload.imported = true;
 
-      const { error } = await supabase.from("work_calendar_entries")
-        .upsert(payload, { onConflict:"user_id,work_date" });
+      const { error } = await supabase.from("work_calendar_entries").upsert(payload, { onConflict:"user_id,work_date" });
 
       if (error) {
         if (error.message.includes('imported')) {
           delete payload.imported;
-          const { error:e2 } = await supabase.from("work_calendar_entries")
-            .upsert(payload, { onConflict:"user_id,work_date" });
-          if (e2) throw e2;
+          await supabase.from("work_calendar_entries").upsert(payload, { onConflict:"user_id,work_date" });
         } else throw error;
       }
     }
   } catch(e) {
     console.error("Erreur sync:", e);
-    showToast("⚠️ Erreur de synchronisation");
+    showToast("⚠️ Erreur sync");
     await loadEntries();
     renderGrid();
   }
@@ -517,10 +493,7 @@ function triggerImport() {
   if (!user) {
     showToast("Connectez-vous d'abord.");
     const gate = $('gate');
-    if(gate) {
-        gate.classList.add('show');
-        gate.style.display = 'grid';
-    }
+    if(gate) { gate.style.display = 'grid'; setTimeout(() => gate.classList.add('show'), 10); }
     return;
   }
   $('fileInput').click();
@@ -530,61 +503,42 @@ function handleFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   $('fileInput').value = '';
-
   const reader = new FileReader();
   reader.onload = evt => {
     try {
       const data = new Uint8Array(evt.target.result);
       const wb   = XLSX.read(data, { type:'array', cellText:true, raw:false });
       if (!wb.SheetNames.length) throw new Error("Fichier vide");
-
-      let bestSheet = null;
-      let bestScore = -1;
+      let bestSheet = null, bestScore = -1;
       wb.SheetNames.forEach(name => {
-        const ws    = wb.Sheets[name];
-        const rows  = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
+        const ws = wb.Sheets[name];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
         const score = rows.reduce((s, r) => s + r.filter(c => String(c).trim()).length, 0);
         if (score > bestScore) { bestScore = score; bestSheet = rows; }
       });
-
       importAnalyze(bestSheet);
     } catch(err) {
       console.error(err);
-      showToast("❌ Erreur lecture Excel");
+      showToast("❌ Erreur Excel");
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
 function importAnalyze(rows) {
-  console.log(`📊 Import: ${rows.length} lignes`);
   const dateRows = findDateRows(rows);
-  if (!dateRows.length) {
-    showToast("❌ Aucune date trouvée dans le fichier");
-    return;
-  }
-
+  if (!dateRows.length) { showToast("❌ Pas de dates"); return; }
   const agents = detectAgents(rows, dateRows);
-  console.log("👤 Agents détectés:", agents.map(a => a.name));
-
-  if (!agents.length) {
-    showToast("❌ Aucun agent trouvé dans le fichier");
-    return;
-  }
+  if (!agents.length) { showToast("❌ Pas d'agent"); return; }
 
   let targetAgent = null;
-  if (prefs.agentName && prefs.agentName.trim()) {
+  if (prefs.agentName) {
     const searchName = normalize(prefs.agentName);
-    targetAgent = agents.find(a => {
-      const n = normalize(a.name);
-      return n.includes(searchName) || searchName.includes(n) || similarity(n, searchName) > 0.75;
-    });
-    if (targetAgent) console.log("✅ Agent trouvé par préférences:", targetAgent.name);
+    targetAgent = agents.find(a => normalize(a.name).includes(searchName) || similarity(normalize(a.name), searchName) > 0.75);
   }
 
   if (targetAgent) {
-    const services = buildServicesForAgent(targetAgent, dateRows, rows);
-    showImportPreview(services, agents, targetAgent.name);
+    showImportPreview(buildServicesForAgent(targetAgent, dateRows, rows), agents, targetAgent.name);
   } else {
     showImportPreview([], agents, null);
   }
@@ -594,367 +548,308 @@ function findDateRows(rows) {
   const dateRows = [];
   rows.forEach((row, rowIdx) => {
     const dateMap = {};
-    let dateCount = 0;
+    let count = 0;
     row.forEach((cell, colIdx) => {
       const val = String(cell).trim();
-      const m1 = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?$/);
-      if (m1) {
-        const day = parseInt(m1[1]);
-        const mo  = parseInt(m1[2]) - 1;
-        const yr  = m1[3] ? (m1[3].length === 2 ? 2000+parseInt(m1[3]) : parseInt(m1[3])) : state.year;
-        if (day >= 1 && day <= 31 && mo >= 0 && mo <= 11) {
-          dateMap[colIdx] = new Date(yr, mo, day);
-          dateCount++;
-        }
-        return;
-      }
-      const m2 = val.match(/^(\d{1,2})$/);
-      if (m2) {
-        const n = parseInt(m2[1]);
-        if (n >= 1 && n <= 31) {
-          dateMap[colIdx] = { dayOnly: n };
-          dateCount++;
-        }
+      const m = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?$/);
+      if (m) {
+        const day = parseInt(m[1]), mo = parseInt(m[2]) - 1;
+        const yr = m[3] ? (m[3].length===2?2000+parseInt(m[3]):parseInt(m[3])) : state.year;
+        if (day>=1 && day<=31 && mo>=0 && mo<=11) { dateMap[colIdx] = new Date(yr, mo, day); count++; }
+      } else if (/^\d{1,2}$/.test(val)) {
+        const n = parseInt(val);
+        if (n>=1 && n<=31) { dateMap[colIdx] = { dayOnly: n }; count++; }
       }
     });
-    if (dateCount >= 5) {
-      dateRows.push({ rowIdx, dateMap, dateCount });
-    }
+    if (count >= 5) dateRows.push({ rowIdx, dateMap, count });
   });
   return dateRows;
 }
 
 function detectAgents(rows, dateRows) {
-  const agents   = [];
-  const dateRowIdxs = new Set(dateRows.map(d => d.rowIdx));
-  rows.forEach((row, rowIdx) => {
-    if (dateRowIdxs.has(rowIdx)) return;
-    row.forEach((cell, colIdx) => {
+  const agents = [];
+  const dateIdx = new Set(dateRows.map(d => d.rowIdx));
+  rows.forEach((row, idx) => {
+    if (dateIdx.has(idx)) return;
+    row.forEach(cell => {
       const val = String(cell).trim();
       if (val.length < 4) return;
       const words = val.split(/\s+/).filter(w => /^[A-Za-zÀ-ÿ\-]{2,}$/.test(w));
       if (words.length >= 2 && words.length <= 4) {
-        const hasUpper = words.some(w => w === w.toUpperCase() && w.length > 2);
-        const hasAlpha = words.every(w => /^[A-Za-zÀ-ÿ\-]+$/.test(w));
-        if (hasAlpha) {
-          const existing = agents.find(a => normalize(a.name) === normalize(val));
-          if (!existing) {
-            agents.push({ name: val, rowIdx, colIdx, isUpperCase: hasUpper });
-          }
+        if (!agents.find(a => normalize(a.name) === normalize(val))) {
+          agents.push({ name: val, rowIdx: idx, isUpperCase: val === val.toUpperCase() });
         }
       }
     });
   });
-  return agents.sort((a, b) => (b.isUpperCase ? 1 : 0) - (a.isUpperCase ? 1 : 0));
+  return agents.sort((a,b) => (b.isUpperCase?1:0) - (a.isUpperCase?1:0));
 }
 
 function buildServicesForAgent(agent, dateRows, rows) {
-  console.log(`🔨 Construction services pour $${agent.name} (ligne $${agent.rowIdx})`);
-  const relevantDateRow = dateRows
-    .filter(dr => dr.rowIdx <= agent.rowIdx)
-    .sort((a, b) => b.rowIdx - a.rowIdx)[0];
-
-  if (!relevantDateRow) {
-    console.warn("Pas de ligne de dates trouvée au-dessus de l'agent");
-    return [];
-  }
-
-  const resolvedMonth = resolveMonth(rows, relevantDateRow.rowIdx);
-  console.log(`📅 Mois résolu: ${resolvedMonth}`);
-
-  const colToDate = {};
-  Object.entries(relevantDateRow.dateMap).forEach(([col, val]) => {
-    const c = parseInt(col);
-    if (val instanceof Date) {
-      colToDate[c] = val;
-    } else if (val?.dayOnly) {
-      colToDate[c] = new Date(state.year, resolvedMonth, val.dayOnly);
-    }
+  const relDate = dateRows.filter(d => d.rowIdx <= agent.rowIdx).sort((a,b)=>b.rowIdx-a.rowIdx)[0];
+  if (!relDate) return [];
+  const month = resolveMonth(rows, relDate.rowIdx);
+  const colMap = {};
+  Object.entries(relDate.dateMap).forEach(([c, v]) => {
+    const idx = parseInt(c);
+    colMap[idx] = (v instanceof Date) ? v : new Date(state.year, month, v.dayOnly);
   });
-
-  const rowsToScan = [agent.rowIdx];
-  for (let i = 1; i <= 3; i++) {
-    if (rows[agent.rowIdx + i]) rowsToScan.push(agent.rowIdx + i);
-  }
 
   const services = [];
-  const usedDates = new Set();
-
-  rowsToScan.forEach(ri => {
-    const row = rows[ri] || [];
-    row.forEach((cell, colIdx) => {
-      const rawVal = String(cell).trim();
-      if (!rawVal || rawVal.length < 1) return;
-
-      let dateObj = colToDate[colIdx];
-      if (!dateObj) {
-        for (let c = colIdx; c >= 0; c--) {
-          if (colToDate[c]) { dateObj = colToDate[c]; break; }
-        }
-      }
-      if (!dateObj) return;
-
-      const k = keyFor(dateObj);
-      if (usedDates.has(k)) return;
-
-      const status = interpretCode(rawVal);
+  const used = new Set();
+  for (let i = 0; i <= 3; i++) {
+    const r = rows[agent.rowIdx + i];
+    if (!r) continue;
+    r.forEach((cell, cIdx) => {
+      const raw = String(cell).trim();
+      if (!raw) return;
+      let d = colMap[cIdx];
+      if (!d) { for (let k=cIdx; k>=0; k--) if (colMap[k]) { d=colMap[k]; break; } }
+      if (!d) return;
+      const k = keyFor(d);
+      if (used.has(k)) return;
+      const status = interpretCode(raw);
       if (!status) return;
-
-      usedDates.add(k);
-      services.push({
-        dateKey:  k,
-        dateObj,
-        dayName:  dateObj.toLocaleDateString('fr-FR', { weekday:'long' }),
-        code:     rawVal.toUpperCase(),
-        status,
-        note:     `Import: ${rawVal.toUpperCase()}`
-      });
+      used.add(k);
+      services.push({ dateKey:k, dateObj:d, dayName:d.toLocaleDateString('fr-FR',{weekday:'long'}), code:raw.toUpperCase(), status, note:`Import: ${raw}` });
     });
-  });
-
+  }
   applyMNRules(services);
-  services.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-  console.log(`✅ ${services.length} services extraits`);
-  return services;
+  return services.sort((a,b) => a.dateKey.localeCompare(b.dateKey));
 }
 
-function resolveMonth(rows, nearRow) {
-  const MONTHS_FR = ["JANVIER", "FEVRIER", "MARS", "AVRIL", "MAI", "JUIN", "JUILLET", "AOUT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DECEMBRE"];
-  const start = Math.max(0, nearRow - 10);
-  const end   = Math.min(rows.length - 1, nearRow + 5);
-  for (let r = start; r <= end; r++) {
-    const text = normalize(rows[r].join(" "));
-    for (let i = 0; i < MONTHS_FR.length; i++) {
-      if (text.includes(MONTHS_FR[i])) return i;
-    }
+function resolveMonth(rows, idx) {
+  const months = ["JANVIER","FEVRIER","MARS","AVRIL","MAI","JUIN","JUILLET","AOUT","SEPTEMBRE","OCTOBRE","NOVEMBRE","DECEMBRE"];
+  for (let i=Math.max(0,idx-10); i<=Math.min(rows.length-1,idx+5); i++) {
+    const t = normalize(rows[i].join(" "));
+    for (let j=0; j<12; j++) if (t.includes(months[j])) return j;
   }
   return state.month;
 }
 
 function interpretCode(raw) {
-  const val    = clean(raw);
-  const rawUp  = normalize(raw);
-  if (!val || val.length < 1) return null;
-
-  if (rawUp.includes("NUIT") || rawUp.includes("NUIT COMPL")) return "nuit";
-  if (rawUp.includes("JOUR"))   return "jour";
-  if (rawUp.includes("REPOS") || rawUp.includes("OFF")) return "repos";
-  if (rawUp.includes("CONG") || rawUp.includes(" CP") || rawUp === "CP") return "conges";
-  if (rawUp.includes("MN") || rawUp.includes("MONTEE"))  return "mn";
-
-  if (val === "N") return "nuit";
-  if (val === "J") return "jour";
-  if (val === "R") return "repos";
-
-  if (/^N\d+$/.test(val)) return "nuit";
-  if (/^J\d+$/.test(val)) return "jour";
-  if (/^R\d+$/.test(val)) return "repos";
-  if (/^MN\d*$/.test(val)) return "mn";
-  if (/^CP\d*$/.test(val)) return "conges";
-
-  if (val.startsWith("N") && val.length <= 6) return "nuit";
-  if (val.startsWith("J") && val.length <= 6) return "jour";
-  if (val.startsWith("R") && val.length <= 6) return "repos";
-
-  if (/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length >= 2 && val.length <= 6) return "autre";
-
+  const v = clean(raw), up = normalize(raw);
+  if (!v) return null;
+  if (up.includes("NUIT")) return "nuit";
+  if (up.includes("JOUR")) return "jour";
+  if (up.includes("REPOS") || up.includes("OFF")) return "repos";
+  if (up.includes("CONG") || up==="CP") return "conges";
+  if (up.includes("MN")) return "mn";
+  if (v==="N") return "nuit"; if (v==="J") return "jour"; if (v==="R") return "repos";
+  if (/^[NJR]\d+$/.test(v)) return v.startsWith('N')?"nuit":v.startsWith('J')?"jour":"repos";
+  if (/^[NJR]/.test(v) && v.length<=6) return v.startsWith('N')?"nuit":v.startsWith('J')?"jour":"repos";
+  if (/[A-Z]/.test(v) && /[0-9]/.test(v)) return "autre";
   return null;
 }
 
-function applyMNRules(services) {
-  const nightKeys = services.filter(s => s.status === "nuit").map(s => s.dateKey);
-  nightKeys.forEach(k => {
-    const d = parseKey(k);
-    if (d.getDay() === 1) return;
-    if (!services.find(s => s.dateKey === k && s.status === "mn")) {
-      services.push({
-        dateKey: k,
-        dateObj: d,
-        dayName: d.toLocaleDateString('fr-FR', { weekday:'long' }),
-        code:    "MN-AUTO",
-        status:  "mn",
-        note:    "MN Auto (05h-09h)"
-      });
+function applyMNRules(svcs) {
+  svcs.filter(s=>s.status==="nuit").forEach(s => {
+    const d = parseKey(s.dateKey);
+    if (d.getDay()===1) return;
+    if (!svcs.find(x=>x.dateKey===s.dateKey && x.status==="mn")) {
+      svcs.push({ dateKey:s.dateKey, dateObj:d, dayName:"Lun", code:"AUTO", status:"mn", note:"MN Auto" });
     }
   });
 }
 
 function similarity(a, b) {
-  const setA = new Set(a.split(''));
-  const setB = new Set(b.split(''));
-  const inter = [...setA].filter(c => setB.has(c)).length;
-  const union = new Set([...setA, ...setB]).size;
-  return union ? inter / union : 0;
+  const sA = new Set(a.split('')), sB = new Set(b.split(''));
+  const i = [...sA].filter(c=>sB.has(c)).length;
+  const u = new Set([...sA, ...sB]).size;
+  return u ? i/u : 0;
 }
 
-function showImportPreview(services, agents, selectedAgent) {
-  pendingImport = services;
-  const picker = $('agentPicker');
-  const pickerSection = $('agentPickerSection');
-
-  if (picker && pickerSection) {
-    picker.innerHTML = agents.map(a =>
-      `<option value="$${a.name}" $${selectedAgent === a.name ? 'selected':''}> $${a.name} (ligne $${a.rowIdx + 1}) </option>`
-    ).join('');
-    pickerSection.style.display = 'block';
-
-    picker.onchange = () => {
-      const chosenName = picker.value;
-      const chosenAgent = agents.find(a => a.name === chosenName);
-      if (window._importRows && chosenAgent) {
-        const svcs = buildServicesForAgent(chosenAgent, window._importDateRows, window._importRows);
-        pendingImport = svcs;
-        renderPreviewList(svcs);
-        updateImportSummary(svcs);
+function showImportPreview(svcs, agents, selected) {
+  pendingImport = svcs;
+  const pick = $('agentPicker'), sec = $('agentPickerSection');
+  if (pick && sec) {
+    pick.innerHTML = agents.map(a => `<option value="${a.name}" ${selected===a.name?'selected':''}>${a.name}</option>`).join('');
+    sec.style.display = 'block';
+    pick.onchange = () => {
+      const ag = agents.find(x=>x.name===pick.value);
+      if (ag && window._importRows) {
+        pendingImport = buildServicesForAgent(ag, window._importDateRows, window._importRows);
+        renderPreviewList(pendingImport);
+        updateImportSummary(pendingImport);
       }
     };
   }
-
-  renderPreviewList(services);
-  updateImportSummary(services);
+  renderPreviewList(svcs);
+  updateImportSummary(svcs);
   $('backdropImport')?.classList.add('show');
   $('sheetImport')?.classList.add('show');
 }
 
-function renderPreviewList(services) {
-  const list = $('importPreviewList');
-  if (!list) return;
-  if (!services.length) {
-    list.innerHTML = `<div class="preview-empty">Sélectionnez un agent pour voir ses services</div>`;
-    return;
-  }
-  list.innerHTML = services.map(s => `
-    <div class="preview-row ${s.status}">
-      <div class="preview-date">
-        <span class="preview-day">${s.dayName.slice(0,3)}</span>
-        <span class="preview-num">$${s.dateObj.getDate()}/$${s.dateObj.getMonth()+1}</span>
-      </div>
-      <div class="preview-code">${s.code}</div>
-      <div class="preview-status">$${STATUS_EMOJI[s.status] || '📌'} $${STATUS_LABELS[s.status] || s.status}</div>
-    </div>
-  `).join('');
+function renderPreviewList(svcs) {
+  const l = $('importPreviewList');
+  if (!l) return;
+  if (!svcs.length) { l.innerHTML = '<div class="preview-empty">Sélectionnez un agent</div>'; return; }
+  l.innerHTML = svcs.map(s => `<div class="preview-row ${s.status}"><div class="preview-date"><span class="preview-day">${s.dayName.slice(0,3)}</span><span class="preview-num">${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span></div><div class="preview-code">${s.code}</div><div class="preview-status">${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div></div>`).join('');
 }
 
-function updateImportSummary(services) {
-  const jour   = services.filter(s => s.status === 'jour').length;
-  const nuit   = services.filter(s => s.status === 'nuit').length;
-  const repos  = services.filter(s => s.status === 'repos').length;
-  const mn     = services.filter(s => s.status === 'mn').length;
-  const total  = services.length;
-  $$('importSummary') && ($$('importSummary').textContent =
-    `$${total} service(s) détecté(s) — ☀️$${jour} 🌙$${nuit} 🌅$${mn} 🏠${repos}`);
+function updateImportSummary(svcs) {
+  const j=svcs.filter(s=>s.status==='jour').length, n=svcs.filter(s=>s.status==='nuit').length, r=svcs.filter(s=>s.status==='repos').length, m=svcs.filter(s=>s.status==='mn').length;
+  $('importSummary') && ($('importSummary').textContent = `${svcs.length} svc — ☀️${j} 🌙${n} 🌅${m} 🏠${r}`);
 }
 
 function confirmImport() {
   if (!user || !pendingImport.length) return;
-  pendingImport.forEach(item => {
-    entries.set(item.dateKey, {
-      status:       item.status,
-      note:         item.note,
-      custom_label: item.code,
-      imported:     true
-    });
-  });
+  pendingImport.forEach(it => entries.set(it.dateKey, { status:it.status, note:it.note, custom_label:it.code, imported:true }));
   $('sheetImport')?.classList.remove('show');
   $('backdropImport')?.classList.remove('show');
-  renderGrid();
-  updateUI();
-  showToast(`✅ ${pendingImport.length} services importés !`);
-
+  renderGrid(); updateUI();
+  showToast(`✅ ${pendingImport.length} importés`);
   (async () => {
-    let ok = 0;
-    for (const item of pendingImport) {
-      const payload = {
-        user_id:      user.id,
-        work_date:    item.dateKey,
-        status:       item.status,
-        note:         item.note,
-        custom_label: item.code,
-        imported:     true
-      };
-      const { error } = await supabase.from("work_calendar_entries")
-        .upsert(payload, { onConflict:"user_id,work_date" });
-      if (!error) {
-        ok++;
-      } else if (error.message?.includes('imported')) {
-        delete payload.imported;
-        const { error:e2 } = await supabase.from("work_calendar_entries")
-          .upsert(payload, { onConflict:"user_id,work_date" });
-        if (!e2) ok++;
-      }
+    for (const it of pendingImport) {
+      const p = { user_id:user.id, work_date:it.dateKey, status:it.status, note:it.note, custom_label:it.code, imported:true };
+      let { error } = await supabase.from("work_calendar_entries").upsert(p, {onConflict:"user_id,work_date"});
+      if (error && error.message.includes('imported')) { delete p.imported; await supabase.from("work_calendar_entries").upsert(p, {onConflict:"user_id,work_date"}); }
     }
-    console.log(`☁️ Synchro: $${ok}/$${pendingImport.length} sauvegardés`);
   })();
 }
 
 // ═══════════════════════════════════════════════════════
-// MODALES
+// MODALES & EVENTS
 // ═══════════════════════════════════════════════════════
 function openNoteModal() {
-  const entry = entries.get(state.selected);
-  const d = parseKey(state.selected);
-  $$('sheetTitle') && ($$('sheetTitle').textContent = `Note — $${d.getDate()} $${MONTHS[d.getMonth()]}`);
-  $$('noteText')   && ($$('noteText').value = entry?.note || '');
-  $$('sheetNote') && ($$('sheetNote').style.display = 'block');
-  $$('sheetOther') && ($$('sheetOther').style.display = 'none');
-  $('backdrop')?.classList.add('show');
-  $('sheet')?.classList.add('show');
+  const e = entries.get(state.selected), d = parseKey(state.selected);
+  $('sheetTitle').textContent = `Note — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $('noteText').value = e?.note || '';
+  $('sheetNote').style.display = 'block';
+  $('sheetOther').style.display = 'none';
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
 }
 
 function openOtherModal() {
   const d = parseKey(state.selected);
-  $$('sheetTitle') && ($$('sheetTitle').textContent = `Autre — $${d.getDate()} $${MONTHS[d.getMonth()]}`);
-  $$('otherSelect') && ($$('otherSelect').value = "OCP");
-  $$('otherCustom') && ($$('otherCustom').style.display = 'none');
-  $$('sheetNote') && ($$('sheetNote').style.display = 'none');
-  $$('sheetOther') && ($$('sheetOther').style.display = 'block');
-  $('backdrop')?.classList.add('show');
-  $('sheet')?.classList.add('show');
+  $('sheetTitle').textContent = `Autre — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $('otherSelect').value = "OCP";
+  $('otherCustom').style.display = 'none';
+  $('sheetNote').style.display = 'none';
+  $('sheetOther').style.display = 'block';
+  $('backdrop').classList.add('show');
+  $('sheet').classList.add('show');
 }
 
-function closeModal(backdropId, sheetId) {
-  $(backdropId)?.classList.remove('show');
-  $(sheetId)?.classList.remove('show');
-}
+function closeModal(b, s) { $(b)?.classList.remove('show'); $(s)?.classList.remove('show'); }
 
-// ═══════════════════════════════════════════════════════
-// ÉVÉNEMENTS
-// ═══════════════════════════════════════════════════════
 function setupEvents() {
   $('btnPrevMonth')?.addEventListener('click', () => changeMonth(-1));
-  $('btnNextMonth')?.addEventListener('click', () => changeMonth(+1));
+  $('btnNextMonth')?.addEventListener('click', () => changeMonth(1));
   $('btnToday')?.addEventListener('click', () => {
-    const n = new Date();
-    state.year = n.getFullYear();
-    state.month = n.getMonth();
-    state.selected = keyFor(n);
+    const n = new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n);
     localStorage.setItem('ms_state', JSON.stringify(state));
-    loadEntries().then(() => { renderGrid(); updateUI(); });
+    loadEntries().then(()=>{renderGrid();updateUI();});
   });
-
   $('btnStats')?.addEventListener('click', openStats);
-  $('btnCloseStats')?.addEventListener('click', () => closeModal('backdropStats','sheetStats'));
-  $('backdropStats')?.addEventListener('click', () => closeModal('backdropStats','sheetStats'));
+  $('btnCloseStats')?.addEventListener('click', ()=>closeModal('backdropStats','sheetStats'));
+  $('backdropStats')?.addEventListener('click', ()=>closeModal('backdropStats','sheetStats'));
 
   document.querySelectorAll('[data-set]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!state.selected) return;
-      const action = btn.dataset.set;
-      if (action === 'note')  { openNoteModal(); return; }
-      if (action === 'autre') { openOtherModal(); return; }
-      if (action === 'reset') {
-        saveEntry(state.selected, { status: null });
-        return;
-      }
-      const currentNote = entries.get(state.selected)?.note || '';
-      saveEntry(state.selected, { status: action, note: currentNote });
+      const act = btn.dataset.set;
+      if (act==='note') { openNoteModal(); return; }
+      if (act==='autre') { openOtherModal(); return; }
+      if (act==='reset') { saveEntry(state.selected, {status:null}); return; }
+      saveEntry(state.selected, { status:act, note: entries.get(state.selected)?.note||'' });
     });
   });
 
   $('btnSaveNote')?.addEventListener('click', () => {
-    const currentStatus = entries.get(state.selected)?.status || 'autre';
-    saveEntry(state.selected, { status: currentStatus, note: $('noteText').value });
+    saveEntry(state.selected, { status: entries.get(state.selected)?.status||'autre', note:$('noteText').value });
     closeModal('backdrop','sheet');
   });
   $('btnClearNote')?.addEventListener('click', () => {
-    const currentStatus = entries.get(state.selected)?.status ||
+    saveEntry(state.selected, { status: entries.get(state.selected)?.status||'autre', note:'' });
+    closeModal('backdrop','sheet');
+  });
+  $('backdrop')?.addEventListener('click', ()=>closeModal('backdrop','sheet'));
+
+  $('otherSelect')?.addEventListener('change', e => $('otherCustom').style.display = e.target.value==='custom'?'block':'none');
+  $('btnApplyOther')?.addEventListener('click', () => {
+    const v=$('otherSelect').value, c=$('otherCustom').value;
+    saveEntry(state.selected, { status:'autre', note:entries.get(state.selected)?.note||'', custom_label: v==='custom'?c:v });
+    closeModal('backdrop','sheet');
+  });
+  $('btnCloseOther')?.addEventListener('click', ()=>closeModal('backdrop','sheet'));
+
+  $('btnImport')?.addEventListener('click', triggerImport);
+  $('fileInput')?.addEventListener('change', e => {
+    handleFile(e);
+    if (!e.target.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      let best=null, score=-1;
+      wb.SheetNames.forEach(n => {
+        const r = XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1});
+        const s = r.reduce((a,b)=>a+b.filter(c=>String(c).trim()).length,0);
+        if(s>score){score=s;best=r;}
+      });
+      window._importRows = best;
+      window._importDateRows = findDateRows(best);
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+  });
+  $('btnConfirmImport')?.addEventListener('click', () => {
+    const p = $('agentPicker');
+    if (p && window._importRows) {
+      const ags = detectAgents(window._importRows, window._importDateRows||[]);
+      const ag = ags.find(a=>a.name===p.value);
+      if (ag) pendingImport = buildServicesForAgent(ag, window._importDateRows, window._importRows);
+    }
+    confirmImport();
+  });
+  $('btnCancelImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
+  $('backdropImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
+
+  $('btnSettings')?.addEventListener('click', e => { e.stopPropagation(); $('settingsPop')?.classList.toggle('show'); });
+  $('btnCloseSettings')?.addEventListener('click', ()=>$('settingsPop')?.classList.remove('show'));
+  $('settingsPop')?.addEventListener('click', e=>e.stopPropagation());
+  document.addEventListener('click', ()=>$('settingsPop')?.classList.remove('show'));
+
+  $('themeLight')?.addEventListener('click', ()=>{prefs.theme='light';savePrefs();applyPrefs();});
+  $('themeDark')?.addEventListener('click', ()=>{prefs.theme='dark';savePrefs();applyPrefs();});
+  $('agentName')?.addEventListener('change', e=>{prefs.agentName=e.target.value.trim();savePrefs();if($('topSub'))$('topSub').textContent=prefs.agentName||user?.email.split('@')[0];showToast("✅ Nom enregistré");});
+  $('agentMatricule')?.addEventListener('change', e=>{prefs.agentMatricule=e.target.value.trim();savePrefs();});
+  ['rateDay','rateNightFull','rateNightSolo','rateMN'].forEach(id=>{
+    $(id)?.addEventListener('change', e=>{prefs[id]=parseFloat(e.target.value)||0;savePrefs();updateUI();});
+  });
+
+  $('btnLogin')?.addEventListener('click', async () => {
+    const em=$('loginEmail').value, pw=$('loginPass').value;
+    if(!em||!pw){$('loginHint').textContent="Champs requis";return;}
+    $('loginHint').textContent="Connexion...";
+    const {error} = await supabase.auth.signInWithPassword({email:em,password:pw});
+    if(error){$('loginHint').textContent="❌ "+error.message;} else {checkAuth();}
+  });
+  $('btnSignup')?.addEventListener('click', async () => {
+    const em=$('signupEmail').value, pw=$('signupPass').value;
+    if(!em||!pw){$('signupHint').textContent="Champs requis";return;}
+    if(pw.length<6){$('signupHint').textContent="6 car. min";return;}
+    $('signupHint').textContent="Création...";
+    const {error} = await supabase.auth.signUp({email:em,password:pw});
+    if(error){$('signupHint').textContent="❌ "+error.message;} else {$('signupHint').textContent="✅ Vérifiez vos emails";}
+  });
+  $('tabSignup')?.addEventListener('click', ()=>{$('formLogin').style.display='none';$('formSignup').style.display='block';});
+  $('tabLogin')?.addEventListener('click', ()=>{$('formSignup').style.display='none';$('formLogin').style.display='block';});
+  $('btnLogout')?.addEventListener('click', async ()=>{await supabase.auth.signOut();user=null;entries.clear();checkAuth();renderGrid();});
+  
+  ['loginEmail','loginPass','signupEmail','signupPass'].forEach(id=>{
+    $(id)?.addEventListener('keydown', e=>{if(e.key==='Enter')$('btnLogin')?.click();});
+  });
+}
+
+function changeMonth(d) {
+  state.month += d;
+  if (state.month<0) {state.month=11;state.year--;}
+  if (state.month>11) {state.month=0;state.year++;}
+  localStorage.setItem('ms_state', JSON.stringify(state));
+  loadEntries().then(()=>{renderGrid();updateUI();});
+}
+
+// LANCEMENT
+init();
