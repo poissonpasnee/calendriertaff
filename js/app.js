@@ -64,7 +64,6 @@ const pad = n => String(n).padStart(2, '0');
 const keyFor = d => `$${d.getFullYear()}-$${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 
-// Normalise une chaîne : MAJUSCULES, sans accents, sans caractères spéciaux
 const normalize = txt => {
   if (!txt && txt !== 0) return "";
   return String(txt)
@@ -74,10 +73,8 @@ const normalize = txt => {
     .trim();
 };
 
-// Normalise et vire aussi les espaces/ponctuation (pour comparaisons strictes)
 const clean = txt => normalize(txt).replace(/[^A-Z0-9]/g, "");
 
-// Affiche un toast
 function showToast(msg, duration = 2500) {
   const t = $('toast');
   if (!t) return;
@@ -107,14 +104,23 @@ function calculateSalary() {
 // INIT
 // ═══════════════════════════════════════════════════════
 async function init() {
+  console.log("🚀 Initialisation de l'application...");
   loadLocal();
   applyPrefs();
   if (!state.selected) state.selected = keyFor(new Date());
   setupPWA();
-  await checkAuth();
+  
+  // On s'assure que le DOM est bien chargé avant de vérifier l'auth
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkAuth);
+  } else {
+    await checkAuth();
+  }
+  
   renderGrid();
   updateUI();
   setupEvents();
+  console.log("✅ Initialisation terminée.");
 }
 
 function loadLocal() {
@@ -132,16 +138,10 @@ function savePrefs() {
 
 function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
-
-  // Boutons theme
   $('themeLight')?.classList.toggle('active', prefs.theme === 'light');
   $('themeDark')?.classList.toggle('active',  prefs.theme === 'dark');
-
-  // Champs identité
   if ($$('agentName'))       $$('agentName').value       = prefs.agentName || '';
   if ($$('agentMatricule'))  $$('agentMatricule').value  = prefs.agentMatricule || '';
-
-  // Taux
   if ($$('rateDay'))       $$('rateDay').value       = prefs.rateDay;
   if ($$('rateNightFull')) $$('rateNightFull').value  = prefs.rateNightFull;
   if ($$('rateNightSolo')) $$('rateNightSolo').value  = prefs.rateNightSolo;
@@ -155,14 +155,16 @@ function setupPWA() {
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     pwaInstallPrompt = e;
-    $$('pwaInstallRow') && ($$('pwaInstallRow').style.display = 'block');
+    const row = $('pwaInstallRow');
+    if (row) row.style.display = 'block';
   });
   $('btnInstallPWA')?.addEventListener('click', async () => {
     if (!pwaInstallPrompt) return;
     pwaInstallPrompt.prompt();
     const { outcome } = await pwaInstallPrompt.userChoice;
     if (outcome === 'accepted') {
-      $('pwaInstallRow').style.display = 'none';
+      const row = $('pwaInstallRow');
+      if (row) row.style.display = 'none';
       showToast("✅ App installée !");
     }
     pwaInstallPrompt = null;
@@ -170,20 +172,54 @@ function setupPWA() {
 }
 
 // ═══════════════════════════════════════════════════════
-// AUTHENTIFICATION
+// AUTHENTIFICATION (CORRIGÉE)
 // ═══════════════════════════════════════════════════════
 async function checkAuth() {
-  const { data } = await supabase.auth.getSession();
-  if (!data?.session) {
-    user = null;
-    $$('topSub') && ($$('topSub').textContent = "Invité");
-    $('gate')?.classList.add('show');
+  console.log("🔐 Vérification de l'authentification...");
+  const gateElement = $('gate');
+  
+  if (!gateElement) {
+    console.error("❌ ERREUR CRITIQUE: L'élément #gate est introuvable dans le HTML !");
     return;
   }
-  user = data.session.user;
-  $$('topSub') && ($$('topSub').textContent = prefs.agentName || user.email.split('@')[0]);
-  $('gate')?.classList.remove('show');
-  await loadEntries();
+
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error || !data?.session) {
+      console.log("🔒 Utilisateur non connecté. Affichage de la modale.");
+      user = null;
+      const topSub = $('topSub');
+      if (topSub) topSub.textContent = "Invité";
+      
+      // Force l'affichage de la modale
+      gateElement.classList.add('show');
+      gateElement.style.display = 'grid'; // S'assure que le display est correct
+      return;
+    }
+
+    console.log("✅ Utilisateur connecté:", data.session.user.email);
+    user = data.session.user;
+    const topSub = $('topSub');
+    if (topSub) topSub.textContent = prefs.agentName || user.email.split('@')[0];
+    
+    // S'assure que la modale est cachée si connecté
+    gateElement.classList.remove('show');
+    setTimeout(() => {
+        if (!gateElement.classList.contains('show')) {
+            gateElement.style.display = 'none';
+        }
+    }, 300);
+
+    await loadEntries();
+    
+  } catch (err) {
+    console.error("⚠️ Erreur lors de la vérification auth:", err);
+    // En cas d'erreur, on affiche quand même la modale pour ne pas bloquer
+    user = null;
+    gateElement.classList.add('show');
+    gateElement.style.display = 'grid';
+  }
 }
 
 async function loadEntries() {
@@ -208,7 +244,7 @@ async function loadEntries() {
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDU GRILLE (semaine commence Lundi)
+// RENDU GRILLE
 // ═══════════════════════════════════════════════════════
 function renderGrid() {
   const grid = $('grid');
@@ -220,7 +256,6 @@ function renderGrid() {
   $$('navYear')  && ($$('navYear').textContent  = state.year);
 
   const first    = new Date(state.year, state.month, 1);
-  // Décalage pour commencer lundi (0=dim → 6, 1=lun → 0, …)
   let startOffset = (first.getDay() + 6) % 7;
   const startDate = new Date(first);
   startDate.setDate(1 - startOffset);
@@ -230,7 +265,6 @@ function renderGrid() {
     d.setDate(startDate.getDate() + i);
     const k = keyFor(d);
 
-    // Numéro de semaine ISO
     if (i % 7 === 0) {
       const wn = getISOWeek(d);
       const wnEl = document.createElement('div');
@@ -243,7 +277,6 @@ function renderGrid() {
     cell.className = 'day';
     if (d.getMonth() !== state.month) cell.classList.add('out');
 
-    // Aujourd'hui
     const today = keyFor(new Date());
     if (k === today) cell.classList.add('today');
 
@@ -255,13 +288,11 @@ function renderGrid() {
       if (entry.imported) cell.classList.add('imported');
     }
 
-    // Numéro du jour
     const numEl = document.createElement('span');
     numEl.className = 'day-num';
     numEl.textContent = d.getDate();
     cell.appendChild(numEl);
 
-    // Label statut
     if (entry?.status && entry.status !== 'repos') {
       const labelEl = document.createElement('span');
       labelEl.className = 'day-label';
@@ -269,7 +300,6 @@ function renderGrid() {
       cell.appendChild(labelEl);
     }
 
-    // Point note
     if (entry?.note) {
       const dot = document.createElement('div');
       dot.className = 'dot';
@@ -281,7 +311,6 @@ function renderGrid() {
     cell.onclick = () => {
       state.selected = k;
       localStorage.setItem('ms_state', JSON.stringify(state));
-      // Mettre à jour seulement la sélection visuelle (sans re-render complet)
       cellCache.forEach((c, ck) => c.classList.toggle('selected', ck === k));
       updateDockInfo();
     };
@@ -289,7 +318,6 @@ function renderGrid() {
     grid.appendChild(cell);
     cellCache.set(k, cell);
   }
-
   updateUI();
 }
 
@@ -348,7 +376,7 @@ function updateStats() {
 }
 
 // ═══════════════════════════════════════════════════════
-// MODALE STATS DÉTAILLÉES
+// MODALE STATS
 // ═══════════════════════════════════════════════════════
 function openStats() {
   const end = new Date(state.year, state.month + 1, 0);
@@ -402,29 +430,33 @@ function openStats() {
 // SAUVEGARDE ENTRÉE
 // ═══════════════════════════════════════════════════════
 async function saveEntry(k, patch) {
-  if (!user) { $('gate')?.classList.add('show'); return; }
+  if (!user) { 
+    const gate = $('gate');
+    if(gate) {
+        gate.classList.add('show');
+        gate.style.display = 'grid';
+    }
+    return; 
+  }
 
   const cur  = entries.get(k) || { status:'', note:'', custom_label:'', imported:false };
   const next = { ...cur, ...patch };
 
-  // Reset complet si demandé
   if (patch.status === null) {
     entries.delete(k);
   } else {
     entries.set(k, next);
   }
 
-  // Mettre à jour la cellule visuellement
   const cell = cellCache.get(k);
   if (cell) {
     const isOut = cell.classList.contains('out');
     const isSel = cell.classList.contains('selected');
     const isToday = cell.classList.contains('today');
 
-    cell.className = ['day', isOut?'out':'', isSel?'selected':'', isToday?'today:'',
+    cell.className = ['day', isOut?'out':'', isSel?'selected':'', isToday?'today':'',
       next.status || '', next.imported?'imported':''].filter(Boolean).join(' ');
 
-    // Reconstruire le contenu
     cell.innerHTML = '';
     const numEl = document.createElement('span');
     numEl.className = 'day-num';
@@ -448,7 +480,6 @@ async function saveEntry(k, patch) {
   updateUI();
   showToast(patch.status === null ? "🗑️ Entrée effacée" : `✅ ${STATUS_LABELS[next.status] || 'Enregistré'}`);
 
-  // Sync Supabase
   try {
     if (patch.status === null) {
       await supabase.from("work_calendar_entries")
@@ -480,12 +511,16 @@ async function saveEntry(k, patch) {
 }
 
 // ═══════════════════════════════════════════════════════
-// MOTEUR D’IMPORT EXCEL — VERSION 2.0
+// IMPORT EXCEL
 // ═══════════════════════════════════════════════════════
 function triggerImport() {
   if (!user) {
-    showToast("Connectez-vous d’abord.");
-    $('gate')?.classList.add('show');
+    showToast("Connectez-vous d'abord.");
+    const gate = $('gate');
+    if(gate) {
+        gate.classList.add('show');
+        gate.style.display = 'grid';
+    }
     return;
   }
   $('fileInput').click();
@@ -503,7 +538,6 @@ function handleFile(e) {
       const wb   = XLSX.read(data, { type:'array', cellText:true, raw:false });
       if (!wb.SheetNames.length) throw new Error("Fichier vide");
 
-      // Analyser chaque feuille, prendre celle avec le plus de contenu
       let bestSheet = null;
       let bestScore = -1;
       wb.SheetNames.forEach(name => {
@@ -522,19 +556,14 @@ function handleFile(e) {
   reader.readAsArrayBuffer(file);
 }
 
-// ─── ANALYSE PRINCIPALE ───────────────────────────────
 function importAnalyze(rows) {
   console.log(`📊 Import: ${rows.length} lignes`);
-
-  // ── 1. Trouver toutes les lignes contenant des dates ──
   const dateRows = findDateRows(rows);
   if (!dateRows.length) {
     showToast("❌ Aucune date trouvée dans le fichier");
     return;
   }
-  console.log("📅 Lignes de dates:", dateRows.map(r => r.rowIdx));
 
-  // ── 2. Détection des agents (noms propres) ──
   const agents = detectAgents(rows, dateRows);
   console.log("👤 Agents détectés:", agents.map(a => a.name));
 
@@ -543,40 +572,31 @@ function importAnalyze(rows) {
     return;
   }
 
-  // ── 3. Filtrer par nom enregistré (si défini) ──
   let targetAgent = null;
   if (prefs.agentName && prefs.agentName.trim()) {
     const searchName = normalize(prefs.agentName);
     targetAgent = agents.find(a => {
       const n = normalize(a.name);
-      return n.includes(searchName) || searchName.includes(n) ||
-        similarity(n, searchName) > 0.75;
+      return n.includes(searchName) || searchName.includes(n) || similarity(n, searchName) > 0.75;
     });
     if (targetAgent) console.log("✅ Agent trouvé par préférences:", targetAgent.name);
   }
 
-  // ── 4. Construire les services pour l'agent ──
   if (targetAgent) {
     const services = buildServicesForAgent(targetAgent, dateRows, rows);
     showImportPreview(services, agents, targetAgent.name);
   } else {
-    // Afficher le sélecteur d'agent
     showImportPreview([], agents, null);
   }
 }
 
-// ─── DÉTECTION DES LIGNES DE DATES ────────────────────
 function findDateRows(rows) {
   const dateRows = [];
-
   rows.forEach((row, rowIdx) => {
     const dateMap = {};
     let dateCount = 0;
-
     row.forEach((cell, colIdx) => {
       const val = String(cell).trim();
-
-      // Format JJ/MM ou JJ/MM/AAAA
       const m1 = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{2,4}))?$/);
       if (m1) {
         const day = parseInt(m1[1]);
@@ -588,39 +608,30 @@ function findDateRows(rows) {
         }
         return;
       }
-
-      // Nombre seul 1-31 (potentiellement un jour du mois)
       const m2 = val.match(/^(\d{1,2})$/);
       if (m2) {
         const n = parseInt(m2[1]);
         if (n >= 1 && n <= 31) {
-          dateMap[colIdx] = { dayOnly: n }; // résolu plus tard avec le mois
+          dateMap[colIdx] = { dayOnly: n };
           dateCount++;
         }
       }
     });
-
-    if (dateCount >= 5) { // Au moins 5 dates dans la ligne
+    if (dateCount >= 5) {
       dateRows.push({ rowIdx, dateMap, dateCount });
     }
   });
-
   return dateRows;
 }
 
-// ─── DÉTECTION DES AGENTS ─────────────────────────────
 function detectAgents(rows, dateRows) {
   const agents   = [];
   const dateRowIdxs = new Set(dateRows.map(d => d.rowIdx));
-
   rows.forEach((row, rowIdx) => {
     if (dateRowIdxs.has(rowIdx)) return;
-
     row.forEach((cell, colIdx) => {
       const val = String(cell).trim();
       if (val.length < 4) return;
-
-      // Détecter "Prénom NOM" ou "NOM Prénom" ou "NOM PRÉNOM" (≥2 mots, lettres seulement)
       const words = val.split(/\s+/).filter(w => /^[A-Za-zÀ-ÿ\-]{2,}$/.test(w));
       if (words.length >= 2 && words.length <= 4) {
         const hasUpper = words.some(w => w === w.toUpperCase() && w.length > 2);
@@ -634,16 +645,11 @@ function detectAgents(rows, dateRows) {
       }
     });
   });
-
-  // Trier : noms en MAJUSCULES en premier (plus probables d'être des agents)
   return agents.sort((a, b) => (b.isUpperCase ? 1 : 0) - (a.isUpperCase ? 1 : 0));
 }
 
-// ─── CONSTRUCTION DES SERVICES POUR UN AGENT ──────────
 function buildServicesForAgent(agent, dateRows, rows) {
   console.log(`🔨 Construction services pour $${agent.name} (ligne $${agent.rowIdx})`);
-
-  // Trouver la ligne de dates la plus proche AU-DESSUS de l'agent
   const relevantDateRow = dateRows
     .filter(dr => dr.rowIdx <= agent.rowIdx)
     .sort((a, b) => b.rowIdx - a.rowIdx)[0];
@@ -653,11 +659,9 @@ function buildServicesForAgent(agent, dateRows, rows) {
     return [];
   }
 
-  // Résoudre le mois des dates (chercher mention du mois dans les lignes proches)
   const resolvedMonth = resolveMonth(rows, relevantDateRow.rowIdx);
   console.log(`📅 Mois résolu: ${resolvedMonth}`);
 
-  // Construire la carte colonne → date
   const colToDate = {};
   Object.entries(relevantDateRow.dateMap).forEach(([col, val]) => {
     const c = parseInt(col);
@@ -668,10 +672,6 @@ function buildServicesForAgent(agent, dateRows, rows) {
     }
   });
 
-  // Lire la ligne de l'agent
-  const agentRow = rows[agent.rowIdx] || [];
-
-  // Chercher aussi les lignes adjacentes (l'agent peut être sur plusieurs lignes)
   const rowsToScan = [agent.rowIdx];
   for (let i = 1; i <= 3; i++) {
     if (rows[agent.rowIdx + i]) rowsToScan.push(agent.rowIdx + i);
@@ -686,10 +686,8 @@ function buildServicesForAgent(agent, dateRows, rows) {
       const rawVal = String(cell).trim();
       if (!rawVal || rawVal.length < 1) return;
 
-      // Trouver la date associée à cette colonne
       let dateObj = colToDate[colIdx];
       if (!dateObj) {
-        // Chercher la date la plus proche à gauche
         for (let c = colIdx; c >= 0; c--) {
           if (colToDate[c]) { dateObj = colToDate[c]; break; }
         }
@@ -714,38 +712,28 @@ function buildServicesForAgent(agent, dateRows, rows) {
     });
   });
 
-  // Appliquer les règles MN
   applyMNRules(services);
-
-  // Trier par date
   services.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-
   console.log(`✅ ${services.length} services extraits`);
   return services;
 }
 
-// ─── RÉSOLUTION DU MOIS ────────────────────────────────
 function resolveMonth(rows, nearRow) {
-  const MONTHS_FR = ["JANVIER", "FEVRIER", "MARS", "AVRIL", "MAI", "JUIN",
-    "JUILLET", "AOUT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DECEMBRE"];
-
+  const MONTHS_FR = ["JANVIER", "FEVRIER", "MARS", "AVRIL", "MAI", "JUIN", "JUILLET", "AOUT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DECEMBRE"];
   const start = Math.max(0, nearRow - 10);
   const end   = Math.min(rows.length - 1, nearRow + 5);
-
   for (let r = start; r <= end; r++) {
     const text = normalize(rows[r].join(" "));
     for (let i = 0; i < MONTHS_FR.length; i++) {
       if (text.includes(MONTHS_FR[i])) return i;
     }
   }
-  return state.month; // Fallback sur le mois affiché
+  return state.month;
 }
 
-// ─── INTERPRÉTATION DES CODES ─────────────────────────
 function interpretCode(raw) {
   const val    = clean(raw);
   const rawUp  = normalize(raw);
-
   if (!val || val.length < 1) return null;
 
   if (rawUp.includes("NUIT") || rawUp.includes("NUIT COMPL")) return "nuit";
@@ -768,23 +756,16 @@ function interpretCode(raw) {
   if (val.startsWith("J") && val.length <= 6) return "jour";
   if (val.startsWith("R") && val.length <= 6) return "repos";
 
-  if (/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length >= 2 && val.length <= 6) {
-    return "autre";
-  }
+  if (/[A-Z]/.test(val) && /[0-9]/.test(val) && val.length >= 2 && val.length <= 6) return "autre";
 
   return null;
 }
 
-// ─── RÈGLES MN ─────────────────────────────────────────
 function applyMNRules(services) {
-  const nightKeys = services
-    .filter(s => s.status === "nuit")
-    .map(s => s.dateKey);
-
+  const nightKeys = services.filter(s => s.status === "nuit").map(s => s.dateKey);
   nightKeys.forEach(k => {
     const d = parseKey(k);
     if (d.getDay() === 1) return;
-
     if (!services.find(s => s.dateKey === k && s.status === "mn")) {
       services.push({
         dateKey: k,
@@ -798,7 +779,6 @@ function applyMNRules(services) {
   });
 }
 
-// ─── SIMILARITÉ ENTRE CHAÎNES (Jaccard) ───────────────
 function similarity(a, b) {
   const setA = new Set(a.split(''));
   const setB = new Set(b.split(''));
@@ -807,10 +787,8 @@ function similarity(a, b) {
   return union ? inter / union : 0;
 }
 
-// ─── APERÇU IMPORT ────────────────────────────────────
 function showImportPreview(services, agents, selectedAgent) {
   pendingImport = services;
-
   const picker = $('agentPicker');
   const pickerSection = $('agentPickerSection');
 
@@ -834,7 +812,6 @@ function showImportPreview(services, agents, selectedAgent) {
 
   renderPreviewList(services);
   updateImportSummary(services);
-
   $('backdropImport')?.classList.add('show');
   $('sheetImport')?.classList.add('show');
 }
@@ -842,12 +819,10 @@ function showImportPreview(services, agents, selectedAgent) {
 function renderPreviewList(services) {
   const list = $('importPreviewList');
   if (!list) return;
-
   if (!services.length) {
     list.innerHTML = `<div class="preview-empty">Sélectionnez un agent pour voir ses services</div>`;
     return;
   }
-
   list.innerHTML = services.map(s => `
     <div class="preview-row ${s.status}">
       <div class="preview-date">
@@ -866,14 +841,12 @@ function updateImportSummary(services) {
   const repos  = services.filter(s => s.status === 'repos').length;
   const mn     = services.filter(s => s.status === 'mn').length;
   const total  = services.length;
-
   $$('importSummary') && ($$('importSummary').textContent =
     `$${total} service(s) détecté(s) — ☀️$${jour} 🌙$${nuit} 🌅$${mn} 🏠${repos}`);
 }
 
 function confirmImport() {
   if (!user || !pendingImport.length) return;
-
   pendingImport.forEach(item => {
     entries.set(item.dateKey, {
       status:       item.status,
@@ -882,10 +855,8 @@ function confirmImport() {
       imported:     true
     });
   });
-
   $('sheetImport')?.classList.remove('show');
   $('backdropImport')?.classList.remove('show');
-
   renderGrid();
   updateUI();
   showToast(`✅ ${pendingImport.length} services importés !`);
@@ -903,7 +874,6 @@ function confirmImport() {
       };
       const { error } = await supabase.from("work_calendar_entries")
         .upsert(payload, { onConflict:"user_id,work_date" });
-
       if (!error) {
         ok++;
       } else if (error.message?.includes('imported')) {
@@ -970,12 +940,21 @@ function setupEvents() {
     btn.addEventListener('click', () => {
       if (!state.selected) return;
       const action = btn.dataset.set;
-
       if (action === 'note')  { openNoteModal(); return; }
       if (action === 'autre') { openOtherModal(); return; }
       if (action === 'reset') {
         saveEntry(state.selected, { status: null });
         return;
       }
+      const currentNote = entries.get(state.selected)?.note || '';
+      saveEntry(state.selected, { status: action, note: currentNote });
+    });
+  });
 
-      const currentNote = entries.get(state.selected)?.note
+  $('btnSaveNote')?.addEventListener('click', () => {
+    const currentStatus = entries.get(state.selected)?.status || 'autre';
+    saveEntry(state.selected, { status: currentStatus, note: $('noteText').value });
+    closeModal('backdrop','sheet');
+  });
+  $('btnClearNote')?.addEventListener('click', () => {
+    const currentStatus = entries.get(state.selected)?.status ||
