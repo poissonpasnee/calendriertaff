@@ -1,4 +1,10 @@
 import { createClient } from “https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm”;
+// DEBUG VISIBLE
+window.onerror = (msg, src, line) => {
+  document.body.innerHTML = `<div style="color:red;padding:20px;font-size:14px;background:#fff;position:fixed;inset:0;z-index:9999;overflow:auto;">
+    <b>ERREUR JS</b><br>${msg}<br>Ligne: ${line}<br>Source: ${src}
+  </div>`;
+};
 
 const SUPABASE_URL  = “https://dstmyvzjirgyuwuojwnk.supabase.co”;
 const SUPABASE_ANON = “eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk”;
@@ -603,5 +609,7 @@ if(state.month<0){state.month=11;state.year–;} if(state.month>11){state.month=
 localStorage.setItem(‘ms_state’,JSON.stringify(state));
 loadEntries().then(()=>{renderGrid();updateUI();});
 }
+console.log("Script chargé ✅");
+document.body.style.background = "red"; // test visuel
 
 init();
