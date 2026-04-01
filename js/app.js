@@ -5,215 +5,192 @@ const SUPABASE_ANON = “eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let user = null;
-let entries  = new Map();
+let entries   = new Map();
 let cellCache = new Map();
 let pendingImport = [];
 let pwaInstallPrompt = null;
 
-let state = {
-year:     new Date().getFullYear(),
-month:    new Date().getMonth(),
-selected: null
-};
+let state = { year: new Date().getFullYear(), month: new Date().getMonth(), selected: null };
+let prefs = { theme:‘dark’, agentName:’’, agentMatricule:’’, rateDay:35.0, rateNightFull:82.0, rateNightSolo:41.0, rateMN:15.0 };
 
-let prefs = {
-theme:         ‘dark’,
-agentName:     ‘’,
-agentMatricule:’’,
-rateDay:        35.0,
-rateNightFull:  82.0,
-rateNightSolo:  41.0,
-rateMN:         15.0
-};
-
-const MONTHS = [“Janvier”,“Février”,“Mars”,“Avril”,“Mai”,“Juin”,“Juillet”,“Août”,“Septembre”,“Octobre”,“Novembre”,“Décembre”];
-const BASE_SALARY = 2093.06;
-
-// Libellés colonnes : semaine commence dimanche (Di/Lu = nuit dim→lun)
-const DAY_COLS = [“Di/Lu”,“Lu/Ma”,“Ma/Me”,“Me/Je”,“Je/Ve”,“Ve/Sa”,“Sa/Di”];
-
+const MONTHS       = [“Janvier”,“Février”,“Mars”,“Avril”,“Mai”,“Juin”,“Juillet”,“Août”,“Septembre”,“Octobre”,“Novembre”,“Décembre”];
+const DAY_COLS     = [“Di/Lu”,“Lu/Ma”,“Ma/Me”,“Me/Je”,“Je/Ve”,“Ve/Sa”,“Sa/Di”];
+const BASE_SALARY  = 2093.06;
 const STATUS_LABELS = { jour:“Jour”, nuit:“Nuit”, mn:“MN”, repos:“Repos”, conges:“Congés”, autre:“Autre” };
-const STATUS_EMOJI  = { jour:“☀️”,  nuit:“🌙”,  mn:“🌅”,  repos:“🏠”,  conges:“🏖️”,  autre:“⚙️”  };
+const STATUS_EMOJI  = { jour:“☀️”, nuit:“🌙”, mn:“🌅”, repos:“🏠”, conges:“🏖️”, autre:“⚙️” };
 
-const $ = id => document.getElementById(id);
-const pad = n => String(n).padStart(2, ‘0’);
-const keyFor = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const parseKey = k => { const [y,m,d] = k.split(’-’).map(Number); return new Date(y, m-1, d); };
+const $        = id => document.getElementById(id);
+const pad      = n  => String(n).padStart(2,‘0’);
+const keyFor   = d  => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey = k  => { const [y,m,d]=k.split(’-’).map(Number); return new Date(y,m-1,d); };
 
 const normalize = txt => {
-if (!txt && txt !== 0) return “”;
+if (!txt && txt!==0) return “”;
 return String(txt).toUpperCase().normalize(“NFD”).replace(/[\u0300-\u036f]/g,””).trim();
 };
 const clean = txt => normalize(txt).replace(/[^A-Z0-9]/g,””);
 
-function showToast(msg, duration = 2500) {
-const t = $(‘toast’); if (!t) return;
-t.textContent = msg; t.classList.add(‘show’);
-setTimeout(() => t.classList.remove(‘show’), duration);
+function showToast(msg, dur=2500) {
+const t=$(‘toast’); if(!t) return;
+t.textContent=msg; t.classList.add(‘show’);
+setTimeout(()=>t.classList.remove(‘show’), dur);
 }
 
+// ─── SALAIRE ────────────────────────────────────────────
 function calculateSalary() {
-let bonus = 0;
-const end = new Date(state.year, state.month + 1, 0);
-for (let d = 1; d <= end.getDate(); d++) {
-const e = entries.get(keyFor(new Date(state.year, state.month, d)));
+let bonus=0;
+const end=new Date(state.year, state.month+1, 0);
+for (let d=1; d<=end.getDate(); d++) {
+const e=entries.get(keyFor(new Date(state.year, state.month, d)));
 if (!e) continue;
-if (e.status === ‘jour’) bonus += parseFloat(prefs.rateDay)       || 0;
-if (e.status === ‘nuit’) bonus += parseFloat(prefs.rateNightFull) || 0;
-if (e.status === ‘mn’)   bonus += parseFloat(prefs.rateMN)        || 0;
+if (e.status===‘jour’) bonus+=parseFloat(prefs.rateDay)||0;
+if (e.status===‘nuit’) bonus+=parseFloat(prefs.rateNightFull)||0;
+if (e.status===‘mn’)   bonus+=parseFloat(prefs.rateMN)||0;
 }
-return BASE_SALARY + bonus;
+return BASE_SALARY+bonus;
 }
 
+// ─── INIT ───────────────────────────────────────────────
 async function init() {
-console.log(“🚀 Init…”);
-loadLocal(); applyPrefs();
-if (!state.selected) state.selected = keyFor(new Date());
+loadLocal();
+applyPrefs();
+if (!state.selected) state.selected=keyFor(new Date());
 setupPWA();
 await checkAuth();
-renderGrid(); updateUI(); setupEvents();
-console.log(“✅ Prêt.”);
+renderGrid();
+updateUI();
+setupEvents();
 }
 
 function loadLocal() {
 try {
-const p = localStorage.getItem(‘ms_prefs’); if (p) prefs = { …prefs, …JSON.parse(p) };
-const s = localStorage.getItem(‘ms_state’); if (s) state = { …state, …JSON.parse(s) };
-} catch(e) { console.warn(“localStorage:”, e); }
+const p=localStorage.getItem(‘ms_prefs’); if(p) prefs={…prefs,…JSON.parse(p)};
+const s=localStorage.getItem(‘ms_state’); if(s) state={…state,…JSON.parse(s)};
+} catch(e) { console.warn(“localStorage:”,e); }
 }
-
-function savePrefs() { localStorage.setItem(‘ms_prefs’, JSON.stringify(prefs)); }
+function savePrefs() { localStorage.setItem(‘ms_prefs’,JSON.stringify(prefs)); }
 
 function applyPrefs() {
 document.documentElement.setAttribute(‘data-theme’, prefs.theme);
-$(‘themeLight’)?.classList.toggle(‘active’, prefs.theme === ‘light’);
-$(‘themeDark’)?.classList.toggle(‘active’,  prefs.theme === ‘dark’);
-if ($(‘agentName’))      $(‘agentName’).value      = prefs.agentName || ‘’;
-if ($(‘agentMatricule’)) $(‘agentMatricule’).value = prefs.agentMatricule || ‘’;
+$(‘themeLight’)?.classList.toggle(‘active’, prefs.theme===‘light’);
+$(‘themeDark’)?.classList.toggle(‘active’,  prefs.theme===‘dark’);
+if ($(‘agentName’))      $(‘agentName’).value      = prefs.agentName||’’;
+if ($(‘agentMatricule’)) $(‘agentMatricule’).value = prefs.agentMatricule||’’;
 if ($(‘rateDay’))        $(‘rateDay’).value        = prefs.rateDay;
 if ($(‘rateNightFull’))  $(‘rateNightFull’).value  = prefs.rateNightFull;
 if ($(‘rateNightSolo’))  $(‘rateNightSolo’).value  = prefs.rateNightSolo;
 if ($(‘rateMN’))         $(‘rateMN’).value         = prefs.rateMN;
 }
 
+// ─── PWA ────────────────────────────────────────────────
 function setupPWA() {
 window.addEventListener(‘beforeinstallprompt’, e => {
-e.preventDefault(); pwaInstallPrompt = e;
-$(‘pwaInstallRow’) && ($(‘pwaInstallRow’).style.display = ‘block’);
+e.preventDefault(); pwaInstallPrompt=e;
+const row=$(‘pwaInstallRow’); if(row) row.style.display=‘block’;
 });
 $(‘btnInstallPWA’)?.addEventListener(‘click’, async () => {
 if (!pwaInstallPrompt) return;
 pwaInstallPrompt.prompt();
-const { outcome } = await pwaInstallPrompt.userChoice;
-if (outcome === ‘accepted’) { $(‘pwaInstallRow’).style.display = ‘none’; showToast(“✅ App installée !”); }
-pwaInstallPrompt = null;
+const {outcome}=await pwaInstallPrompt.userChoice;
+if (outcome===‘accepted’) { const r=$(‘pwaInstallRow’); if(r) r.style.display=‘none’; showToast(“✅ App installée !”); }
+pwaInstallPrompt=null;
 });
 }
 
+// ─── AUTH ────────────────────────────────────────────────
+// Utilise uniquement la classe .show — pas de manipulation display
 async function checkAuth() {
-console.log(“🔐 checkAuth…”);
-const gate = $(‘gate’);
-if (!gate) { console.error(“Gate introuvable”); return; }
-try {
-const { data, error } = await supabase.auth.getSession();
-if (error || !data?.session) {
-console.log(“🔒 Non connecté”);
-user = null;
-if ($(‘topSub’)) $(‘topSub’).textContent = “Invité”;
-gate.style.display = ‘grid’;
-setTimeout(() => gate.classList.add(‘show’), 10);
+const gate=$(‘gate’);
+const {data} = await supabase.auth.getSession();
+
+if (!data?.session) {
+user=null;
+if ($(‘topSub’)) $(‘topSub’).textContent=“Invité”;
+gate.classList.add(‘show’);
 return;
 }
-console.log(“✅ Connecté:”, data.session.user.email);
-user = data.session.user;
-if ($(‘topSub’)) $(‘topSub’).textContent = prefs.agentName || user.email.split(’@’)[0];
+
+user=data.session.user;
+if ($(‘topSub’)) $(‘topSub’).textContent=prefs.agentName||user.email.split(’@’)[0];
 gate.classList.remove(‘show’);
-setTimeout(() => { if (!gate.classList.contains(‘show’)) gate.style.display = ‘none’; }, 300);
 await loadEntries();
-} catch(err) {
-console.error(“⚠️ Erreur auth:”, err);
-user = null; gate.style.display = ‘grid’;
-setTimeout(() => gate.classList.add(‘show’), 10);
-}
 }
 
 async function loadEntries() {
 if (!user) return;
-const start = keyFor(new Date(state.year, state.month - 1, 1));
-const end   = keyFor(new Date(state.year, state.month + 2, 0));
-const { data, error } = await supabase.from(“work_calendar_entries”).select(”*”).gte(“work_date”, start).lte(“work_date”, end);
-if (error) { console.error(“Chargement:”, error); return; }
+const start=keyFor(new Date(state.year, state.month-1, 1));
+const end  =keyFor(new Date(state.year, state.month+2, 0));
+const {data,error}=await supabase.from(“work_calendar_entries”).select(”*”).gte(“work_date”,start).lte(“work_date”,end);
+if (error) { console.error(“loadEntries:”,error); return; }
 entries.clear();
-data?.forEach(r => entries.set(r.work_date, { status:r.status, note:r.note, custom_label:r.custom_label, imported:r.imported }));
+data?.forEach(r=>entries.set(r.work_date,{status:r.status,note:r.note,custom_label:r.custom_label,imported:r.imported}));
 }
 
-// ═══════════════════════════════════════════════════════
-// RENDU GRILLE — semaine commence DIMANCHE (0=dim)
-// ═══════════════════════════════════════════════════════
+// ─── GRILLE — semaine commence DIMANCHE ─────────────────
 function renderGrid() {
-const grid = $(‘grid’); if (!grid) return;
-grid.innerHTML = ‘’; cellCache.clear();
-$(‘navMonth’) && ($(‘navMonth’).textContent = MONTHS[state.month]);
-$(‘navYear’)  && ($(‘navYear’).textContent  = state.year);
+const grid=$(‘grid’); if(!grid) return;
+grid.innerHTML=’’; cellCache.clear();
+if ($(‘navMonth’)) $(‘navMonth’).textContent=MONTHS[state.month];
+if ($(‘navYear’))  $(‘navYear’).textContent =state.year;
 
-const first = new Date(state.year, state.month, 1);
-// Semaine commence dimanche : getDay() donne 0=dim,1=lun,…6=sam → offset direct
-const startOffset = first.getDay();
-const startDate = new Date(first);
-startDate.setDate(1 - startOffset);
+const first=new Date(state.year, state.month, 1);
+// getDay() : 0=dim,1=lun,…6=sam → offset direct pour semaine commençant dimanche
+const startOffset=first.getDay();
+const startDate=new Date(first);
+startDate.setDate(1-startOffset);
 
-const today = keyFor(new Date());
+const today=keyFor(new Date());
 
-for (let i = 0; i < 42; i++) {
-const d = new Date(startDate);
-d.setDate(startDate.getDate() + i);
-const k = keyFor(d);
+for (let i=0; i<42; i++) {
+const d=new Date(startDate);
+d.setDate(startDate.getDate()+i);
+const k=keyFor(d);
 
 ```
-if (i % 7 === 0) {
-  const wnEl = document.createElement('div');
-  wnEl.className = 'weeknum';
-  wnEl.textContent = getISOWeek(d);
-  grid.appendChild(wnEl);
+// Numéro de semaine
+if (i%7===0) {
+  const el=document.createElement('div');
+  el.className='weeknum';
+  el.textContent=getISOWeek(d);
+  grid.appendChild(el);
 }
 
-const cell = document.createElement('div');
-cell.className = 'day';
-if (d.getMonth() !== state.month) cell.classList.add('out');
-if (k === today) cell.classList.add('today');
-cell.dataset.key = k;
+const cell=document.createElement('div');
+cell.className='day';
+if (d.getMonth()!==state.month) cell.classList.add('out');
+if (k===today) cell.classList.add('today');
+cell.dataset.key=k;
 
-const entry = entries.get(k);
+const entry=entries.get(k);
 if (entry?.status) {
   cell.classList.add(entry.status);
   if (entry.imported) cell.classList.add('imported');
 }
 
-const numEl = document.createElement('span');
-numEl.className = 'day-num';
-numEl.textContent = d.getDate();
+const numEl=document.createElement('span');
+numEl.className='day-num'; numEl.textContent=d.getDate();
 cell.appendChild(numEl);
 
-if (entry?.status && entry.status !== 'repos') {
-  const labelEl = document.createElement('span');
-  labelEl.className = 'day-label';
-  labelEl.textContent = entry.custom_label || STATUS_LABELS[entry.status] || entry.status;
-  cell.appendChild(labelEl);
+if (entry?.status && entry.status!=='repos') {
+  const lbl=document.createElement('span');
+  lbl.className='day-label';
+  lbl.textContent=entry.custom_label||STATUS_LABELS[entry.status]||entry.status;
+  cell.appendChild(lbl);
 }
 if (entry?.note) {
-  const dot = document.createElement('div'); dot.className = 'dot'; cell.appendChild(dot);
+  const dot=document.createElement('div'); dot.className='dot'; cell.appendChild(dot);
 }
-if (k === state.selected) cell.classList.add('selected');
+if (k===state.selected) cell.classList.add('selected');
 
-cell.onclick = () => {
-  state.selected = k;
-  localStorage.setItem('ms_state', JSON.stringify(state));
-  cellCache.forEach((c, ck) => c.classList.toggle('selected', ck === k));
+cell.onclick=()=>{
+  state.selected=k;
+  localStorage.setItem('ms_state',JSON.stringify(state));
+  cellCache.forEach((c,ck)=>c.classList.toggle('selected',ck===k));
   updateDockInfo();
 };
 
 grid.appendChild(cell);
-cellCache.set(k, cell);
+cellCache.set(k,cell);
 ```
 
 }
@@ -221,37 +198,35 @@ updateUI();
 }
 
 function getISOWeek(date) {
-const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-const day = d.getUTCDay() || 7;
-d.setUTCDate(d.getUTCDate() + 4 - day);
-const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+const day=d.getUTCDay()||7;
+d.setUTCDate(d.getUTCDate()+4-day);
+const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+return Math.ceil((((d-y)/86400000)+1)/7);
 }
 
+// ─── UI ─────────────────────────────────────────────────
 function updateUI() { updateDockInfo(); updateStats(); }
 
 function updateDockInfo() {
 if (!state.selected) return;
-const d = parseKey(state.selected);
-const entry = entries.get(state.selected);
-
-// Utilise DAY_COLS avec getDay() (0=dim → index 0 = “Di/Lu”)
-if ($(‘selDate’)) $(‘selDate’).textContent =
-`${DAY_COLS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-
-const badge = $(‘selState’);
+const d=parseKey(state.selected);
+const entry=entries.get(state.selected);
+// DAY_COLS[0]=“Di/Lu” correspond à getDay()=0 (dimanche)
+if ($(‘selDate’)) $(‘selDate’).textContent=`${DAY_COLS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+const badge=$(‘selState’);
 if (badge) {
-const s = entry?.status;
-badge.textContent = s ? `${STATUS_EMOJI[s] || ''} ${STATUS_LABELS[s] || s}` : “Libre”;
-badge.className = `sel-badge ${s || ''}`;
+const s=entry?.status;
+badge.textContent=s?`${STATUS_EMOJI[s]||''} ${STATUS_LABELS[s]||s}`:“Libre”;
+badge.className=`sel-badge ${s||''}`;
 }
 }
 
 function updateStats() {
-let jour=0, nuit=0, repos=0, mn=0, conges=0;
-const end = new Date(state.year, state.month + 1, 0);
-for (let d=1; d<=end.getDate(); d++) {
-const e = entries.get(keyFor(new Date(state.year, state.month, d)));
+let jour=0,nuit=0,repos=0,mn=0,conges=0;
+const end=new Date(state.year,state.month+1,0);
+for (let d=1;d<=end.getDate();d++) {
+const e=entries.get(keyFor(new Date(state.year,state.month,d)));
 if (!e) continue;
 if (e.status===‘jour’)   jour++;
 if (e.status===‘nuit’)   nuit++;
@@ -259,206 +234,178 @@ if (e.status===‘repos’)  repos++;
 if (e.status===‘mn’)     mn++;
 if (e.status===‘conges’) conges++;
 }
-if ($(‘statJour’))  $(‘statJour’).textContent  = jour;
-if ($(‘statNuit’))  $(‘statNuit’).textContent  = nuit;
-if ($(‘statRepos’)) $(‘statRepos’).textContent = repos;
-const sal = calculateSalary();
-if ($(‘salaryValue’)) $(‘salaryValue’).textContent =
-sal.toLocaleString(‘fr-FR’, { minimumFractionDigits:2, maximumFractionDigits:2 }) + ’ €’;
+if ($(‘statJour’))  $(‘statJour’).textContent =jour;
+if ($(‘statNuit’))  $(‘statNuit’).textContent =nuit;
+if ($(‘statRepos’)) $(‘statRepos’).textContent=repos;
+const sal=calculateSalary();
+if ($(‘salaryValue’)) $(‘salaryValue’).textContent=sal.toLocaleString(‘fr-FR’,{minimumFractionDigits:2,maximumFractionDigits:2})+’ €’;
 }
 
+// ─── STATS MODALE ───────────────────────────────────────
 function openStats() {
-const end = new Date(state.year, state.month + 1, 0);
-const counts = { jour:0, nuit:0, mn:0, repos:0, conges:0, autre:0 };
-for (let d=1; d<=end.getDate(); d++) {
-const e = entries.get(keyFor(new Date(state.year, state.month, d)));
-if (e?.status && counts[e.status] !== undefined) counts[e.status]++;
+const end=new Date(state.year,state.month+1,0);
+const counts={jour:0,nuit:0,mn:0,repos:0,conges:0,autre:0};
+for (let d=1;d<=end.getDate();d++) {
+const e=entries.get(keyFor(new Date(state.year,state.month,d)));
+if (e?.status && counts[e.status]!==undefined) counts[e.status]++;
 }
-if ($(‘statsMonthLabel’)) $(‘statsMonthLabel’).textContent = `${MONTHS[state.month]} ${state.year}`;
-const content = $(‘statsContent’); if (!content) return;
-const total = counts.jour + counts.nuit + counts.mn;
-const sal   = calculateSalary();
-content.innerHTML = `<div class="stats-grid"> ${Object.entries(counts).map(([k,v]) =>`
+if ($(‘statsMonthLabel’)) $(‘statsMonthLabel’).textContent=`${MONTHS[state.month]} ${state.year}`;
+const content=$(‘statsContent’); if(!content) return;
+const total=counts.jour+counts.nuit+counts.mn;
+const sal=calculateSalary();
+content.innerHTML=` <div class="stats-grid"> ${Object.entries(counts).map(([k,v])=>`
 <div class="stats-row ${k}">
 <span class="stats-emoji">${STATUS_EMOJI[k]||‘📌’}</span>
 <span class="stats-name">${STATUS_LABELS[k]||k}</span>
 <span class="stats-count">${v}</span>
 <div class="stats-bar-mini"><div class="stats-bar-fill ${k}" style="width:${end.getDate()?(v/end.getDate()*100).toFixed(0):0}%"></div></div>
-</div>`).join('')} </div> <div class="stats-summary"> <div class="summary-row"><span>Total services travaillés</span><strong>${total}</strong></div> <div class="summary-row highlight"><span>Estimation brute mensuelle</span><strong>${sal.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</strong></div> <div class="summary-row muted"><span>Base fixe incluse</span><span>${BASE_SALARY.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</span></div> </div>`;
+</div>`).join('')} </div> <div class="stats-summary"> <div class="summary-row"><span>Total services</span><strong>${total}</strong></div> <div class="summary-row highlight"><span>Estimation brute</span><strong>${sal.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</strong></div> <div class="summary-row muted"><span>Base fixe incluse</span><span>${BASE_SALARY.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</span></div> </div>`;
 $(‘backdropStats’).classList.add(‘show’);
 $(‘sheetStats’).classList.add(‘show’);
 }
 
+// ─── SAUVEGARDE ─────────────────────────────────────────
 async function saveEntry(k, patch) {
-if (!user) {
-const gate = $(‘gate’);
-if (gate) { gate.style.display=‘grid’; setTimeout(()=>gate.classList.add(‘show’),10); }
-return;
-}
-const cur  = entries.get(k) || { status:’’, note:’’, custom_label:’’, imported:false };
-const next = { …cur, …patch };
-if (patch.status === null) entries.delete(k); else entries.set(k, next);
+if (!user) { $(‘gate’)?.classList.add(‘show’); return; }
+const cur=entries.get(k)||{status:’’,note:’’,custom_label:’’,imported:false};
+const next={…cur,…patch};
+if (patch.status===null) entries.delete(k); else entries.set(k,next);
 
-const cell = cellCache.get(k);
+const cell=cellCache.get(k);
 if (cell) {
-const isOut   = cell.classList.contains(‘out’);
-const isSel   = cell.classList.contains(‘selected’);
-const isToday = cell.classList.contains(‘today’);
-cell.className = [‘day’, isOut?‘out’:’’, isSel?‘selected’:’’, isToday?‘today’:’’,
-next.status||’’, next.imported?‘imported’:’’].filter(Boolean).join(’ ’);
-cell.innerHTML = ‘’;
-const numEl = document.createElement(‘span’);
-numEl.className = ‘day-num’; numEl.textContent = parseKey(k).getDate();
-cell.appendChild(numEl);
-if (next.status && next.status !== ‘repos’ && patch.status !== null) {
-const lbl = document.createElement(‘span’);
-lbl.className = ‘day-label’;
-lbl.textContent = next.custom_label || STATUS_LABELS[next.status] || next.status;
-cell.appendChild(lbl);
+const isOut=cell.classList.contains(‘out’), isSel=cell.classList.contains(‘selected’), isToday=cell.classList.contains(‘today’);
+cell.className=[‘day’,isOut?‘out’:’’,isSel?‘selected’:’’,isToday?‘today’:’’,next.status||’’,next.imported?‘imported’:’’].filter(Boolean).join(’ ‘);
+cell.innerHTML=’’;
+const num=document.createElement(‘span’); num.className=‘day-num’; num.textContent=parseKey(k).getDate(); cell.appendChild(num);
+if (next.status && next.status!==‘repos’ && patch.status!==null) {
+const lbl=document.createElement(‘span’); lbl.className=‘day-label’;
+lbl.textContent=next.custom_label||STATUS_LABELS[next.status]||next.status; cell.appendChild(lbl);
 }
-if (next.note && patch.status !== null) {
-const dot = document.createElement(‘div’); dot.className=‘dot’; cell.appendChild(dot);
-}
+if (next.note && patch.status!==null) { const dot=document.createElement(‘div’); dot.className=‘dot’; cell.appendChild(dot); }
 }
 updateUI();
-showToast(patch.status === null ? “🗑️ Effacé” : `✅ ${STATUS_LABELS[next.status]||'OK'}`);
+showToast(patch.status===null?“🗑️ Effacé”:`✅ ${STATUS_LABELS[next.status]||'OK'}`);
 try {
-if (patch.status === null) {
+if (patch.status===null) {
 await supabase.from(“work_calendar_entries”).delete().eq(‘user_id’,user.id).eq(‘work_date’,k);
 } else {
-const payload = { user_id:user.id, work_date:k, status:next.status, note:next.note, custom_label:next.custom_label };
-if (next.imported === true) payload.imported = true;
-const { error } = await supabase.from(“work_calendar_entries”).upsert(payload, {onConflict:“user_id,work_date”});
-if (error) {
-if (error.message.includes(‘imported’)) { delete payload.imported; await supabase.from(“work_calendar_entries”).upsert(payload, {onConflict:“user_id,work_date”}); }
-else throw error;
+const payload={user_id:user.id,work_date:k,status:next.status,note:next.note,custom_label:next.custom_label};
+if (next.imported===true) payload.imported=true;
+const {error}=await supabase.from(“work_calendar_entries”).upsert(payload,{onConflict:“user_id,work_date”});
+if (error?.message?.includes(‘imported’)) { delete payload.imported; await supabase.from(“work_calendar_entries”).upsert(payload,{onConflict:“user_id,work_date”}); }
+else if (error) throw error;
 }
-}
-} catch(e) {
-console.error(“Sync:”, e); showToast(“⚠️ Erreur sync”);
-await loadEntries(); renderGrid();
-}
+} catch(e) { console.error(“sync:”,e); showToast(“⚠️ Erreur sync”); await loadEntries(); renderGrid(); }
 }
 
-// ═══════════════════════════════════════════════════════
-// IMPORT EXCEL
-// ═══════════════════════════════════════════════════════
+// ─── IMPORT EXCEL ───────────────────────────────────────
 function triggerImport() {
-if (!user) { showToast(“Connectez-vous d’abord.”); return; }
+if (!user) { showToast(“Connectez-vous d’abord.”); $(‘gate’)?.classList.add(‘show’); return; }
 $(‘fileInput’).click();
 }
 
 function handleFile(e) {
-const file = e.target.files[0]; if (!file) return;
-$(‘fileInput’).value = ‘’;
-const reader = new FileReader();
-reader.onload = evt => {
+const file=e.target.files[0]; if(!file) return;
+$(‘fileInput’).value=’’;
+const reader=new FileReader();
+reader.onload=evt=>{
 try {
-const data = new Uint8Array(evt.target.result);
-const wb = XLSX.read(data, { type:‘array’, cellText:true, raw:false });
-if (!wb.SheetNames.length) throw new Error(“Fichier vide”);
-let bestSheet=null, bestScore=-1;
-wb.SheetNames.forEach(name => {
-const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, defval:””});
-const score = rows.reduce((s,r)=>s+r.filter(c=>String(c).trim()).length,0);
-if (score > bestScore) { bestScore=score; bestSheet=rows; }
+const data=new Uint8Array(evt.target.result);
+const wb=XLSX.read(data,{type:‘array’,cellText:true,raw:false});
+if (!wb.SheetNames.length) throw new Error(“Vide”);
+let bestSheet=null,bestScore=-1;
+wb.SheetNames.forEach(name=>{
+const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:””});
+const score=rows.reduce((s,r)=>s+r.filter(c=>String(c).trim()).length,0);
+if (score>bestScore){bestScore=score;bestSheet=rows;}
 });
-window._importRows = bestSheet;
-window._importDateRows = findDateRows(bestSheet);
+window._importRows=bestSheet;
+window._importDateRows=findDateRows(bestSheet);
 importAnalyze(bestSheet);
-} catch(err) { console.error(err); showToast(“❌ Erreur Excel”); }
+} catch(err){console.error(err);showToast(“❌ Erreur Excel”);}
 };
 reader.readAsArrayBuffer(file);
 }
 
 function importAnalyze(rows) {
-const dateRows = findDateRows(rows);
-if (!dateRows.length) { showToast(“❌ Pas de dates trouvées”); return; }
-const agents = detectAgents(rows, dateRows);
-if (!agents.length) { showToast(“❌ Pas d’agent trouvé”); return; }
-let targetAgent = null;
+const dateRows=findDateRows(rows);
+if (!dateRows.length){showToast(“❌ Pas de dates”);return;}
+const agents=detectAgents(rows,dateRows);
+if (!agents.length){showToast(“❌ Pas d’agent”);return;}
+let target=null;
 if (prefs.agentName) {
-const search = normalize(prefs.agentName);
-targetAgent = agents.find(a => normalize(a.name).includes(search) || similarity(normalize(a.name), search) > 0.75);
+const s=normalize(prefs.agentName);
+target=agents.find(a=>normalize(a.name).includes(s)||similarity(normalize(a.name),s)>0.75);
 }
-if (targetAgent) {
-showImportPreview(buildServicesForAgent(targetAgent, dateRows, rows), agents, targetAgent.name);
-} else {
-showImportPreview([], agents, null);
-}
+showImportPreview(target?buildServicesForAgent(target,dateRows,rows):[], agents, target?.name||null);
 }
 
 function findDateRows(rows) {
-const dateRows = [];
-rows.forEach((row, rowIdx) => {
-const dateMap = {}; let count = 0;
-row.forEach((cell, colIdx) => {
-const val = String(cell).trim();
-const m = val.match(/^(\d{1,2})[/-.](\d{1,2})(?:[/-.](\d{2,4}))?$/);
-if (m) {
-const day=parseInt(m[1]), mo=parseInt(m[2])-1;
-const yr=m[3]?(m[3].length===2?2000+parseInt(m[3]):parseInt(m[3])):state.year;
-if (day>=1&&day<=31&&mo>=0&&mo<=11) { dateMap[colIdx]=new Date(yr,mo,day); count++; }
-} else if (/^\d{1,2}$/.test(val)) {
-const n=parseInt(val); if (n>=1&&n<=31) { dateMap[colIdx]={dayOnly:n}; count++; }
-}
+const out=[];
+rows.forEach((row,rowIdx)=>{
+const dateMap={}; let count=0;
+row.forEach((cell,colIdx)=>{
+const val=String(cell).trim();
+const m=val.match(/^(\d{1,2})[/-.](\d{1,2})(?:[/-.](\d{2,4}))?$/);
+if (m){
+const day=parseInt(m[1]),mo=parseInt(m[2])-1,yr=m[3]?(m[3].length===2?2000+parseInt(m[3]):parseInt(m[3])):state.year;
+if (day>=1&&day<=31&&mo>=0&&mo<=11){dateMap[colIdx]=new Date(yr,mo,day);count++;}
+} else if (/^\d{1,2}$/.test(val)){const n=parseInt(val);if(n>=1&&n<=31){dateMap[colIdx]={dayOnly:n};count++;}}
 });
-if (count >= 5) dateRows.push({ rowIdx, dateMap, count });
+if (count>=5) out.push({rowIdx,dateMap,count});
 });
-return dateRows;
+return out;
 }
 
-function detectAgents(rows, dateRows) {
-const agents=[], dateIdx=new Set(dateRows.map(d=>d.rowIdx));
-rows.forEach((row, idx) => {
+function detectAgents(rows,dateRows) {
+const agents=[],dateIdx=new Set(dateRows.map(d=>d.rowIdx));
+rows.forEach((row,idx)=>{
 if (dateIdx.has(idx)) return;
-row.forEach(cell => {
-const val = String(cell).trim(); if (val.length < 4) return;
-const words = val.split(/\s+/).filter(w=>/^[A-Za-zÀ-ÿ-]{2,}$/.test(w));
-if (words.length>=2 && words.length<=4 && !agents.find(a=>normalize(a.name)===normalize(val)))
-agents.push({ name:val, rowIdx:idx, isUpperCase:val===val.toUpperCase() });
+row.forEach(cell=>{
+const val=String(cell).trim(); if(val.length<4) return;
+const words=val.split(/\s+/).filter(w=>/^[A-Za-zÀ-ÿ-]{2,}$/.test(w));
+if (words.length>=2&&words.length<=4&&!agents.find(a=>normalize(a.name)===normalize(val)))
+agents.push({name:val,rowIdx:idx,isUpperCase:val===val.toUpperCase()});
 });
 });
 return agents.sort((a,b)=>(b.isUpperCase?1:0)-(a.isUpperCase?1:0));
 }
 
-function buildServicesForAgent(agent, dateRows, rows) {
-const rel = dateRows.filter(d=>d.rowIdx<=agent.rowIdx).sort((a,b)=>b.rowIdx-a.rowIdx)[0];
+function buildServicesForAgent(agent,dateRows,rows) {
+const rel=dateRows.filter(d=>d.rowIdx<=agent.rowIdx).sort((a,b)=>b.rowIdx-a.rowIdx)[0];
 if (!rel) return [];
-const month = resolveMonth(rows, rel.rowIdx);
-const colMap = {};
-Object.entries(rel.dateMap).forEach(([c,v]) => {
-colMap[parseInt(c)] = (v instanceof Date) ? v : new Date(state.year, month, v.dayOnly);
-});
-const services=[], used=new Set();
-for (let i=0; i<=3; i++) {
-const r = rows[agent.rowIdx+i]; if (!r) continue;
-r.forEach((cell,cIdx) => {
-const raw=String(cell).trim(); if (!raw) return;
+const month=resolveMonth(rows,rel.rowIdx);
+const colMap={};
+Object.entries(rel.dateMap).forEach(([c,v])=>{colMap[parseInt(c)]=(v instanceof Date)?v:new Date(state.year,month,v.dayOnly);});
+const services=[],used=new Set();
+for (let i=0;i<=3;i++){
+const r=rows[agent.rowIdx+i]; if(!r) continue;
+r.forEach((cell,cIdx)=>{
+const raw=String(cell).trim(); if(!raw) return;
 let d=colMap[cIdx];
-if (!d) { for(let k=cIdx;k>=0;k–) if(colMap[k]){d=colMap[k];break;} }
+if (!d){for(let k=cIdx;k>=0;k–){if(colMap[k]){d=colMap[k];break;}}}
 if (!d) return;
-const k=keyFor(d); if (used.has(k)) return;
-const status=interpretCode(raw); if (!status) return;
+const k=keyFor(d); if(used.has(k)) return;
+const status=interpretCode(raw); if(!status) return;
 used.add(k);
-services.push({ dateKey:k, dateObj:d, dayName:d.toLocaleDateString(‘fr-FR’,{weekday:‘long’}), code:raw.toUpperCase(), status, note:`Import: ${raw}` });
+services.push({dateKey:k,dateObj:d,dayName:d.toLocaleDateString(‘fr-FR’,{weekday:‘long’}),code:raw.toUpperCase(),status,note:`Import: ${raw}`});
 });
 }
 applyMNRules(services);
 return services.sort((a,b)=>a.dateKey.localeCompare(b.dateKey));
 }
 
-function resolveMonth(rows, idx) {
+function resolveMonth(rows,idx) {
 const mths=[“JANVIER”,“FEVRIER”,“MARS”,“AVRIL”,“MAI”,“JUIN”,“JUILLET”,“AOUT”,“SEPTEMBRE”,“OCTOBRE”,“NOVEMBRE”,“DECEMBRE”];
-for (let i=Math.max(0,idx-10); i<=Math.min(rows.length-1,idx+5); i++) {
+for (let i=Math.max(0,idx-10);i<=Math.min(rows.length-1,idx+5);i++){
 const t=normalize(rows[i].join(” “));
-for (let j=0;j<12;j++) if (t.includes(mths[j])) return j;
+for (let j=0;j<12;j++) if(t.includes(mths[j])) return j;
 }
 return state.month;
 }
 
 function interpretCode(raw) {
-const v=clean(raw), up=normalize(raw);
+const v=clean(raw),up=normalize(raw);
 if (!v) return null;
 if (up.includes(“NUIT”)) return “nuit”;
 if (up.includes(“JOUR”)) return “jour”;
@@ -473,72 +420,64 @@ return null;
 }
 
 function applyMNRules(svcs) {
-svcs.filter(s=>s.status===“nuit”).forEach(s => {
-const d=parseKey(s.dateKey);
-if (d.getDay()===1) return;
+svcs.filter(s=>s.status===“nuit”).forEach(s=>{
+const d=parseKey(s.dateKey); if(d.getDay()===1) return;
 if (!svcs.find(x=>x.dateKey===s.dateKey&&x.status===“mn”))
-svcs.push({ dateKey:s.dateKey, dateObj:d, dayName:“Auto”, code:“AUTO”, status:“mn”, note:“MN Auto” });
+svcs.push({dateKey:s.dateKey,dateObj:d,dayName:“Auto”,code:“AUTO”,status:“mn”,note:“MN Auto”});
 });
 }
 
 function similarity(a,b) {
-const sA=new Set(a.split(’’)), sB=new Set(b.split(’’));
-const i=[…sA].filter(c=>sB.has(c)).length;
-return new Set([…sA,…sB]).size ? i/new Set([…sA,…sB]).size : 0;
+const sA=new Set(a.split(’’)),sB=new Set(b.split(’’));
+const inter=[…sA].filter(c=>sB.has(c)).length;
+const union=new Set([…sA,…sB]).size;
+return union?inter/union:0;
 }
 
-function showImportPreview(svcs, agents, selected) {
-pendingImport = svcs;
-const pick=$(‘agentPicker’), sec=$(‘agentPickerSection’);
-if (pick && sec) {
-pick.innerHTML = agents.map(a=>`<option value="${a.name}" ${selected===a.name?'selected':''}>${a.name}</option>`).join(’’);
+function showImportPreview(svcs,agents,selected) {
+pendingImport=svcs;
+const pick=$(‘agentPicker’),sec=$(‘agentPickerSection’);
+if (pick&&sec){
+pick.innerHTML=agents.map(a=>`<option value="${a.name}" ${selected===a.name?'selected':''}>${a.name}</option>`).join(’’);
 sec.style.display=‘block’;
-pick.onchange = () => {
+pick.onchange=()=>{
 const ag=agents.find(x=>x.name===pick.value);
-if (ag&&window._importRows) {
-pendingImport=buildServicesForAgent(ag,window._importDateRows,window._importRows);
-renderPreviewList(pendingImport); updateImportSummary(pendingImport);
-}
+if (ag&&window._importRows){pendingImport=buildServicesForAgent(ag,window._importDateRows,window._importRows);renderPreviewList(pendingImport);updateImportSummary(pendingImport);}
 };
 }
 renderPreviewList(svcs); updateImportSummary(svcs);
-$(‘backdropImport’)?.classList.add(‘show’);
-$(‘sheetImport’)?.classList.add(‘show’);
+$(‘backdropImport’)?.classList.add(‘show’); $(‘sheetImport’)?.classList.add(‘show’);
 }
 
 function renderPreviewList(svcs) {
-const l=$(‘importPreviewList’); if (!l) return;
-if (!svcs.length) { l.innerHTML=’<div class="preview-empty">Sélectionnez un agent</div>’; return; }
-l.innerHTML = svcs.map(s=>` <div class="preview-row ${s.status}"> <div class="preview-date"> <span class="preview-day">${s.dayName.slice(0,3)}</span> <span class="preview-num">${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span> </div> <div class="preview-code">${s.code}</div> <div class="preview-status">${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div> </div>`).join(’’);
+const l=$(‘importPreviewList’); if(!l) return;
+if (!svcs.length){l.innerHTML=’<div class="preview-empty">Sélectionnez un agent</div>’;return;}
+l.innerHTML=svcs.map(s=>` <div class="preview-row ${s.status}"> <div class="preview-date"><span class="preview-day">${s.dayName.slice(0,3)}</span><span class="preview-num">${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span></div> <div class="preview-code">${s.code}</div> <div class="preview-status">${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div> </div>`).join(’’);
 }
 
 function updateImportSummary(svcs) {
-const j=svcs.filter(s=>s.status===‘jour’).length, n=svcs.filter(s=>s.status===‘nuit’).length,
-r=svcs.filter(s=>s.status===‘repos’).length, m=svcs.filter(s=>s.status===‘mn’).length;
-if ($(‘importSummary’)) $(‘importSummary’).textContent = `${svcs.length} svc — ☀️${j} 🌙${n} 🌅${m} 🏠${r}`;
+const j=svcs.filter(s=>s.status===‘jour’).length,n=svcs.filter(s=>s.status===‘nuit’).length,
+r=svcs.filter(s=>s.status===‘repos’).length,m=svcs.filter(s=>s.status===‘mn’).length;
+if ($(‘importSummary’)) $(‘importSummary’).textContent=`${svcs.length} svc — ☀️${j} 🌙${n} 🌅${m} 🏠${r}`;
 }
 
 function confirmImport() {
 if (!user||!pendingImport.length) return;
-pendingImport.forEach(it => entries.set(it.dateKey, { status:it.status, note:it.note, custom_label:it.code, imported:true }));
-$(‘sheetImport’)?.classList.remove(‘show’);
-$(‘backdropImport’)?.classList.remove(‘show’);
-renderGrid(); updateUI();
-showToast(`✅ ${pendingImport.length} importés`);
-(async () => {
-for (const it of pendingImport) {
-const p={ user_id:user.id, work_date:it.dateKey, status:it.status, note:it.note, custom_label:it.code, imported:true };
-let {error}=await supabase.from(“work_calendar_entries”).upsert(p,{onConflict:“user_id,work_date”});
-if (error?.message?.includes(‘imported’)) { delete p.imported; await supabase.from(“work_calendar_entries”).upsert(p,{onConflict:“user_id,work_date”}); }
+pendingImport.forEach(it=>entries.set(it.dateKey,{status:it.status,note:it.note,custom_label:it.code,imported:true}));
+$(‘sheetImport’)?.classList.remove(‘show’); $(‘backdropImport’)?.classList.remove(‘show’);
+renderGrid(); updateUI(); showToast(`✅ ${pendingImport.length} importés`);
+(async()=>{
+for (const it of pendingImport){
+const p={user_id:user.id,work_date:it.dateKey,status:it.status,note:it.note,custom_label:it.code,imported:true};
+const {error}=await supabase.from(“work_calendar_entries”).upsert(p,{onConflict:“user_id,work_date”});
+if (error?.message?.includes(‘imported’)){delete p.imported;await supabase.from(“work_calendar_entries”).upsert(p,{onConflict:“user_id,work_date”});}
 }
 })();
 }
 
-// ═══════════════════════════════════════════════════════
-// MODALES
-// ═══════════════════════════════════════════════════════
+// ─── MODALES ────────────────────────────────────────────
 function openNoteModal() {
-const e=entries.get(state.selected), d=parseKey(state.selected);
+const e=entries.get(state.selected),d=parseKey(state.selected);
 if ($(‘sheetTitle’)) $(‘sheetTitle’).textContent=`Note — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 if ($(‘noteText’))   $(‘noteText’).value=e?.note||’’;
 if ($(‘sheetNote’))  $(‘sheetNote’).style.display=‘block’;
@@ -549,7 +488,7 @@ $(‘backdrop’)?.classList.add(‘show’); $(‘sheet’)?.classList.add(‘s
 function openOtherModal() {
 const d=parseKey(state.selected);
 if ($(‘sheetTitle’))  $(‘sheetTitle’).textContent=`Autre — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-if ($(‘otherSelect’)) $(‘otherSelect’).value=“OCP”;
+if ($(‘otherSelect’)) $(‘otherSelect’).value=‘OCP’;
 if ($(‘otherCustom’)) $(‘otherCustom’).style.display=‘none’;
 if ($(‘sheetNote’))   $(‘sheetNote’).style.display=‘none’;
 if ($(‘sheetOther’))  $(‘sheetOther’).style.display=‘block’;
@@ -558,107 +497,103 @@ $(‘backdrop’)?.classList.add(‘show’); $(‘sheet’)?.classList.add(‘s
 
 function closeModal(b,s) { $(b)?.classList.remove(‘show’); $(s)?.classList.remove(‘show’); }
 
-// ═══════════════════════════════════════════════════════
-// ÉVÉNEMENTS
-// ═══════════════════════════════════════════════════════
+// ─── ÉVÉNEMENTS ─────────────────────────────────────────
 function setupEvents() {
-$(‘btnPrevMonth’)?.addEventListener(‘click’, ()=>changeMonth(-1));
-$(‘btnNextMonth’)?.addEventListener(‘click’, ()=>changeMonth(+1));
-$(‘btnToday’)?.addEventListener(‘click’, ()=>{
+$(‘btnPrevMonth’)?.addEventListener(‘click’,()=>changeMonth(-1));
+$(‘btnNextMonth’)?.addEventListener(‘click’,()=>changeMonth(+1));
+$(‘btnToday’)?.addEventListener(‘click’,()=>{
 const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth(); state.selected=keyFor(n);
 localStorage.setItem(‘ms_state’,JSON.stringify(state));
 loadEntries().then(()=>{renderGrid();updateUI();});
 });
-$(‘btnStats’)?.addEventListener(‘click’, openStats);
-$(‘btnCloseStats’)?.addEventListener(‘click’, ()=>closeModal(‘backdropStats’,‘sheetStats’));
-$(‘backdropStats’)?.addEventListener(‘click’, ()=>closeModal(‘backdropStats’,‘sheetStats’));
 
-document.querySelectorAll(’[data-set]’).forEach(btn => {
-btn.addEventListener(‘click’, ()=>{
+$(‘btnStats’)?.addEventListener(‘click’,openStats);
+$(‘btnCloseStats’)?.addEventListener(‘click’,()=>closeModal(‘backdropStats’,‘sheetStats’));
+$(‘backdropStats’)?.addEventListener(‘click’,()=>closeModal(‘backdropStats’,‘sheetStats’));
+
+document.querySelectorAll(’[data-set]’).forEach(btn=>{
+btn.addEventListener(‘click’,()=>{
 if (!state.selected) return;
 const act=btn.dataset.set;
-if (act===‘note’)  { openNoteModal(); return; }
-if (act===‘autre’) { openOtherModal(); return; }
-if (act===‘reset’) { saveEntry(state.selected,{status:null}); return; }
-saveEntry(state.selected, { status:act, note:entries.get(state.selected)?.note||’’ });
+if (act===‘note’)  {openNoteModal();return;}
+if (act===‘autre’) {openOtherModal();return;}
+if (act===‘reset’) {saveEntry(state.selected,{status:null});return;}
+saveEntry(state.selected,{status:act,note:entries.get(state.selected)?.note||’’});
 });
 });
 
-$(‘btnSaveNote’)?.addEventListener(‘click’, ()=>{
+$(‘btnSaveNote’)?.addEventListener(‘click’,()=>{
 saveEntry(state.selected,{status:entries.get(state.selected)?.status||‘autre’,note:$(‘noteText’).value});
 closeModal(‘backdrop’,‘sheet’);
 });
-$(‘btnClearNote’)?.addEventListener(‘click’, ()=>{
+$(‘btnClearNote’)?.addEventListener(‘click’,()=>{
 saveEntry(state.selected,{status:entries.get(state.selected)?.status||‘autre’,note:’’});
 closeModal(‘backdrop’,‘sheet’);
 });
-$(‘backdrop’)?.addEventListener(‘click’, ()=>closeModal(‘backdrop’,‘sheet’));
+$(‘backdrop’)?.addEventListener(‘click’,()=>closeModal(‘backdrop’,‘sheet’));
 
-$(‘otherSelect’)?.addEventListener(‘change’, e=>{
-if ($(‘otherCustom’)) $(‘otherCustom’).style.display=e.target.value===‘custom’?‘block’:‘none’;
-});
-$(‘btnApplyOther’)?.addEventListener(‘click’, ()=>{
-const v=$(‘otherSelect’).value, c=$(‘otherCustom’).value;
+$(‘otherSelect’)?.addEventListener(‘change’,e=>{if($(‘otherCustom’))$(‘otherCustom’).style.display=e.target.value===‘custom’?‘block’:‘none’;});
+$(‘btnApplyOther’)?.addEventListener(‘click’,()=>{
+const v=$(‘otherSelect’).value,c=$(‘otherCustom’).value;
 saveEntry(state.selected,{status:‘autre’,note:entries.get(state.selected)?.note||’’,custom_label:v===‘custom’?c:v});
 closeModal(‘backdrop’,‘sheet’);
 });
-$(‘btnCloseOther’)?.addEventListener(‘click’, ()=>closeModal(‘backdrop’,‘sheet’));
+$(‘btnCloseOther’)?.addEventListener(‘click’,()=>closeModal(‘backdrop’,‘sheet’));
 
-$(‘btnImport’)?.addEventListener(‘click’, triggerImport);
-$(‘fileInput’)?.addEventListener(‘change’, handleFile);
-
-$(‘btnConfirmImport’)?.addEventListener(‘click’, ()=>{
+$(‘btnImport’)?.addEventListener(‘click’,triggerImport);
+$(‘fileInput’)?.addEventListener(‘change’,handleFile);
+$(‘btnConfirmImport’)?.addEventListener(‘click’,()=>{
 const p=$(‘agentPicker’);
-if (p&&window._importRows) {
+if (p&&window._importRows){
 const ags=detectAgents(window._importRows,window._importDateRows||[]);
 const ag=ags.find(a=>a.name===p.value);
 if (ag) pendingImport=buildServicesForAgent(ag,window._importDateRows,window._importRows);
 }
 confirmImport();
 });
-$(‘btnCancelImport’)?.addEventListener(‘click’, ()=>closeModal(‘backdropImport’,‘sheetImport’));
-$(‘backdropImport’)?.addEventListener(‘click’, ()=>closeModal(‘backdropImport’,‘sheetImport’));
+$(‘btnCancelImport’)?.addEventListener(‘click’,()=>closeModal(‘backdropImport’,‘sheetImport’));
+$(‘backdropImport’)?.addEventListener(‘click’,()=>closeModal(‘backdropImport’,‘sheetImport’));
 
-$(‘btnSettings’)?.addEventListener(‘click’, e=>{e.stopPropagation();$(‘settingsPop’)?.classList.toggle(‘show’);});
-$(‘btnCloseSettings’)?.addEventListener(‘click’, ()=>$(‘settingsPop’)?.classList.remove(‘show’));
-$(‘settingsPop’)?.addEventListener(‘click’, e=>e.stopPropagation());
-document.addEventListener(‘click’, ()=>$(‘settingsPop’)?.classList.remove(‘show’));
+$(‘btnSettings’)?.addEventListener(‘click’,e=>{e.stopPropagation();$(‘settingsPop’)?.classList.toggle(‘show’);});
+$(‘btnCloseSettings’)?.addEventListener(‘click’,()=>$(‘settingsPop’)?.classList.remove(‘show’));
+$(‘settingsPop’)?.addEventListener(‘click’,e=>e.stopPropagation());
+document.addEventListener(‘click’,()=>$(‘settingsPop’)?.classList.remove(‘show’));
 
-$(‘themeLight’)?.addEventListener(‘click’, ()=>{prefs.theme=‘light’;savePrefs();applyPrefs();});
-$(‘themeDark’)?.addEventListener(‘click’,  ()=>{prefs.theme=‘dark’; savePrefs();applyPrefs();});
+$(‘themeLight’)?.addEventListener(‘click’,()=>{prefs.theme=‘light’;savePrefs();applyPrefs();});
+$(‘themeDark’)?.addEventListener(‘click’, ()=>{prefs.theme=‘dark’; savePrefs();applyPrefs();});
 
-$(‘agentName’)?.addEventListener(‘change’, e=>{
+$(‘agentName’)?.addEventListener(‘change’,e=>{
 prefs.agentName=e.target.value.trim(); savePrefs();
 if ($(‘topSub’)) $(‘topSub’).textContent=prefs.agentName||user?.email?.split(’@’)[0]||‘Invité’;
 showToast(“✅ Nom enregistré”);
 });
-$(‘agentMatricule’)?.addEventListener(‘change’, e=>{prefs.agentMatricule=e.target.value.trim();savePrefs();});
+$(‘agentMatricule’)?.addEventListener(‘change’,e=>{prefs.agentMatricule=e.target.value.trim();savePrefs();});
 
 [‘rateDay’,‘rateNightFull’,‘rateNightSolo’,‘rateMN’].forEach(id=>{
-$(id)?.addEventListener(‘change’, e=>{prefs[id]=parseFloat(e.target.value)||0;savePrefs();updateUI();});
+$(id)?.addEventListener(‘change’,e=>{prefs[id]=parseFloat(e.target.value)||0;savePrefs();updateUI();});
 });
 
-$(‘btnLogin’)?.addEventListener(‘click’, async ()=>{
-const em=$(‘loginEmail’).value, pw=$(‘loginPass’).value;
+$(‘btnLogin’)?.addEventListener(‘click’,async()=>{
+const em=$(‘loginEmail’).value,pw=$(‘loginPass’).value;
 if(!em||!pw){$(‘loginHint’).textContent=“Champs requis”;return;}
 $(‘loginHint’).textContent=“Connexion…”;
 const {error}=await supabase.auth.signInWithPassword({email:em,password:pw});
 if(error)$(‘loginHint’).textContent=“❌ “+error.message; else checkAuth();
 });
-$(‘btnSignup’)?.addEventListener(‘click’, async ()=>{
-const em=$(‘signupEmail’).value, pw=$(‘signupPass’).value;
+$(‘btnSignup’)?.addEventListener(‘click’,async()=>{
+const em=$(‘signupEmail’).value,pw=$(‘signupPass’).value;
 if(!em||!pw){$(‘signupHint’).textContent=“Champs requis”;return;}
 if(pw.length<6){$(‘signupHint’).textContent=“6 car. min”;return;}
 $(‘signupHint’).textContent=“Création…”;
 const {error}=await supabase.auth.signUp({email:em,password:pw});
 if(error)$(‘signupHint’).textContent=“❌ “+error.message; else $(‘signupHint’).textContent=“✅ Vérifiez vos emails”;
 });
-$(‘tabSignup’)?.addEventListener(‘click’, ()=>{$(‘formLogin’).style.display=‘none’;$(‘formSignup’).style.display=‘block’;});
-$(‘tabLogin’)?.addEventListener(‘click’,  ()=>{$(‘formSignup’).style.display=‘none’;$(‘formLogin’).style.display=‘block’;});
-$(‘btnLogout’)?.addEventListener(‘click’, async ()=>{await supabase.auth.signOut();user=null;entries.clear();checkAuth();renderGrid();});
+$(‘tabSignup’)?.addEventListener(‘click’,()=>{$(‘formLogin’).style.display=‘none’;$(‘formSignup’).style.display=‘block’;});
+$(‘tabLogin’)?.addEventListener(‘click’, ()=>{$(‘formSignup’).style.display=‘none’;$(‘formLogin’).style.display=‘block’;});
+$(‘btnLogout’)?.addEventListener(‘click’,async()=>{await supabase.auth.signOut();user=null;entries.clear();checkAuth();renderGrid();});
 
 [$(‘loginEmail’),$(‘loginPass’)].forEach(el=>{
-el?.addEventListener(‘keydown’, e=>{if(e.key===‘Enter’)$(‘btnLogin’)?.click();});
+el?.addEventListener(‘keydown’,e=>{if(e.key===‘Enter’)$(‘btnLogin’)?.click();});
 });
 }
 
