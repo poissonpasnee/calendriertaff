@@ -568,9 +568,11 @@ select   { width: 100%; cursor: pointer; }
   position: fixed; inset: 0; z-index: 200;
   background: rgba(5,10,20,0.88);
   backdrop-filter: blur(18px);
-  display: none; place-items: center; padding: 20px;
+  display: grid; place-items: center; padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
 }
-.gate.show { display: grid; }
+.gate.show { opacity: 1; pointer-events: auto; }
 
 .gate-card {
   background: var(--bg-2); border: 1px solid var(--border-light);
