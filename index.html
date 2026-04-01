@@ -1,116 +1,188 @@
 <!doctype html>
+
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=0" />
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="MyShift AI — Gérez votre planning automatiquement">
   <title>MyShift AI • Planning Auto</title>
-  <link rel="stylesheet" href="css/styles.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
-  <style>
-    /* --- COMPACTAGE HEADER & DOCK --- */
-    .appbar { padding-top: calc(5px + var(--safeTop)); }
-    .topline { padding-bottom: 8px; }
-    .brand .t { font-size: 18px; }
-    .brand .s { font-size: 11px; }
-    .icon-btn { width: 36px; height: 36px; }
-    .month-nav { padding: 8px 0; gap: 15px; }
-    .nav-btn { padding: 6px; }
-    .m-text { font-size: 16px; }
-    .y-text { font-size: 11px; }
-    .quick-actions { padding-bottom: 10px; gap: 8px; }
-    .action-pill { padding: 6px 12px; font-size: 12px; border-radius: 100px; }
 
-    .dock-container { padding: 10px 15px calc(15px + var(--safeBottom)); }
-    .dock-glass { padding: 12px; border-radius: 20px; }
-    .sel-info { margin-bottom: 10px; }
-    .sel-date { font-size: 14px; }
-    .sel-badge { font-size: 10px; padding: 3px 8px; }
-    
-    .actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    
-    .act-btn {
-      padding: 10px 2px; border-radius: 10px; font-size: 11px;
-      gap: 3px; min-height: 45px; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-    }
-    .act-btn span.icon { font-size: 14px; margin-bottom: 0; }
-    .act-btn.autre { font-size: 10px; padding: 8px 2px; min-height: 42px; }
-  </style>
+  <!-- PWA Manifest -->
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <link rel="stylesheet" href="css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="ambient-bg"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
+  <div class="ambient-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
+
+  <!-- ═══════════════════════════════════════════
+       HEADER
+  ═══════════════════════════════════════════ -->
 
   <header class="appbar">
     <div class="wrap">
       <div class="topline">
-        <div class="brand"><div class="t">MyShift AI</div><div class="s" id="topSub">Connexion...</div></div>
-        <div class="header-actions" style="display:flex; gap:8px;">
-          <button class="icon-btn" id="btnImport" title="Importer Excel" style="border-color:var(--accent); color:var(--accent); background: rgba(56, 189, 248, 0.1);">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <div class="brand">
+          <div class="t">MyShift <span class="ai-badge">AI</span></div>
+          <div class="s" id="topSub">Connexion...</div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn import-btn" id="btnImport" title="Importer Excel">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
           </button>
-          <button class="icon-btn" id="btnSettings">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <button class="icon-btn" id="btnSettings" title="Paramètres">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      <div class="settings-pop" id="settingsPop">
-        <div class="pop-header">Paramètres</div>
-        <div class="setting-group">
-          <label>Apparence</label>
-          <div class="seg-control">
-            <button id="themeLight" class="seg-btn">Clair</button>
-            <button id="themeDark" class="seg-btn active">Sombre</button>
-          </div>
-        </div>
-        <div class="divider"></div>
-        <div class="setting-group">
-          <label style="color:var(--accent);">💰 Simulation Paie</label>
-          <div class="input-row"><span>Jour</span><input type="number" id="rateDay" value="35" step="0.1"></div>
-          <div class="input-row"><span>Nuit (GD)</span><input type="number" id="rateNightFull" value="82" step="0.1"></div>
-          <div class="input-row"><span>Nuit (Seule)</span><input type="number" id="rateNightSolo" value="41" step="0.1"></div>
-        </div>
-        <div class="divider"></div>
-        <div class="setting-group">
-          <label style="color:var(--accent);">👤 Compte</label>
-          <button id="btnLogout" class="btn-full ghost" style="font-size:12px; padding:8px;">Se déconnecter</button>
-        </div>
-      </div>
+```
+  <!-- ─── PANNEAU PARAMÈTRES ─── -->
+  <div class="settings-pop" id="settingsPop">
+    <div class="pop-header">
+      <span>⚙️ Paramètres</span>
+      <button class="pop-close" id="btnCloseSettings">✕</button>
+    </div>
 
-      <div class="month-nav">
-        <button class="nav-btn" id="btnPrevMonth">‹</button>
-        <div class="month-display"><span id="navMonth" class="m-text">Janvier</span><span id="navYear" class="y-text">2026</span></div>
-        <button class="nav-btn" id="btnNextMonth">›</button>
+    <div class="setting-section">
+      <div class="setting-section-title">👤 Mon Identité</div>
+      <div class="input-row-full">
+        <label>Prénom Nom (pour l'import)</label>
+        <input type="text" id="agentName" placeholder="ex: Jean DUPONT" autocomplete="off">
       </div>
-
-      <div class="quick-actions">
-        <button id="btnToday" class="action-pill primary">Aujourd'hui</button>
-        <button id="btnExportXLSX" class="action-pill">📥 Export</button>
+      <div class="input-row-full">
+        <label>Matricule (optionnel)</label>
+        <input type="text" id="agentMatricule" placeholder="ex: 12345">
       </div>
     </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-section">
+      <div class="setting-section-title">🎨 Apparence</div>
+      <div class="seg-control">
+        <button id="themeLight" class="seg-btn">☀️ Clair</button>
+        <button id="themeDark" class="seg-btn active">🌙 Sombre</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-section">
+      <div class="setting-section-title">💰 Taux de Paie</div>
+      <div class="input-row">
+        <span>Journée</span>
+        <div class="input-unit"><input type="number" id="rateDay" value="35" step="0.5"><span class="unit">€</span></div>
+      </div>
+      <div class="input-row">
+        <span>Nuit complète</span>
+        <div class="input-unit"><input type="number" id="rateNightFull" value="82" step="0.5"><span class="unit">€</span></div>
+      </div>
+      <div class="input-row">
+        <span>Nuit seule</span>
+        <div class="input-unit"><input type="number" id="rateNightSolo" value="41" step="0.5"><span class="unit">€</span></div>
+      </div>
+      <div class="input-row">
+        <span>Montée de nuit</span>
+        <div class="input-unit"><input type="number" id="rateMN" value="15" step="0.5"><span class="unit">€</span></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-section">
+      <div class="setting-section-title">📱 Application</div>
+      <div id="pwaInstallRow" style="display:none">
+        <button id="btnInstallPWA" class="btn-full accent small">📲 Installer sur l'écran d'accueil</button>
+      </div>
+      <button id="btnLogout" class="btn-full ghost small" style="margin-top:8px">🚪 Se déconnecter</button>
+    </div>
+  </div>
+
+  <!-- ─── NAVIGATION MOIS ─── -->
+  <div class="month-nav">
+    <button class="nav-btn" id="btnPrevMonth">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="month-display">
+      <span id="navMonth" class="m-text">Janvier</span>
+      <span id="navYear" class="y-text">2026</span>
+    </div>
+    <button class="nav-btn" id="btnNextMonth">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+
+  <div class="quick-actions">
+    <button id="btnToday" class="action-pill primary">Aujourd'hui</button>
+    <button id="btnStats" class="action-pill">📊 Stats</button>
+  </div>
+</div>
+```
+
   </header>
+
+  <!-- ═══════════════════════════════════════════
+       CALENDRIER
+  ═══════════════════════════════════════════ -->
 
   <main>
     <div class="wrap">
       <div class="calendar-card">
         <div class="calendar-head">
           <div class="sem-label">Sem</div>
-          <div id="h0">D/L</div><div id="h1">L/M</div><div id="h2">M/M</div>
-          <div id="h3">M/J</div><div id="h4">J/V</div><div id="h5">V/S</div><div id="h6">S/D</div>
+          <div>L</div><div>M</div><div>M</div>
+          <div>J</div><div>V</div><div>S</div><div>D</div>
         </div>
         <div class="grid" id="grid"></div>
         <div class="stats-bar">
-          <div class="stat-item"><span class="stat-val" id="statCount">0</span><span class="stat-label">Jours</span></div>
+          <div class="stat-item">
+            <span class="stat-val" id="statJour">0</span>
+            <span class="stat-label">☀️ Jours</span>
+          </div>
           <div class="stat-divider"></div>
-          <div class="stat-item highlight"><span class="stat-val" id="salaryValue">0 €</span><span class="stat-label">Est. Brut</span></div>
+          <div class="stat-item">
+            <span class="stat-val" id="statNuit">0</span>
+            <span class="stat-label">🌙 Nuits</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-val" id="statRepos">0</span>
+            <span class="stat-label">🏠 Repos</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item highlight">
+            <span class="stat-val" id="salaryValue">0 €</span>
+            <span class="stat-label">Est. Brut</span>
+          </div>
         </div>
       </div>
     </div>
   </main>
+
+  <!-- ═══════════════════════════════════════════
+       DOCK ACTIONS
+  ═══════════════════════════════════════════ -->
 
   <div class="dock-container">
     <div class="dock-glass">
@@ -119,96 +191,150 @@
         <div class="sel-badge" id="selState">Libre</div>
       </div>
       <div class="actions-grid">
-        <button data-set="jour" class="act-btn jour"><span class="icon">☀️</span>Jour</button>
-        <button data-set="nuit" class="act-btn nuit"><span class="icon">🌙</span>Nuit</button>
-        <button data-set="repos" class="act-btn repos"><span class="icon">🏠</span>Repos</button>
+        <button data-set="jour"   class="act-btn jour">  <span class="icon">☀️</span>Jour</button>
+        <button data-set="nuit"   class="act-btn nuit">  <span class="icon">🌙</span>Nuit</button>
+        <button data-set="mn"     class="act-btn mn">    <span class="icon">🌅</span>MN</button>
+        <button data-set="repos"  class="act-btn repos"> <span class="icon">🏠</span>Repos</button>
         <button data-set="conges" class="act-btn conges"><span class="icon">🏖️</span>Congés</button>
-        <button data-set="note" class="act-btn autre"><span class="icon">📝</span>Note</button>
-        <button data-set="autre" class="act-btn autre"><span class="icon">⚙️</span>Autre</button>
+        <button data-set="reset"  class="act-btn reset"> <span class="icon">🗑️</span>Effacer</button>
+      </div>
+      <div class="dock-secondary">
+        <button data-set="note"  class="act-btn-sm"><span>📝</span> Note</button>
+        <button data-set="autre" class="act-btn-sm"><span>⚙️</span> Autre</button>
       </div>
     </div>
   </div>
 
-  <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none">
+  <!-- input fichier caché -->
 
-  <!-- Modale Import -->
+  <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+
+  <!-- ═══════════════════════════════════════════
+       MODALE : IMPORT
+  ═══════════════════════════════════════════ -->
+
   <div class="backdrop" id="backdropImport"></div>
-  <div class="sheet" id="sheetImport">
+  <div class="sheet tall" id="sheetImport">
     <div class="grabber"></div>
     <div class="sheet-content">
       <h2>🤖 Analyse Terminée</h2>
-      <p class="sub-text" id="importSummary">Je vérifie les données...</p>
-      <div id="importPreviewList" style="max-height:200px; overflow-y:auto; margin-bottom:20px; background:var(--surface); border-radius:12px; padding:10px; border:1px solid var(--border);"></div>
-      <button id="btnConfirmImport" class="btn-full primary large">✅ Valider et Importer</button>
-      <button id="btnCancelImport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
-    </div>
+      <p class="sub-text" id="importSummary">Analyse en cours...</p>
+
+```
+  <div id="agentPickerSection" style="display:none; margin-bottom:16px;">
+    <label class="field-label">Sélectionner l'agent :</label>
+    <select id="agentPicker" class="modern-select"></select>
   </div>
 
-  <!-- Modale Unique -->
+  <div id="importPreviewList" class="preview-list"></div>
+
+  <button id="btnConfirmImport" class="btn-full primary large">✅ Valider l'import</button>
+  <button id="btnCancelImport"  class="btn-full ghost" style="margin-top:8px">Annuler</button>
+</div>
+```
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       MODALE : NOTE / AUTRE
+  ═══════════════════════════════════════════ -->
+
   <div class="backdrop" id="backdrop"></div>
   <div class="sheet" id="sheet">
     <div class="grabber"></div>
     <div class="sheet-content">
       <h2 id="sheetTitle">Détails</h2>
-      <div id="sheetNote">
-        <textarea id="noteText" placeholder="Ajouter une note personnelle..." style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; color:var(--text); font-family:inherit; min-height:100px; outline:none; margin-bottom:15px;"></textarea>
-        <div class="sheet-actions" style="display:flex; gap:10px;">
-          <button id="btnSaveNote" class="btn-full primary">Enregistrer</button>
-          <button id="btnClearNote" class="btn-full ghost">Effacer</button>
-        </div>
-      </div>
-      <div id="sheetOther" style="display:none;">
-        <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:8px;">Type de service :</label>
-        <select id="otherSelect" class="modern-select" style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); font-size:15px; margin-bottom:12px;">
-          <option value="OCP">OCP (Opération Commerciale)</option>
-          <option value="Férié">Férié</option>
-          <option value="AST">AST (Astreinte)</option>
-          <option value="custom">Personnalisé...</option>
-        </select>
-        <input id="otherCustom" type="text" placeholder="Votre libellé personnalisé" style="display:none; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; color:var(--text); margin-bottom:15px;">
-        <button id="btnApplyOther" class="btn-full primary" style="margin-top:10px;">Valider</button>
-        <button id="btnCloseOther" class="btn-full ghost" style="margin-top:8px;">Annuler</button>
-      </div>
+
+```
+  <div id="sheetNote">
+    <textarea id="noteText" placeholder="Ajouter une note personnelle..."></textarea>
+    <div class="sheet-actions">
+      <button id="btnSaveNote" class="btn-full primary">Enregistrer</button>
+      <button id="btnClearNote" class="btn-full ghost">Effacer</button>
     </div>
   </div>
 
-  <!-- Modale Export -->
-  <div class="backdrop" id="backdropExport"></div>
-  <div class="sheet" id="sheetExport">
+  <div id="sheetOther" style="display:none;">
+    <label class="field-label">Type de service :</label>
+    <select id="otherSelect" class="modern-select">
+      <option value="OCP">OCP (Opération Commerciale)</option>
+      <option value="Férié">Férié</option>
+      <option value="AST">AST (Astreinte)</option>
+      <option value="custom">Personnalisé...</option>
+    </select>
+    <input id="otherCustom" type="text" placeholder="Votre libellé" style="display:none; margin-top:10px;">
+    <button id="btnApplyOther" class="btn-full primary" style="margin-top:14px;">Valider</button>
+    <button id="btnCloseOther" class="btn-full ghost" style="margin-top:8px;">Annuler</button>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       MODALE : STATS
+  ═══════════════════════════════════════════ -->
+
+  <div class="backdrop" id="backdropStats"></div>
+  <div class="sheet" id="sheetStats">
     <div class="grabber"></div>
     <div class="sheet-content">
-      <h2>Exporter les données</h2>
-      <p class="sub-text">Générez un rapport Excel complet</p>
-      <div class="date-range" style="display:flex; gap:10px; margin:15px 0;">
-        <div style="flex:1"><label>Du</label><input type="date" id="exportStart" style="width:100%; background:var(--surface); border:1px solid var(--border); padding:8px; color:var(--text); border-radius:8px;"></div>
-        <div style="flex:1"><label>Au</label><input type="date" id="exportEnd" style="width:100%; background:var(--surface); border:1px solid var(--border); padding:8px; color:var(--text); border-radius:8px;"></div>
-      </div>
-      <button id="btnGenerateXLSX" class="btn-full primary large">📥 Télécharger</button>
-      <button id="btnCloseExport" class="btn-full ghost" style="margin-top:8px">Annuler</button>
+      <h2>📊 Statistiques du mois</h2>
+      <p class="sub-text" id="statsMonthLabel"></p>
+      <div id="statsContent"></div>
+      <button id="btnCloseStats" class="btn-full ghost" style="margin-top:16px">Fermer</button>
     </div>
   </div>
 
-  <!-- Login -->
+  <!-- ═══════════════════════════════════════════
+       LOGIN GATE
+  ═══════════════════════════════════════════ -->
+
   <div class="gate" id="gate">
     <div class="gate-card">
-      <div class="gate-logo">MyShift AI</div>
-      <h2>Connexion</h2>
+      <div class="gate-logo">MyShift <span class="ai-badge">AI</span></div>
       <p class="gate-sub">Gérez votre planning automatiquement.</p>
-      <div class="input-group" style="text-align:left; margin-bottom:15px;">
-        <label>Email</label>
-        <input type="email" id="loginEmail" placeholder="vous@exemple.com" style="width:100%; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text);">
-      </div>
-      <div class="input-group" style="text-align:left; margin-bottom:20px;">
-        <label>Mot de passe</label>
-        <input type="password" id="loginPass" placeholder="••••••" style="width:100%; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text);">
-      </div>
-      <button id="btnLogin" class="btn-full primary large">Entrer</button>
-      <div id="loginHint" style="color:#f43f5e; font-size:12px; margin-top:10px;"></div>
-      <button id="tabSignup" style="background:none; border:none; color:var(--text-muted); margin-top:15px; text-decoration:underline; cursor:pointer;">Créer un compte</button>
+
+```
+  <div id="formLogin">
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="vous@exemple.com" autocomplete="email">
     </div>
+    <div class="input-group">
+      <label>Mot de passe</label>
+      <input type="password" id="loginPass" placeholder="••••••" autocomplete="current-password">
+    </div>
+    <button id="btnLogin" class="btn-full primary large">Connexion</button>
+    <div id="loginHint" class="auth-hint"></div>
+    <div class="auth-switch">
+      Pas encore de compte ? <button id="tabSignup" class="link-btn">Créer un compte</button>
+    </div>
+  </div>
+
+  <div id="formSignup" style="display:none">
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="signupEmail" placeholder="vous@exemple.com">
+    </div>
+    <div class="input-group">
+      <label>Mot de passe</label>
+      <input type="password" id="signupPass" placeholder="6 caractères min.">
+    </div>
+    <button id="btnSignup" class="btn-full primary large">Créer le compte</button>
+    <div id="signupHint" class="auth-hint"></div>
+    <div class="auth-switch">
+      Déjà un compte ? <button id="tabLogin" class="link-btn">Se connecter</button>
+    </div>
+  </div>
+</div>
+```
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <script type="module" src="js/app.js"></script>
+
 </body>
 </html>
