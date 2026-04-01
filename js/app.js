@@ -38,6 +38,9 @@ let prefs = {
 const MONTHS   = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const BASE_SALARY = 2093.06;
 
+// NOUVEAUX EN-TÊTES : Intervalles de jours
+const DAY_HEADERS = ["Di/Lu", "Lu/Ma", "Ma/Me", "Me/Je", "Je/Ve", "Ve/Sa", "Sa/Di"];
+
 const STATUS_LABELS = {
   jour:   "Jour",
   nuit:   "Nuit",
@@ -61,7 +64,7 @@ const STATUS_EMOJI = {
 // ═══════════════════════════════════════════════════════
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
-const keyFor = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const keyFor = d => `$${d.getFullYear()}-$${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
 
 const normalize = txt => {
@@ -133,12 +136,12 @@ function applyPrefs() {
   document.documentElement.setAttribute('data-theme', prefs.theme);
   $('themeLight')?.classList.toggle('active', prefs.theme === 'light');
   $('themeDark')?.classList.toggle('active',  prefs.theme === 'dark');
-  if ($('agentName'))       $('agentName').value       = prefs.agentName || '';
-  if ($('agentMatricule'))  $('agentMatricule').value  = prefs.agentMatricule || '';
-  if ($('rateDay'))       $('rateDay').value       = prefs.rateDay;
-  if ($('rateNightFull')) $('rateNightFull').value  = prefs.rateNightFull;
-  if ($('rateNightSolo')) $('rateNightSolo').value  = prefs.rateNightSolo;
-  if ($('rateMN'))        $('rateMN').value         = prefs.rateMN;
+  if ($$('agentName'))       $$('agentName').value       = prefs.agentName || '';
+  if ($$('agentMatricule'))  $$('agentMatricule').value  = prefs.agentMatricule || '';
+  if ($$('rateDay'))       $$('rateDay').value       = prefs.rateDay;
+  if ($$('rateNightFull')) $$('rateNightFull').value  = prefs.rateNightFull;
+  if ($$('rateNightSolo')) $$('rateNightSolo').value  = prefs.rateNightSolo;
+  if ($$('rateMN'))        $$('rateMN').value         = prefs.rateMN;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -180,10 +183,7 @@ async function checkAuth() {
       user = null;
       const topSub = $('topSub');
       if (topSub) topSub.textContent = "Invité";
-      
-      // FORCE L'AFFICHAGE
       gate.style.display = 'grid';
-      // Petit délai pour permettre la transition CSS
       setTimeout(() => gate.classList.add('show'), 10);
       return;
     }
@@ -229,18 +229,29 @@ async function loadEntries() {
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDU GRILLE
+// RENDU GRILLE (MODIFIÉ POUR LES EN-TÊTES PAIRES)
 // ═══════════════════════════════════════════════════════
 function renderGrid() {
   const grid = $('grid');
-  if (!grid) return;
+  const header = $('.calendar-head');
+  if (!grid || !header) return;
+  
   grid.innerHTML = '';
   cellCache.clear();
 
-  $('navMonth') && ($('navMonth').textContent = MONTHS[state.month]);
-  $('navYear')  && ($('navYear').textContent  = state.year);
+  // Mise à jour du titre du mois
+  $$('navMonth') && ($$('navMonth').textContent = MONTHS[state.month]);
+  $$('navYear')  && ($$('navYear').textContent  = state.year);
+
+  // Mise à jour des en-têtes (Di/Lu, Lu/Ma, etc.)
+  // On garde la première cellule pour "Sem", puis les 7 jours
+  const headerChildren = header.children;
+  for (let i = 1; i < headerChildren.length; i++) {
+    headerChildren[i].textContent = DAY_HEADERS[i-1];
+  }
 
   const first    = new Date(state.year, state.month, 1);
+  // Décalage pour commencer Lundi (0=Dim -> 6, 1=Lun -> 0)
   let startOffset = (first.getDay() + 6) % 7;
   const startDate = new Date(first);
   startDate.setDate(1 - startOffset);
@@ -250,6 +261,7 @@ function renderGrid() {
     d.setDate(startDate.getDate() + i);
     const k = keyFor(d);
 
+    // Numéro de semaine
     if (i % 7 === 0) {
       const wn = getISOWeek(d);
       const wnEl = document.createElement('div');
@@ -327,13 +339,13 @@ function updateDockInfo() {
   const d = parseKey(state.selected);
   const entry = entries.get(state.selected);
 
-  $('selDate') && ($('selDate').textContent =
-    `${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][(d.getDay()+6)%7]} ${d.getDate()} ${MONTHS[d.getMonth()]}`);
+  $$('selDate') && ($$('selDate').textContent =
+    `$${['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][(d.getDay()+6)%7]} $${d.getDate()} ${MONTHS[d.getMonth()]}`);
 
   const badge = $('selState');
   if (badge) {
     const s = entry?.status;
-    badge.textContent = s ? `${STATUS_EMOJI[s] || ''} ${STATUS_LABELS[s] || s}` : "Libre";
+    badge.textContent = s ? `$${STATUS_EMOJI[s] || ''} $${STATUS_LABELS[s] || s}` : "Libre";
     badge.className = `sel-badge ${s || ''}`;
   }
 }
@@ -351,12 +363,12 @@ function updateStats() {
     if (e.status === 'conges') conges++;
   }
 
-  $('statJour')  && ($('statJour').textContent  = jour);
-  $('statNuit')  && ($('statNuit').textContent  = nuit);
-  $('statRepos') && ($('statRepos').textContent = repos);
+  $$('statJour')  && ($$('statJour').textContent  = jour);
+  $$('statNuit')  && ($$('statNuit').textContent  = nuit);
+  $$('statRepos') && ($$('statRepos').textContent = repos);
 
   const sal = calculateSalary();
-  $('salaryValue') && ($('salaryValue').textContent =
+  $$('salaryValue') && ($$('salaryValue').textContent =
     sal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
 }
 
@@ -372,7 +384,7 @@ function openStats() {
     if (e?.status && counts[e.status] !== undefined) counts[e.status]++;
   }
 
-  $('statsMonthLabel') && ($('statsMonthLabel').textContent = `${MONTHS[state.month]} ${state.year}`);
+  $$('statsMonthLabel') && ($$('statsMonthLabel').textContent = `$${MONTHS[state.month]} $${state.year}`);
 
   const content = $('statsContent');
   if (!content) return;
@@ -387,7 +399,7 @@ function openStats() {
           <span class="stats-emoji">${STATUS_EMOJI[k] || '📌'}</span>
           <span class="stats-name">${STATUS_LABELS[k] || k}</span>
           <span class="stats-count">${v}</span>
-          <div class="stats-bar-mini"><div class="stats-bar-fill ${k}" style="width:${end.getDate() ? (v/end.getDate()*100).toFixed(0) : 0}%"></div></div>
+          <div class="stats-bar-mini"><div class="stats-bar-fill $${k}" style="width:$${end.getDate() ? (v/end.getDate()*100).toFixed(0) : 0}%"></div></div>
         </div>
       `).join('')}
     </div>
@@ -409,6 +421,67 @@ function openStats() {
 
   $('backdropStats').classList.add('show');
   $('sheetStats').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT EXCEL (NOUVEAU)
+// ═══════════════════════════════════════════════════════
+async function exportCalendar() {
+  if (!user) { showToast("Connectez-vous pour exporter"); return; }
+  
+  showToast("🔄 Génération du fichier...");
+  
+  const end = new Date(state.year, state.month + 1, 0);
+  const data = [];
+  
+  // En-têtes du fichier Excel
+  data.push(["MyShift AI - Export", "", "", "", ""]);
+  data.push(["Agent", prefs.agentName || user.email, "", "Mois", `$${MONTHS[state.month]} $${state.year}`]);
+  data.push(["", "", "", "", ""]);
+  data.push(["Date", "Jour", "Statut", "Code", "Note", "Salaire Estimé"]);
+  
+  let totalBonus = 0;
+  
+  for (let d = 1; d <= end.getDate(); d++) {
+    const dateObj = new Date(state.year, state.month, d);
+    const k = keyFor(dateObj);
+    const e = entries.get(k);
+    
+    if (e && e.status && e.status !== 'repos') {
+      let dailyRate = 0;
+      if (e.status === 'jour') dailyRate = prefs.rateDay;
+      if (e.status === 'nuit') dailyRate = prefs.rateNightFull;
+      if (e.status === 'mn') dailyRate = prefs.rateMN;
+      
+      totalBonus += dailyRate;
+      
+      data.push([
+        `$${pad(d)}/$${pad(state.month+1)}/${state.year}`,
+        dateObj.toLocaleDateString('fr-FR', { weekday: 'long' }),
+        STATUS_LABELS[e.status] || e.status,
+        e.custom_label || '',
+        e.note || '',
+        dailyRate > 0 ? dailyRate + ' €' : '-'
+      ]);
+    }
+  }
+  
+  data.push(["", "", "", "", ""]);
+  data.push(["RÉCAPITULATIF", "", "", "", ""]);
+  data.push(["Salaire de base", BASE_SALARY + " €", "", "", ""]);
+  data.push(["Primes estimées", totalBonus + " €", "", "", ""]);
+  data.push(["TOTAL ESTIMÉ", (BASE_SALARY + totalBonus) + " €", "", "", ""]);
+
+  // Création du fichier Excel
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Planning");
+  
+  // Nom du fichier : MyShift_Export_Janvier_2026.xlsx
+  const filename = `MyShift_Export_$${MONTHS[state.month]}_$${state.year}.xlsx`;
+  
+  XLSX.writeFile(wb, filename);
+  showToast("✅ Fichier téléchargé !");
 }
 
 // ═══════════════════════════════════════════════════════
@@ -661,9 +734,9 @@ function similarity(a, b) {
 
 function showImportPreview(svcs, agents, selected) {
   pendingImport = svcs;
-  const pick = $('agentPicker'), sec = $('agentPickerSection');
+  const pick = $$('agentPicker'), sec = $$('agentPickerSection');
   if (pick && sec) {
-    pick.innerHTML = agents.map(a => `<option value="${a.name}" ${selected===a.name?'selected':''}>${a.name}</option>`).join('');
+    pick.innerHTML = agents.map(a => `<option value="$${a.name}" $${selected===a.name?'selected':''}>${a.name}</option>`).join('');
     sec.style.display = 'block';
     pick.onchange = () => {
       const ag = agents.find(x=>x.name===pick.value);
@@ -684,12 +757,12 @@ function renderPreviewList(svcs) {
   const l = $('importPreviewList');
   if (!l) return;
   if (!svcs.length) { l.innerHTML = '<div class="preview-empty">Sélectionnez un agent</div>'; return; }
-  l.innerHTML = svcs.map(s => `<div class="preview-row ${s.status}"><div class="preview-date"><span class="preview-day">${s.dayName.slice(0,3)}</span><span class="preview-num">${s.dateObj.getDate()}/${s.dateObj.getMonth()+1}</span></div><div class="preview-code">${s.code}</div><div class="preview-status">${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div></div>`).join('');
+  l.innerHTML = svcs.map(s => `<div class="preview-row $${s.status}"><div class="preview-date"><span class="preview-day">$${s.dayName.slice(0,3)}</span><span class="preview-num">$${s.dateObj.getDate()}/$${s.dateObj.getMonth()+1}</span></div><div class="preview-code">$${s.code}</div><div class="preview-status">$${STATUS_EMOJI[s.status]} ${STATUS_LABELS[s.status]}</div></div>`).join('');
 }
 
 function updateImportSummary(svcs) {
   const j=svcs.filter(s=>s.status==='jour').length, n=svcs.filter(s=>s.status==='nuit').length, r=svcs.filter(s=>s.status==='repos').length, m=svcs.filter(s=>s.status==='mn').length;
-  $('importSummary') && ($('importSummary').textContent = `${svcs.length} svc — ☀️${j} 🌙${n} 🌅${m} 🏠${r}`);
+  $$('importSummary') && ($$('importSummary').textContent = `$${svcs.length} svc — ☀️$${j} 🌙$${n} 🌅$${m} 🏠${r}`);
 }
 
 function confirmImport() {
@@ -713,7 +786,7 @@ function confirmImport() {
 // ═══════════════════════════════════════════════════════
 function openNoteModal() {
   const e = entries.get(state.selected), d = parseKey(state.selected);
-  $('sheetTitle').textContent = `Note — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $$('sheetTitle').textContent = `Note — $${d.getDate()} ${MONTHS[d.getMonth()]}`;
   $('noteText').value = e?.note || '';
   $('sheetNote').style.display = 'block';
   $('sheetOther').style.display = 'none';
@@ -723,7 +796,7 @@ function openNoteModal() {
 
 function openOtherModal() {
   const d = parseKey(state.selected);
-  $('sheetTitle').textContent = `Autre — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  $$('sheetTitle').textContent = `Autre — $${d.getDate()} ${MONTHS[d.getMonth()]}`;
   $('otherSelect').value = "OCP";
   $('otherCustom').style.display = 'none';
   $('sheetNote').style.display = 'none';
@@ -732,7 +805,7 @@ function openOtherModal() {
   $('sheet').classList.add('show');
 }
 
-function closeModal(b, s) { $(b)?.classList.remove('show'); $(s)?.classList.remove('show'); }
+function closeModal(b, s) { $$(b)?.classList.remove('show'); $$(s)?.classList.remove('show'); }
 
 function setupEvents() {
   $('btnPrevMonth')?.addEventListener('click', () => changeMonth(-1));
@@ -767,9 +840,9 @@ function setupEvents() {
   });
   $('backdrop')?.addEventListener('click', ()=>closeModal('backdrop','sheet'));
 
-  $('otherSelect')?.addEventListener('change', e => $('otherCustom').style.display = e.target.value==='custom'?'block':'none');
+  $$('otherSelect')?.addEventListener('change', e => $$('otherCustom').style.display = e.target.value==='custom'?'block':'none');
   $('btnApplyOther')?.addEventListener('click', () => {
-    const v=$('otherSelect').value, c=$('otherCustom').value;
+    const v=$$('otherSelect').value, c=$$('otherCustom').value;
     saveEntry(state.selected, { status:'autre', note:entries.get(state.selected)?.note||'', custom_label: v==='custom'?c:v });
     closeModal('backdrop','sheet');
   });
@@ -804,52 +877,4 @@ function setupEvents() {
     confirmImport();
   });
   $('btnCancelImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
-  $('backdropImport')?.addEventListener('click', ()=>closeModal('backdropImport','sheetImport'));
-
-  $('btnSettings')?.addEventListener('click', e => { e.stopPropagation(); $('settingsPop')?.classList.toggle('show'); });
-  $('btnCloseSettings')?.addEventListener('click', ()=>$('settingsPop')?.classList.remove('show'));
-  $('settingsPop')?.addEventListener('click', e=>e.stopPropagation());
-  document.addEventListener('click', ()=>$('settingsPop')?.classList.remove('show'));
-
-  $('themeLight')?.addEventListener('click', ()=>{prefs.theme='light';savePrefs();applyPrefs();});
-  $('themeDark')?.addEventListener('click', ()=>{prefs.theme='dark';savePrefs();applyPrefs();});
-  $('agentName')?.addEventListener('change', e=>{prefs.agentName=e.target.value.trim();savePrefs();if($('topSub'))$('topSub').textContent=prefs.agentName||user?.email.split('@')[0];showToast("✅ Nom enregistré");});
-  $('agentMatricule')?.addEventListener('change', e=>{prefs.agentMatricule=e.target.value.trim();savePrefs();});
-  ['rateDay','rateNightFull','rateNightSolo','rateMN'].forEach(id=>{
-    $(id)?.addEventListener('change', e=>{prefs[id]=parseFloat(e.target.value)||0;savePrefs();updateUI();});
-  });
-
-  $('btnLogin')?.addEventListener('click', async () => {
-    const em=$('loginEmail').value, pw=$('loginPass').value;
-    if(!em||!pw){$('loginHint').textContent="Champs requis";return;}
-    $('loginHint').textContent="Connexion...";
-    const {error} = await supabase.auth.signInWithPassword({email:em,password:pw});
-    if(error){$('loginHint').textContent="❌ "+error.message;} else {checkAuth();}
-  });
-  $('btnSignup')?.addEventListener('click', async () => {
-    const em=$('signupEmail').value, pw=$('signupPass').value;
-    if(!em||!pw){$('signupHint').textContent="Champs requis";return;}
-    if(pw.length<6){$('signupHint').textContent="6 car. min";return;}
-    $('signupHint').textContent="Création...";
-    const {error} = await supabase.auth.signUp({email:em,password:pw});
-    if(error){$('signupHint').textContent="❌ "+error.message;} else {$('signupHint').textContent="✅ Vérifiez vos emails";}
-  });
-  $('tabSignup')?.addEventListener('click', ()=>{$('formLogin').style.display='none';$('formSignup').style.display='block';});
-  $('tabLogin')?.addEventListener('click', ()=>{$('formSignup').style.display='none';$('formLogin').style.display='block';});
-  $('btnLogout')?.addEventListener('click', async ()=>{await supabase.auth.signOut();user=null;entries.clear();checkAuth();renderGrid();});
-  
-  ['loginEmail','loginPass','signupEmail','signupPass'].forEach(id=>{
-    $(id)?.addEventListener('keydown', e=>{if(e.key==='Enter')$('btnLogin')?.click();});
-  });
-}
-
-function changeMonth(d) {
-  state.month += d;
-  if (state.month<0) {state.month=11;state.year--;}
-  if (state.month>11) {state.month=0;state.year++;}
-  localStorage.setItem('ms_state', JSON.stringify(state));
-  loadEntries().then(()=>{renderGrid();updateUI();});
-}
-
-// LANCEMENT
-init();
+  $('backdrop
