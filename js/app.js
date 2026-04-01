@@ -889,4 +889,102 @@ function setupEvents() {
   
   $('settingsPop')?.addEventListener('click', e => e.stopPropagation());
   document.addEventListener('click', () => {
-      const panel = $('settingsPop
+      const panel = $('settingsPop');
+      if(panel && panel.classList.contains('show')) panel.classList.remove('show');
+  });
+
+  $('themeLight')?.addEventListener('click', ()=>{prefs.theme='light';savePrefs();applyPrefs();});
+  $('themeDark')?.addEventListener('click', ()=>{prefs.theme='dark';savePrefs();applyPrefs();});
+  
+  $('agentName')?.addEventListener('change', e=>{
+      prefs.agentName=e.target.value.trim();
+      savePrefs();
+      if($('topSub'))$('topSub').textContent=prefs.agentName||user?.email.split('@')[0];
+      showToast("✅ Nom enregistré");
+  });
+  
+  $('agentMatricule')?.addEventListener('change', e=>{
+      prefs.agentMatricule=e.target.value.trim();
+      savePrefs();
+  });
+
+  ['rateDay','rateNightFull','rateNightSolo','rateMN'].forEach(id=>{
+    $(id)?.addEventListener('change', e=>{prefs[id]=parseFloat(e.target.value)||0;savePrefs();updateUI();});
+  });
+  
+  // Bouton Réinitialiser les taux
+  $('btnResetRates')?.addEventListener('click', () => {
+      if(confirm("Réinitialiser les taux par défaut ?")) {
+          prefs.rateDay = 35.0;
+          prefs.rateNightFull = 82.0;
+          prefs.rateNightSolo = 41.0;
+          prefs.rateMN = 15.0;
+          savePrefs();
+          applyPrefs();
+          updateUI();
+          showToast("✅ Taux réinitialisés");
+      }
+  });
+
+  // Bouton Effacer toutes les données
+  $('btnClearData')?.addEventListener('click', async () => {
+      if(confirm("⚠️ ATTENTION : Cela va effacer TOUTES vos données de planning. Êtes-vous sûr ?")) {
+          if(confirm("Vraiment ? Cette action est irréversible.")) {
+              entries.clear();
+              if (user) {
+                  const { error } = await supabase.from("work_calendar_entries").delete().eq('user_id', user.id);
+                  if (error) console.error("Erreur suppression DB:", error);
+              }
+              localStorage.removeItem('ms_entries');
+              renderGrid();
+              updateUI();
+              showToast("🗑️ Données effacées");
+              $('settingsPop')?.classList.remove('show');
+          }
+      }
+  });
+
+  // AUTHENTIFICATION EVENTS
+  $('btnLogin')?.addEventListener('click', async () => {
+    const em=$('loginEmail').value, pw=$('loginPass').value;
+    if(!em||!pw){$('loginHint').textContent="Champs requis";return;}
+    $('loginHint').textContent="Connexion...";
+    const {error} = await supabase.auth.signInWithPassword({email:em,password:pw});
+    if(error){$('loginHint').textContent="❌ "+error.message;} else {checkAuth();}
+  });
+  
+  $('btnSignup')?.addEventListener('click', async () => {
+    const em=$('signupEmail').value, pw=$('signupPass').value;
+    if(!em||!pw){$('signupHint').textContent="Champs requis";return;}
+    if(pw.length<6){$('signupHint').textContent="6 car. min";return;}
+    $('signupHint').textContent="Création...";
+    const {error} = await supabase.auth.signUp({email:em,password:pw});
+    if(error){$('signupHint').textContent="❌ "+error.message;} else {$('signupHint').textContent="✅ Vérifiez vos emails";}
+  });
+  
+  $('tabSignup')?.addEventListener('click', ()=>{$('formLogin').style.display='none';$('formSignup').style.display='block';});
+  $('tabLogin')?.addEventListener('click', ()=>{$('formSignup').style.display='none';$('formLogin').style.display='block';});
+  
+  $('btnLogout')?.addEventListener('click', async ()=>{
+      await supabase.auth.signOut();
+      user=null;
+      entries.clear();
+      checkAuth();
+      renderGrid();
+  });
+  
+  ['loginEmail','loginPass','signupEmail','signupPass'].forEach(id=>{
+    $(id)?.addEventListener('keydown', e=>{if(e.key==='Enter')$('btnLogin')?.click();});
+  });
+}
+
+function changeMonth(d) {
+  state.month += d;
+  if (state.month<0) {state.month=11;state.year--;}
+  if (state.month>11) {state.month=0;state.year++;}
+  localStorage.setItem('ms_state', JSON.stringify(state));
+  loadEntries().then(()=>{renderGrid();updateUI();});
+}
+
+// LANCEMENT
+init();
