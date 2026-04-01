@@ -1,10 +1,4 @@
 import { createClient } from “https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm”;
-// DEBUG VISIBLE
-window.onerror = (msg, src, line) => {
-  document.body.innerHTML = `<div style="color:red;padding:20px;font-size:14px;background:#fff;position:fixed;inset:0;z-index:9999;overflow:auto;">
-    <b>ERREUR JS</b><br>${msg}<br>Ligne: ${line}<br>Source: ${src}
-  </div>`;
-};
 
 const SUPABASE_URL  = “https://dstmyvzjirgyuwuojwnk.supabase.co”;
 const SUPABASE_ANON = “eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdG15dnpqaXJneXV3dW9qd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NzY4NTUsImV4cCI6MjA4NTM1Mjg1NX0.Cl6WAvK0elHkKXnXRtrFFiBlGABnK5RTFdawq3NGDJk”;
@@ -19,9 +13,9 @@ let pwaInstallPrompt = null;
 let state = { year: new Date().getFullYear(), month: new Date().getMonth(), selected: null };
 let prefs = { theme:‘dark’, agentName:’’, agentMatricule:’’, rateDay:35.0, rateNightFull:82.0, rateNightSolo:41.0, rateMN:15.0 };
 
-const MONTHS       = [“Janvier”,“Février”,“Mars”,“Avril”,“Mai”,“Juin”,“Juillet”,“Août”,“Septembre”,“Octobre”,“Novembre”,“Décembre”];
-const DAY_COLS     = [“Di/Lu”,“Lu/Ma”,“Ma/Me”,“Me/Je”,“Je/Ve”,“Ve/Sa”,“Sa/Di”];
-const BASE_SALARY  = 2093.06;
+const MONTHS        = [“Janvier”,“Février”,“Mars”,“Avril”,“Mai”,“Juin”,“Juillet”,“Août”,“Septembre”,“Octobre”,“Novembre”,“Décembre”];
+const DAY_COLS      = [“Di/Lu”,“Lu/Ma”,“Ma/Me”,“Me/Je”,“Je/Ve”,“Ve/Sa”,“Sa/Di”];
+const BASE_SALARY   = 2093.06;
 const STATUS_LABELS = { jour:“Jour”, nuit:“Nuit”, mn:“MN”, repos:“Repos”, conges:“Congés”, autre:“Autre” };
 const STATUS_EMOJI  = { jour:“☀️”, nuit:“🌙”, mn:“🌅”, repos:“🏠”, conges:“🏖️”, autre:“⚙️” };
 
@@ -29,7 +23,6 @@ const $        = id => document.getElementById(id);
 const pad      = n  => String(n).padStart(2,‘0’);
 const keyFor   = d  => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseKey = k  => { const [y,m,d]=k.split(’-’).map(Number); return new Date(y,m-1,d); };
-
 const normalize = txt => {
 if (!txt && txt!==0) return “”;
 return String(txt).toUpperCase().normalize(“NFD”).replace(/[\u0300-\u036f]/g,””).trim();
@@ -42,12 +35,11 @@ t.textContent=msg; t.classList.add(‘show’);
 setTimeout(()=>t.classList.remove(‘show’), dur);
 }
 
-// ─── SALAIRE ────────────────────────────────────────────
 function calculateSalary() {
 let bonus=0;
 const end=new Date(state.year, state.month+1, 0);
 for (let d=1; d<=end.getDate(); d++) {
-const e=entries.get(keyFor(new Date(state.year, state.month, d)));
+const e=entries.get(keyFor(new Date(state.year,state.month,d)));
 if (!e) continue;
 if (e.status===‘jour’) bonus+=parseFloat(prefs.rateDay)||0;
 if (e.status===‘nuit’) bonus+=parseFloat(prefs.rateNightFull)||0;
@@ -56,7 +48,9 @@ if (e.status===‘mn’)   bonus+=parseFloat(prefs.rateMN)||0;
 return BASE_SALARY+bonus;
 }
 
-// ─── INIT ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
 async function init() {
 loadLocal();
 applyPrefs();
@@ -88,7 +82,9 @@ if ($(‘rateNightSolo’))  $(‘rateNightSolo’).value  = prefs.rateNightSolo
 if ($(‘rateMN’))         $(‘rateMN’).value         = prefs.rateMN;
 }
 
-// ─── PWA ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// PWA
+// ═══════════════════════════════════════════════════════
 function setupPWA() {
 window.addEventListener(‘beforeinstallprompt’, e => {
 e.preventDefault(); pwaInstallPrompt=e;
@@ -103,48 +99,52 @@ pwaInstallPrompt=null;
 });
 }
 
-// ─── AUTH ────────────────────────────────────────────────
-// Utilise uniquement la classe .show — pas de manipulation display
+// ═══════════════════════════════════════════════════════
+// AUTH — display:grid / display:none direct, pas de classe .show
+// ═══════════════════════════════════════════════════════
 async function checkAuth() {
 const gate=$(‘gate’);
+try {
 const {data} = await supabase.auth.getSession();
-
 if (!data?.session) {
 user=null;
 if ($(‘topSub’)) $(‘topSub’).textContent=“Invité”;
-gate.classList.add(‘show’);
+gate.style.display=‘grid’;
 return;
 }
-
 user=data.session.user;
 if ($(‘topSub’)) $(‘topSub’).textContent=prefs.agentName||user.email.split(’@’)[0];
-gate.classList.remove(‘show’);
+gate.style.display=‘none’;
 await loadEntries();
+} catch(err) {
+console.error(“checkAuth:”,err);
+gate.style.display=‘grid’;
+}
 }
 
 async function loadEntries() {
 if (!user) return;
-const start=keyFor(new Date(state.year, state.month-1, 1));
-const end  =keyFor(new Date(state.year, state.month+2, 0));
+const start=keyFor(new Date(state.year,state.month-1,1));
+const end  =keyFor(new Date(state.year,state.month+2,0));
 const {data,error}=await supabase.from(“work_calendar_entries”).select(”*”).gte(“work_date”,start).lte(“work_date”,end);
 if (error) { console.error(“loadEntries:”,error); return; }
 entries.clear();
 data?.forEach(r=>entries.set(r.work_date,{status:r.status,note:r.note,custom_label:r.custom_label,imported:r.imported}));
 }
 
-// ─── GRILLE — semaine commence DIMANCHE ─────────────────
+// ═══════════════════════════════════════════════════════
+// GRILLE — semaine commence DIMANCHE
+// ═══════════════════════════════════════════════════════
 function renderGrid() {
 const grid=$(‘grid’); if(!grid) return;
 grid.innerHTML=’’; cellCache.clear();
 if ($(‘navMonth’)) $(‘navMonth’).textContent=MONTHS[state.month];
 if ($(‘navYear’))  $(‘navYear’).textContent =state.year;
 
-const first=new Date(state.year, state.month, 1);
-// getDay() : 0=dim,1=lun,…6=sam → offset direct pour semaine commençant dimanche
-const startOffset=first.getDay();
+const first=new Date(state.year,state.month,1);
+const startOffset=first.getDay(); // 0=dim → commence dimanche
 const startDate=new Date(first);
 startDate.setDate(1-startOffset);
-
 const today=keyFor(new Date());
 
 for (let i=0; i<42; i++) {
@@ -153,11 +153,9 @@ d.setDate(startDate.getDate()+i);
 const k=keyFor(d);
 
 ```
-// Numéro de semaine
 if (i%7===0) {
   const el=document.createElement('div');
-  el.className='weeknum';
-  el.textContent=getISOWeek(d);
+  el.className='weeknum'; el.textContent=getISOWeek(d);
   grid.appendChild(el);
 }
 
@@ -194,7 +192,6 @@ cell.onclick=()=>{
   cellCache.forEach((c,ck)=>c.classList.toggle('selected',ck===k));
   updateDockInfo();
 };
-
 grid.appendChild(cell);
 cellCache.set(k,cell);
 ```
@@ -211,14 +208,12 @@ const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));
 return Math.ceil((((d-y)/86400000)+1)/7);
 }
 
-// ─── UI ─────────────────────────────────────────────────
 function updateUI() { updateDockInfo(); updateStats(); }
 
 function updateDockInfo() {
 if (!state.selected) return;
 const d=parseKey(state.selected);
 const entry=entries.get(state.selected);
-// DAY_COLS[0]=“Di/Lu” correspond à getDay()=0 (dimanche)
 if ($(‘selDate’)) $(‘selDate’).textContent=`${DAY_COLS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 const badge=$(‘selState’);
 if (badge) {
@@ -247,7 +242,9 @@ const sal=calculateSalary();
 if ($(‘salaryValue’)) $(‘salaryValue’).textContent=sal.toLocaleString(‘fr-FR’,{minimumFractionDigits:2,maximumFractionDigits:2})+’ €’;
 }
 
-// ─── STATS MODALE ───────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// STATS MODALE
+// ═══════════════════════════════════════════════════════
 function openStats() {
 const end=new Date(state.year,state.month+1,0);
 const counts={jour:0,nuit:0,mn:0,repos:0,conges:0,autre:0};
@@ -270,9 +267,11 @@ $(‘backdropStats’).classList.add(‘show’);
 $(‘sheetStats’).classList.add(‘show’);
 }
 
-// ─── SAUVEGARDE ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// SAUVEGARDE
+// ═══════════════════════════════════════════════════════
 async function saveEntry(k, patch) {
-if (!user) { $(‘gate’)?.classList.add(‘show’); return; }
+if (!user) { $(‘gate’).style.display=‘grid’; return; }
 const cur=entries.get(k)||{status:’’,note:’’,custom_label:’’,imported:false};
 const next={…cur,…patch};
 if (patch.status===null) entries.delete(k); else entries.set(k,next);
@@ -304,9 +303,11 @@ else if (error) throw error;
 } catch(e) { console.error(“sync:”,e); showToast(“⚠️ Erreur sync”); await loadEntries(); renderGrid(); }
 }
 
-// ─── IMPORT EXCEL ───────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// IMPORT EXCEL
+// ═══════════════════════════════════════════════════════
 function triggerImport() {
-if (!user) { showToast(“Connectez-vous d’abord.”); $(‘gate’)?.classList.add(‘show’); return; }
+if (!user) { showToast(“Connectez-vous d’abord.”); $(‘gate’).style.display=‘grid’; return; }
 $(‘fileInput’).click();
 }
 
@@ -481,7 +482,9 @@ if (error?.message?.includes(‘imported’)){delete p.imported;await supabase.f
 })();
 }
 
-// ─── MODALES ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// MODALES
+// ═══════════════════════════════════════════════════════
 function openNoteModal() {
 const e=entries.get(state.selected),d=parseKey(state.selected);
 if ($(‘sheetTitle’)) $(‘sheetTitle’).textContent=`Note — ${d.getDate()} ${MONTHS[d.getMonth()]}`;
@@ -503,7 +506,9 @@ $(‘backdrop’)?.classList.add(‘show’); $(‘sheet’)?.classList.add(‘s
 
 function closeModal(b,s) { $(b)?.classList.remove(‘show’); $(s)?.classList.remove(‘show’); }
 
-// ─── ÉVÉNEMENTS ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// ÉVÉNEMENTS
+// ═══════════════════════════════════════════════════════
 function setupEvents() {
 $(‘btnPrevMonth’)?.addEventListener(‘click’,()=>changeMonth(-1));
 $(‘btnNextMonth’)?.addEventListener(‘click’,()=>changeMonth(+1));
@@ -584,19 +589,34 @@ const em=$(‘loginEmail’).value,pw=$(‘loginPass’).value;
 if(!em||!pw){$(‘loginHint’).textContent=“Champs requis”;return;}
 $(‘loginHint’).textContent=“Connexion…”;
 const {error}=await supabase.auth.signInWithPassword({email:em,password:pw});
-if(error)$(‘loginHint’).textContent=“❌ “+error.message; else checkAuth();
+if(error)$(‘loginHint’).textContent=“❌ “+error.message;
+else {
+$(‘gate’).style.display=‘none’;
+await checkAuth();
+renderGrid();
+updateUI();
+}
 });
+
 $(‘btnSignup’)?.addEventListener(‘click’,async()=>{
 const em=$(‘signupEmail’).value,pw=$(‘signupPass’).value;
 if(!em||!pw){$(‘signupHint’).textContent=“Champs requis”;return;}
 if(pw.length<6){$(‘signupHint’).textContent=“6 car. min”;return;}
 $(‘signupHint’).textContent=“Création…”;
 const {error}=await supabase.auth.signUp({email:em,password:pw});
-if(error)$(‘signupHint’).textContent=“❌ “+error.message; else $(‘signupHint’).textContent=“✅ Vérifiez vos emails”;
+if(error)$(‘signupHint’).textContent=“❌ “+error.message;
+else $(‘signupHint’).textContent=“✅ Vérifiez vos emails”;
 });
+
 $(‘tabSignup’)?.addEventListener(‘click’,()=>{$(‘formLogin’).style.display=‘none’;$(‘formSignup’).style.display=‘block’;});
 $(‘tabLogin’)?.addEventListener(‘click’, ()=>{$(‘formSignup’).style.display=‘none’;$(‘formLogin’).style.display=‘block’;});
-$(‘btnLogout’)?.addEventListener(‘click’,async()=>{await supabase.auth.signOut();user=null;entries.clear();checkAuth();renderGrid();});
+
+$(‘btnLogout’)?.addEventListener(‘click’,async()=>{
+await supabase.auth.signOut();
+user=null; entries.clear();
+$(‘gate’).style.display=‘grid’;
+renderGrid();
+});
 
 [$(‘loginEmail’),$(‘loginPass’)].forEach(el=>{
 el?.addEventListener(‘keydown’,e=>{if(e.key===‘Enter’)$(‘btnLogin’)?.click();});
@@ -609,7 +629,5 @@ if(state.month<0){state.month=11;state.year–;} if(state.month>11){state.month=
 localStorage.setItem(‘ms_state’,JSON.stringify(state));
 loadEntries().then(()=>{renderGrid();updateUI();});
 }
-console.log("Script chargé ✅");
-document.body.style.background = "red"; // test visuel
 
 init();
