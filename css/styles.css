@@ -245,13 +245,7 @@ body {
 }
 .act-btn .icon { font-size:16px; line-height:1; }
 .act-btn:active { transform:scale(0.88); }
-.act-btn.jour   { color:var(--c-jour);   border-color:var(--c-jour-border);   background:var(--c-jour-bg); }
-.act-btn.nuit   { color:var(--c-nuit);   border-color:var(--c-nuit-border);   background:var(--c-nuit-bg); }
-.act-btn.mn     { color:var(--c-mn);     border-color:var(--c-mn-border);     background:var(--c-mn-bg); }
-.act-btn.repos  { color:var(--c-repos);  border-color:var(--c-repos-border);  background:var(--c-repos-bg); }
-.act-btn.conges { color:var(--c-conges); border-color:var(--c-conges-border); background:var(--c-conges-bg); }
-.act-btn.reset  { color:var(--text-dim); }
-
+.act-btn.jour   { color:var(--c-jour);   border-color:var(--c-jour-border);   background:var
 .dock-secondary { display:flex; gap:6px; }
 .act-btn-sm {
   flex:1; padding:7px; border-radius:10px; border:1px solid var(--border);
@@ -327,8 +321,7 @@ select   { width:100%; cursor:pointer; }
 .summary-row.muted { color:var(--text-muted); font-size:12px; }
 
 /* ═══════════════════════════════════════════════════════
-   LOGIN GATE — display:none par défaut, display:grid quand actif
-   Contrôlé uniquement via style.display en JS (pas de classe .show)
+   LOGIN GATE
 ═══════════════════════════════════════════════════════ */
 .gate {
   position:fixed; inset:0; z-index:200;
